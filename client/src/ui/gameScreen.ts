@@ -1,4 +1,11 @@
-import { ELEMENT_LABELS, type CharacterState, type ClientMessage, type RoomSnapshot, type ServerMessage } from '@mud/shared';
+import {
+  ELEMENT_LABELS,
+  type CharacterState,
+  type ClientMessage,
+  type RoomSnapshot,
+  type ServerMessage,
+  type VillageInfo,
+} from '@mud/shared';
 
 export function renderGameScreen(container: HTMLElement, token: string): void {
   container.innerHTML = `
@@ -40,7 +47,7 @@ export function renderGameScreen(container: HTMLElement, token: string): void {
       <div class="hp-bar" role="progressbar" aria-valuenow="${character.hp}" aria-valuemin="0" aria-valuemax="${character.maxHp}">
         <div class="hp-bar-fill" data-level="${level}" style="width: ${Math.max(0, ratio * 100)}%"></div>
       </div>
-      <div class="stat">Lv.${character.level} (EXP ${character.exp})</div>
+      <div class="stat">Lv.${character.level} (EXP ${character.exp}) · gold ${character.gold}</div>
       <div class="stat-grid">
         <span>힘 ${character.strength}</span>
         <span>민첩 ${character.dexterity}</span>
@@ -49,6 +56,27 @@ export function renderGameScreen(container: HTMLElement, token: string): void {
       </div>
       <div class="stat">속성 ${ELEMENT_LABELS[character.element]}</div>
       <div class="stat stat-room">${character.roomName}</div>
+    `;
+  }
+
+  function renderVillageSection(village: VillageInfo): string {
+    const plotsText = village.plots
+      .map((plot) => `${plot.index}:${plot.buildingName ?? '빈 땅'}`)
+      .join(', ');
+
+    return `
+      <div class="village-panel">
+        <div class="village-title">🏰 ${village.name} (영주: ${village.lordName}, Lv.${village.level})</div>
+        <div class="room-meta">
+          <span><strong>국고</strong>gold ${village.gold}</span>
+          <span><strong>목재</strong>${village.wood}</span>
+          <span><strong>광석</strong>${village.ore}</span>
+          <span><strong>식량</strong>${village.food}</span>
+        </div>
+        <div class="room-meta">
+          <span><strong>땅</strong>${plotsText || '없음'}</span>
+        </div>
+      </div>
     `;
   }
 
@@ -69,6 +97,7 @@ export function renderGameScreen(container: HTMLElement, token: string): void {
         <span><strong>아이템</strong>${itemsText}</span>
         <span><strong>유저</strong>${playersText}</span>
       </div>
+      ${room.village ? renderVillageSection(room.village) : ''}
     `;
   }
 
