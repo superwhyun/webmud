@@ -1,0 +1,88 @@
+export const SCHEMA_SQL = `
+CREATE TABLE IF NOT EXISTS accounts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS rooms (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS room_exits (
+  room_id INTEGER NOT NULL REFERENCES rooms(id),
+  direction TEXT NOT NULL,
+  target_room_id INTEGER NOT NULL REFERENCES rooms(id),
+  PRIMARY KEY (room_id, direction)
+);
+
+CREATE TABLE IF NOT EXISTS characters (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_id INTEGER NOT NULL UNIQUE REFERENCES accounts(id),
+  name TEXT NOT NULL UNIQUE,
+  room_id INTEGER NOT NULL REFERENCES rooms(id),
+  hp INTEGER NOT NULL,
+  max_hp INTEGER NOT NULL,
+  level INTEGER NOT NULL DEFAULT 1,
+  exp INTEGER NOT NULL DEFAULT 0,
+  strength INTEGER NOT NULL,
+  dexterity INTEGER NOT NULL,
+  physical_defense INTEGER NOT NULL,
+  magic_defense INTEGER NOT NULL,
+  element TEXT NOT NULL,
+  gold INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL,
+  type TEXT NOT NULL,
+  strength_bonus INTEGER NOT NULL DEFAULT 0,
+  dexterity_bonus INTEGER NOT NULL DEFAULT 0,
+  physical_defense_bonus INTEGER NOT NULL DEFAULT 0,
+  magic_defense_bonus INTEGER NOT NULL DEFAULT 0,
+  heal_amount INTEGER NOT NULL DEFAULT 0,
+  value INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS inventory_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  character_id INTEGER NOT NULL REFERENCES characters(id),
+  item_id INTEGER NOT NULL REFERENCES items(id),
+  quantity INTEGER NOT NULL DEFAULT 1,
+  equipped INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS room_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  room_id INTEGER NOT NULL REFERENCES rooms(id),
+  item_id INTEGER NOT NULL REFERENCES items(id),
+  quantity INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS mob_templates (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  hp INTEGER NOT NULL,
+  strength INTEGER NOT NULL,
+  dexterity INTEGER NOT NULL,
+  physical_defense INTEGER NOT NULL,
+  magic_defense INTEGER NOT NULL,
+  element TEXT NOT NULL,
+  damage_type TEXT NOT NULL DEFAULT 'physical',
+  exp_reward INTEGER NOT NULL,
+  gold_reward INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS mob_spawns (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  room_id INTEGER NOT NULL REFERENCES rooms(id),
+  mob_template_id INTEGER NOT NULL REFERENCES mob_templates(id),
+  respawn_seconds INTEGER NOT NULL
+);
+`;

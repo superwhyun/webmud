@@ -1,0 +1,45 @@
+import { db } from '../db/client.js';
+
+export interface RoomData {
+  id: number;
+  name: string;
+  description: string;
+  exits: Record<string, number>;
+}
+
+interface RoomRow {
+  id: number;
+  name: string;
+  description: string;
+}
+
+interface RoomExitRow {
+  room_id: number;
+  direction: string;
+  target_room_id: number;
+}
+
+const rooms = new Map<number, RoomData>();
+
+export function loadWorld(): void {
+  rooms.clear();
+
+  const roomRows = db.prepare('SELECT id, name, description FROM rooms').all() as RoomRow[];
+  for (const row of roomRows) {
+    rooms.set(row.id, { id: row.id, name: row.name, description: row.description, exits: {} });
+  }
+
+  const exitRows = db
+    .prepare('SELECT room_id, direction, target_room_id FROM room_exits')
+    .all() as RoomExitRow[];
+  for (const row of exitRows) {
+    const room = rooms.get(row.room_id);
+    if (room) room.exits[row.direction] = row.target_room_id;
+  }
+}
+
+export function getRoom(id: number): RoomData | undefined {
+  return rooms.get(id);
+}
+
+loadWorld();
