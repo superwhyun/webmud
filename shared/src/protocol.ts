@@ -12,6 +12,7 @@ export interface CharacterState {
   physicalDefense: number;
   magicDefense: number;
   element: ElementType;
+  gold: number;
 }
 
 export interface RoomExitInfo {
@@ -30,6 +31,23 @@ export interface RoomMobInfo {
   maxHp: number;
 }
 
+export interface VillagePlotInfo {
+  index: number;
+  buildingType: string | null;
+  buildingName: string | null;
+}
+
+export interface VillageInfo {
+  name: string;
+  lordName: string;
+  level: number;
+  gold: number;
+  wood: number;
+  ore: number;
+  food: number;
+  plots: VillagePlotInfo[];
+}
+
 export interface RoomSnapshot {
   name: string;
   description: string;
@@ -37,6 +55,7 @@ export interface RoomSnapshot {
   items: RoomItemInfo[];
   mobs: RoomMobInfo[];
   players: string[];
+  village?: VillageInfo;
 }
 
 export type ClientMessage =
