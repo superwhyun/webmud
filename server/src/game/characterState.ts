@@ -26,6 +26,7 @@ export function toCharacterState(row: CharacterWithRoomRow, effective: Effective
     physicalDefense: effective.physicalDefense,
     magicDefense: effective.magicDefense,
     element: effective.element,
+    gold: row.gold,
   };
 }
 

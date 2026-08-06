@@ -101,7 +101,15 @@ const ROOMS: RoomSeed[] = [
     name: '폐허',
     description: '누가 살았는지 알 수 없는 오래된 건물의 잔해가 남아있다.',
   },
+  {
+    id: 10,
+    name: '미개척지',
+    description:
+      '황무지 너머, 아직 누구의 깃발도 꽂히지 않은 땅이 펼쳐진다. 이곳에서 새로운 마을을 세우거나(village found), 이미 세워진 마을 목록을 볼(village list) 수 있다.',
+  },
 ];
+
+export const FRONTIER_ROOM_ID = 10;
 
 const EXITS: ExitSeed[] = [
   { roomId: 1, direction: 'north', targetRoomId: 2 },
@@ -120,6 +128,8 @@ const EXITS: ExitSeed[] = [
   { roomId: 8, direction: 'west', targetRoomId: 7 },
   { roomId: 8, direction: 'east', targetRoomId: 9 },
   { roomId: 9, direction: 'west', targetRoomId: 8 },
+  { roomId: 9, direction: 'south', targetRoomId: 10 },
+  { roomId: 10, direction: 'north', targetRoomId: 9 },
 ];
 
 const ITEMS: ItemSeed[] = [

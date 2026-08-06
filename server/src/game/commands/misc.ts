@@ -21,6 +21,13 @@ export function showHelp(ctx: CommandContext): void {
       'inventory (inv) - 소지품을 확인합니다.',
       'equip <아이템> - 무기/방어구를 장착합니다.',
       'use <아이템> - 소비 아이템을 사용합니다.',
+      'village found <이름> - (미개척지) 새 마을을 세웁니다.',
+      'village list - 세워진 마을 목록을 봅니다.',
+      'village deposit <금액> - 소속 마을 국고에 gold를 기부합니다.',
+      'village land buy - (영주) 땅을 삽니다.',
+      'village build <칸번호> <종류> - (영주) 건물을 짓습니다.',
+      'travel <마을이름> - (미개척지) 마을로 이동합니다.',
+      'leave - 마을에서 미개척지로 돌아갑니다.',
       'help - 이 도움말을 봅니다.',
     ].join('\n'),
   });

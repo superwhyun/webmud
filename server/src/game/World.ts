@@ -42,4 +42,9 @@ export function getRoom(id: number): RoomData | undefined {
   return rooms.get(id);
 }
 
+/** Registers a room created after startup (e.g. a newly founded village) without a full reload. */
+export function registerRoom(room: RoomData): void {
+  rooms.set(room.id, room);
+}
+
 loadWorld();

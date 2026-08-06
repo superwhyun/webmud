@@ -1,0 +1,232 @@
+import { db } from '../../db/client.js';
+import { FRONTIER_ROOM_ID } from '../../db/seed.js';
+import type { VillageRow } from '../../db/types.js';
+import { loadCharacter, loadCharacterState } from '../characterState.js';
+import { broadcastRoomSnapshot, sendRoomSnapshot } from '../roomSnapshot.js';
+import {
+  BUILDING_CATALOG,
+  buildOnPlot,
+  buyLand,
+  depositGold,
+  findVillageByCharacterMembership,
+  findVillageByName,
+  findVillageByRoomId,
+  foundVillage,
+  listVillages,
+} from '../village/VillageService.js';
+import type { CommandContext } from './context.js';
+
+type LordCheck = { ok: true; village: VillageRow } | { ok: false; error: string };
+
+function requireLord(ctx: CommandContext): LordCheck {
+  const village = findVillageByCharacterMembership(ctx.session.characterId);
+  if (!village) return { ok: false, error: '소속된 마을이 없습니다.' };
+  if (village.lord_character_id !== ctx.session.characterId) {
+    return { ok: false, error: '영주만 사용할 수 있는 명령입니다.' };
+  }
+  return { ok: true, village };
+}
+
+function lordName(characterId: number): string {
+  const row = db.prepare('SELECT name FROM characters WHERE id = ?').get(characterId) as
+    | { name: string }
+    | undefined;
+  return row?.name ?? '알 수 없음';
+}
+
+function handleVillageFound(ctx: CommandContext, name: string): void {
+  const trimmed = name.trim();
+  if (ctx.session.roomId !== FRONTIER_ROOM_ID) {
+    ctx.send({ type: 'text', text: '마을은 미개척지에서만 세울 수 있습니다.' });
+    return;
+  }
+  if (!trimmed) {
+    ctx.send({ type: 'error', text: '마을 이름을 입력하세요. 사용법: village found <이름>' });
+    return;
+  }
+
+  const character = loadCharacter(ctx.session.characterId);
+  if (!character) return;
+
+  const result = foundVillage(ctx.session.characterId, character.gold, trimmed);
+  if (!result.success || !result.village || result.roomId === undefined) {
+    ctx.send({ type: 'text', text: result.error ?? '마을을 세울 수 없습니다.' });
+    return;
+  }
+
+  ctx.send({ type: 'text', text: `${trimmed} 마을을 세웠습니다! 당신은 이제 이 마을의 영주입니다.` });
+  ctx.session.roomId = result.roomId;
+  db.prepare('UPDATE characters SET room_id = ? WHERE id = ?').run(result.roomId, ctx.session.characterId);
+
+  const state = loadCharacterState(ctx.session.characterId);
+  if (state) ctx.send({ type: 'state', character: state });
+
+  sendRoomSnapshot(ctx);
+}
+
+function handleVillageList(ctx: CommandContext): void {
+  const villages = listVillages();
+  if (villages.length === 0) {
+    ctx.send({ type: 'text', text: '아직 세워진 마을이 없습니다.' });
+    return;
+  }
+
+  const lines = villages.map(
+    (village) => `${village.name} (영주: ${lordName(village.lord_character_id)}, Lv.${village.level})`,
+  );
+  ctx.send({ type: 'text', text: `세워진 마을 목록:\n${lines.join('\n')}` });
+}
+
+function handleLandBuy(ctx: CommandContext): void {
+  const check = requireLord(ctx);
+  if (!check.ok) {
+    ctx.send({ type: 'text', text: check.error });
+    return;
+  }
+
+  const result = buyLand(check.village);
+  if (!result.success) {
+    ctx.send({ type: 'text', text: result.error ?? '땅을 살 수 없습니다.' });
+    return;
+  }
+
+  ctx.send({ type: 'text', text: `새 땅을 구매했습니다. (국고 gold -${result.cost})` });
+  broadcastRoomSnapshot(ctx.session.roomId);
+}
+
+function handleBuild(ctx: CommandContext, rest: string): void {
+  const check = requireLord(ctx);
+  if (!check.ok) {
+    ctx.send({ type: 'text', text: check.error });
+    return;
+  }
+
+  const [indexText, buildingType] = rest.trim().split(/\s+/);
+  const plotIndex = Number(indexText);
+
+  if (!indexText || Number.isNaN(plotIndex) || !buildingType) {
+    const options = Object.values(BUILDING_CATALOG)
+      .map((b) => `${b.type}(${b.name})`)
+      .join(', ');
+    ctx.send({ type: 'error', text: `사용법: village build <칸번호> <건물종류>. 가능한 종류: ${options}` });
+    return;
+  }
+
+  const result = buildOnPlot(check.village, plotIndex, buildingType);
+  if (!result.success || !result.building) {
+    ctx.send({ type: 'text', text: result.error ?? '건설할 수 없습니다.' });
+    return;
+  }
+
+  ctx.send({
+    type: 'text',
+    text: `${plotIndex}번 칸에 ${result.building.name}을(를) 건설했습니다. (국고 gold -${result.building.cost})`,
+  });
+  broadcastRoomSnapshot(ctx.session.roomId);
+}
+
+function handleDeposit(ctx: CommandContext, rest: string): void {
+  const village = findVillageByCharacterMembership(ctx.session.characterId);
+  if (!village) {
+    ctx.send({ type: 'text', text: '소속된 마을이 없습니다.' });
+    return;
+  }
+
+  const amount = Math.floor(Number(rest.trim()));
+  if (!rest.trim() || Number.isNaN(amount)) {
+    ctx.send({ type: 'error', text: '사용법: village deposit <금액>' });
+    return;
+  }
+
+  const character = loadCharacter(ctx.session.characterId);
+  if (!character) return;
+
+  const result = depositGold(village, ctx.session.characterId, character.gold, amount);
+  if (!result.success) {
+    ctx.send({ type: 'text', text: result.error ?? '기부할 수 없습니다.' });
+    return;
+  }
+
+  ctx.send({ type: 'text', text: `마을 국고에 gold ${amount}을(를) 기부했습니다.` });
+
+  const state = loadCharacterState(ctx.session.characterId);
+  if (state) ctx.send({ type: 'state', character: state });
+
+  broadcastRoomSnapshot(ctx.session.roomId);
+}
+
+export function handleVillage(ctx: CommandContext, rest: string): void {
+  const trimmed = rest.trim();
+  const spaceIndex = trimmed.indexOf(' ');
+  const subcommand = spaceIndex === -1 ? trimmed : trimmed.slice(0, spaceIndex);
+  const subRest = spaceIndex === -1 ? '' : trimmed.slice(spaceIndex + 1);
+
+  switch (subcommand.toLowerCase()) {
+    case 'found':
+      handleVillageFound(ctx, subRest);
+      return;
+    case 'list':
+      handleVillageList(ctx);
+      return;
+    case 'land':
+      if (subRest.trim().toLowerCase() === 'buy') {
+        handleLandBuy(ctx);
+      } else {
+        ctx.send({ type: 'error', text: '사용법: village land buy' });
+      }
+      return;
+    case 'build':
+      handleBuild(ctx, subRest);
+      return;
+    case 'deposit':
+      handleDeposit(ctx, subRest);
+      return;
+    default:
+      ctx.send({
+        type: 'text',
+        text: '사용법: village found <이름> | village list | village deposit <금액> | village land buy | village build <칸번호> <종류>',
+      });
+  }
+}
+
+export function handleTravel(ctx: CommandContext, name: string): void {
+  const trimmed = name.trim();
+  if (ctx.session.roomId !== FRONTIER_ROOM_ID) {
+    ctx.send({ type: 'text', text: '미개척지에서만 다른 마을로 이동할 수 있습니다.' });
+    return;
+  }
+  if (!trimmed) {
+    ctx.send({ type: 'error', text: '이동할 마을 이름을 입력하세요. 사용법: travel <마을이름>' });
+    return;
+  }
+
+  const village = findVillageByName(trimmed);
+  if (!village) {
+    ctx.send({ type: 'text', text: '그런 이름의 마을이 없습니다.' });
+    return;
+  }
+
+  ctx.session.roomId = village.room_id;
+  db.prepare('UPDATE characters SET room_id = ? WHERE id = ?').run(village.room_id, ctx.session.characterId);
+
+  const state = loadCharacterState(ctx.session.characterId);
+  if (state) ctx.send({ type: 'state', character: state });
+
+  sendRoomSnapshot(ctx);
+}
+
+export function handleLeave(ctx: CommandContext): void {
+  const village = findVillageByRoomId(ctx.session.roomId);
+  if (!village) {
+    ctx.send({ type: 'text', text: '이곳은 마을이 아닙니다.' });
+    return;
+  }
+
+  ctx.session.roomId = FRONTIER_ROOM_ID;
+  db.prepare('UPDATE characters SET room_id = ? WHERE id = ?').run(FRONTIER_ROOM_ID, ctx.session.characterId);
+
+  const state = loadCharacterState(ctx.session.characterId);
+  if (state) ctx.send({ type: 'state', character: state });
+
+  sendRoomSnapshot(ctx);
+}

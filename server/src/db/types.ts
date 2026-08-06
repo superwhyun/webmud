@@ -34,3 +34,27 @@ export interface ItemRow {
   heal_amount: number;
   value: number;
 }
+
+export type BuildingType = 'lumber_camp' | 'mine' | 'farm';
+
+export interface VillageRow {
+  id: number;
+  name: string;
+  room_id: number;
+  lord_character_id: number;
+  level: number;
+  gold: number;
+  wood: number;
+  ore: number;
+  food: number;
+  tithe_percent: number;
+  raid_protected_until: string | null;
+  created_at: string;
+}
+
+export interface VillagePlotRow {
+  id: number;
+  village_id: number;
+  plot_index: number;
+  building_type: BuildingType | null;
+}

@@ -12,6 +12,7 @@ mkdirSync(dataDir, { recursive: true });
 const dbPath = process.env.DB_PATH ?? join(dataDir, 'mud.sqlite');
 
 export const db = new Database(dbPath);
+db.pragma('busy_timeout = 5000');
 db.pragma('journal_mode = WAL');
 db.exec(SCHEMA_SQL);
 seed(db);

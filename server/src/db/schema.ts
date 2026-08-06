@@ -85,4 +85,41 @@ CREATE TABLE IF NOT EXISTS mob_spawns (
   mob_template_id INTEGER NOT NULL REFERENCES mob_templates(id),
   respawn_seconds INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS villages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE,
+  room_id INTEGER NOT NULL UNIQUE REFERENCES rooms(id),
+  lord_character_id INTEGER NOT NULL UNIQUE REFERENCES characters(id),
+  level INTEGER NOT NULL DEFAULT 1,
+  gold INTEGER NOT NULL DEFAULT 0,
+  wood INTEGER NOT NULL DEFAULT 0,
+  ore INTEGER NOT NULL DEFAULT 0,
+  food INTEGER NOT NULL DEFAULT 0,
+  tithe_percent INTEGER NOT NULL DEFAULT 10,
+  raid_protected_until TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS village_members (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  village_id INTEGER NOT NULL REFERENCES villages(id),
+  character_id INTEGER NOT NULL UNIQUE REFERENCES characters(id),
+  role TEXT NOT NULL DEFAULT 'member',
+  joined_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS village_plots (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  village_id INTEGER NOT NULL REFERENCES villages(id),
+  plot_index INTEGER NOT NULL,
+  building_type TEXT,
+  UNIQUE(village_id, plot_index)
+);
+
+CREATE TABLE IF NOT EXISTS village_garrison (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  village_id INTEGER NOT NULL REFERENCES villages(id),
+  mob_template_id INTEGER NOT NULL REFERENCES mob_templates(id)
+);
 `;

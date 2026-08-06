@@ -4,6 +4,7 @@ import type { CommandContext } from './context.js';
 import { handleDrop, handleEquip, handleGet, handleInventory, handleUse } from './items.js';
 import { describeRoom, showHelp } from './misc.js';
 import { handleMove, resolveDirection } from './movement.js';
+import { handleLeave, handleTravel, handleVillage } from './village.js';
 
 function splitVerb(text: string): { verb: string; rest: string } {
   const spaceIndex = text.indexOf(' ');
@@ -75,6 +76,21 @@ export function dispatchCommand(ctx: CommandContext, rawText: string): void {
 
   if (lowerVerb === 'use') {
     handleUse(ctx, rest);
+    return;
+  }
+
+  if (lowerVerb === 'village') {
+    handleVillage(ctx, rest);
+    return;
+  }
+
+  if (lowerVerb === 'travel') {
+    handleTravel(ctx, rest);
+    return;
+  }
+
+  if (lowerVerb === 'leave') {
+    handleLeave(ctx);
     return;
   }
 

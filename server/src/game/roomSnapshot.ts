@@ -1,16 +1,43 @@
 import type { WebSocket } from 'ws';
-import type { RoomSnapshot } from '@mud/shared';
+import type { RoomSnapshot, VillageInfo } from '@mud/shared';
 import { db } from '../db/client.js';
 import type { CommandContext } from './commands/context.js';
 import { DIRECTION_LABELS } from './directions.js';
 import { getMobsInRoom } from './MobManager.js';
 import { getSessionsInRoom } from './sessionRegistry.js';
+import { BUILDING_CATALOG, findVillageByRoomId, getVillagePlots } from './village/VillageService.js';
 import { getRoom } from './World.js';
 import { send } from './wsUtil.js';
 
 interface RoomItemQueryRow {
   name: string;
   quantity: number;
+}
+
+function buildVillageInfo(roomId: number): VillageInfo | undefined {
+  const village = findVillageByRoomId(roomId);
+  if (!village) return undefined;
+
+  const lord = db.prepare('SELECT name FROM characters WHERE id = ?').get(village.lord_character_id) as
+    | { name: string }
+    | undefined;
+
+  const plots = getVillagePlots(village.id).map((plot) => ({
+    index: plot.plot_index,
+    buildingType: plot.building_type,
+    buildingName: plot.building_type ? BUILDING_CATALOG[plot.building_type].name : null,
+  }));
+
+  return {
+    name: village.name,
+    lordName: lord?.name ?? '알 수 없음',
+    level: village.level,
+    gold: village.gold,
+    wood: village.wood,
+    ore: village.ore,
+    food: village.food,
+    plots,
+  };
 }
 
 export function buildRoomSnapshot(roomId: number, viewerWs?: WebSocket): RoomSnapshot | undefined {
@@ -34,7 +61,9 @@ export function buildRoomSnapshot(roomId: number, viewerWs?: WebSocket): RoomSna
     .filter((session) => session.ws !== viewerWs)
     .map((session) => session.characterName);
 
-  return { name: room.name, description: room.description, exits, items, mobs, players };
+  const village = buildVillageInfo(roomId);
+
+  return { name: room.name, description: room.description, exits, items, mobs, players, village };
 }
 
 export function sendRoomSnapshot(ctx: CommandContext): void {
