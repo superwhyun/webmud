@@ -7,12 +7,36 @@ import {
   type VillageInfo,
 } from '@mud/shared';
 
+const CARDINAL_ALIASES: Record<string, 'north' | 'south' | 'east' | 'west'> = {
+  n: 'north',
+  north: 'north',
+  s: 'south',
+  south: 'south',
+  e: 'east',
+  east: 'east',
+  w: 'west',
+  west: 'west',
+};
+
+const CARDINAL_OFFSET: Record<'north' | 'south' | 'east' | 'west', { dx: number; dy: number }> = {
+  north: { dx: 0, dy: -1 },
+  south: { dx: 0, dy: 1 },
+  east: { dx: 1, dy: 0 },
+  west: { dx: -1, dy: 0 },
+};
+
+const MINIMAP_RADIUS = 2;
+
 export function renderGameScreen(container: HTMLElement, token: string): void {
   container.innerHTML = `
     <div class="room-panel" id="room-panel"></div>
+    <div class="combat-panel" id="combat-panel" hidden></div>
     <div class="game-layout">
       <div class="terminal" id="terminal"></div>
-      <aside class="sidebar" id="sidebar"></aside>
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-stats" id="sidebar-stats"></div>
+        <div class="minimap" id="minimap"></div>
+      </aside>
     </div>
     <div class="command-input">
       <span class="prompt">&gt;</span>
@@ -21,8 +45,10 @@ export function renderGameScreen(container: HTMLElement, token: string): void {
   `;
 
   const roomPanel = container.querySelector<HTMLDivElement>('#room-panel')!;
+  const combatPanel = container.querySelector<HTMLDivElement>('#combat-panel')!;
   const terminal = container.querySelector<HTMLDivElement>('#terminal')!;
-  const sidebar = container.querySelector<HTMLDivElement>('#sidebar')!;
+  const sidebarStats = container.querySelector<HTMLDivElement>('#sidebar-stats')!;
+  const minimap = container.querySelector<HTMLDivElement>('#minimap')!;
   const commandInput = container.querySelector<HTMLInputElement>('#command')!;
 
   function appendLine(text: string, channel?: string): void {
@@ -42,7 +68,7 @@ export function renderGameScreen(container: HTMLElement, token: string): void {
   function renderState(character: CharacterState): void {
     const ratio = character.maxHp > 0 ? character.hp / character.maxHp : 0;
     const level = hpLevel(ratio);
-    sidebar.innerHTML = `
+    sidebarStats.innerHTML = `
       <div class="stat stat-name">${character.name}</div>
       <div class="stat">HP ${character.hp}/${character.maxHp}</div>
       <div class="hp-bar" role="progressbar" aria-valuenow="${character.hp}" aria-valuemin="0" aria-valuemax="${character.maxHp}">
@@ -102,6 +128,73 @@ export function renderGameScreen(container: HTMLElement, token: string): void {
     `;
   }
 
+  const roomCoord = new Map<number, { x: number; y: number }>();
+  const coordRoom = new Map<string, number>();
+  const roomNames = new Map<number, string>();
+  let currentRoomId: number | null = null;
+  let pendingDirection: 'north' | 'south' | 'east' | 'west' | null = null;
+
+  function setRoomPosition(roomId: number, x: number, y: number): void {
+    roomCoord.set(roomId, { x, y });
+    coordRoom.set(`${x},${y}`, roomId);
+  }
+
+  function recordRoomVisit(room: RoomSnapshot): void {
+    roomNames.set(room.id, room.name);
+
+    if (!roomCoord.has(room.id)) {
+      if (roomCoord.size === 0) {
+        setRoomPosition(room.id, 0, 0);
+      } else if (currentRoomId !== null && pendingDirection) {
+        const base = roomCoord.get(currentRoomId);
+        if (base) {
+          const offset = CARDINAL_OFFSET[pendingDirection];
+          setRoomPosition(room.id, base.x + offset.dx, base.y + offset.dy);
+        }
+      }
+    }
+
+    currentRoomId = room.id;
+    pendingDirection = null;
+  }
+
+  function renderMinimap(): void {
+    minimap.innerHTML = '';
+    const center = currentRoomId !== null ? roomCoord.get(currentRoomId) : undefined;
+    if (!center) return;
+
+    for (let dy = -MINIMAP_RADIUS; dy <= MINIMAP_RADIUS; dy++) {
+      for (let dx = -MINIMAP_RADIUS; dx <= MINIMAP_RADIUS; dx++) {
+        const roomId = coordRoom.get(`${center.x + dx},${center.y + dy}`);
+        const cell = document.createElement('span');
+        cell.className = 'minimap-cell';
+        if (roomId !== undefined) {
+          cell.classList.add('minimap-visited');
+          if (roomId === currentRoomId) cell.classList.add('minimap-current');
+          cell.title = roomNames.get(roomId) ?? '';
+        }
+        minimap.appendChild(cell);
+      }
+    }
+  }
+
+  function renderCombat(mobName: string, hp: number, maxHp: number): void {
+    const ratio = maxHp > 0 ? hp / maxHp : 0;
+    combatPanel.hidden = false;
+    combatPanel.innerHTML = `
+      <div class="combat-mob-name"></div>
+      <div class="hp-bar" role="progressbar" aria-valuenow="${hp}" aria-valuemin="0" aria-valuemax="${maxHp}">
+        <div class="hp-bar-fill" data-level="${hpLevel(ratio)}" style="width: ${Math.max(0, ratio * 100)}%"></div>
+      </div>
+    `;
+    combatPanel.querySelector<HTMLDivElement>('.combat-mob-name')!.textContent = mobName;
+  }
+
+  function hideCombat(): void {
+    combatPanel.hidden = true;
+    combatPanel.innerHTML = '';
+  }
+
   const wsUrl = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`;
   const socket = new WebSocket(wsUrl);
 
@@ -121,7 +214,13 @@ export function renderGameScreen(container: HTMLElement, token: string): void {
     } else if (message.type === 'state') {
       renderState(message.character);
     } else if (message.type === 'room') {
+      recordRoomVisit(message.room);
       renderRoom(message.room);
+      renderMinimap();
+    } else if (message.type === 'combat') {
+      renderCombat(message.mobName, message.mobHp, message.mobMaxHp);
+    } else if (message.type === 'combatEnd') {
+      hideCombat();
     }
   });
 
@@ -130,6 +229,9 @@ export function renderGameScreen(container: HTMLElement, token: string): void {
   let historyDraft = '';
 
   function sendCommand(text: string): void {
+    const verb = text.trim().split(/\s+/)[0]?.toLowerCase();
+    pendingDirection = verb ? (CARDINAL_ALIASES[verb] ?? null) : null;
+
     appendLine(`> ${text}`, 'echo');
     const message: ClientMessage = { type: 'command', text };
     socket.send(JSON.stringify(message));

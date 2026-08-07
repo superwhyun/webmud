@@ -49,6 +49,7 @@ export interface VillageInfo {
 }
 
 export interface RoomSnapshot {
+  id: number;
   name: string;
   description: string;
   exits: RoomExitInfo[];
@@ -68,4 +69,6 @@ export type ServerMessage =
   | { type: 'text'; text: string; channel?: ChatChannel }
   | { type: 'state'; character: CharacterState }
   | { type: 'room'; room: RoomSnapshot }
-  | { type: 'error'; text: string };
+  | { type: 'error'; text: string }
+  | { type: 'combat'; mobName: string; mobHp: number; mobMaxHp: number }
+  | { type: 'combatEnd' };

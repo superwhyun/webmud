@@ -82,6 +82,14 @@ export function isInCombat(ws: WebSocket): boolean {
   return activeCombats.has(ws);
 }
 
+function sendCombatStatus(ctx: CommandContext, mob: MobInstance): void {
+  ctx.send({ type: 'combat', mobName: mob.name, mobHp: mob.hp, mobMaxHp: mob.maxHp });
+}
+
+function sendCombatEnd(ctx: CommandContext): void {
+  ctx.send({ type: 'combatEnd' });
+}
+
 export function cleanupCombatForSession(ws: WebSocket): void {
   const combat = activeCombats.get(ws);
   if (!combat) return;
@@ -96,6 +104,7 @@ export function startCombat(ctx: CommandContext, mob: MobInstance): void {
   }
 
   ctx.send({ type: 'text', text: `${mob.name}에게 싸움을 겁니다!` });
+  sendCombatStatus(ctx, mob);
   const intervalId = setInterval(() => performRound(ctx, mob), COMBAT_TICK_MS);
   activeCombats.set(ctx.session.ws, { ctx, mob, intervalId });
   performRound(ctx, mob);
@@ -109,6 +118,7 @@ export function handleFlee(ctx: CommandContext): void {
   }
   cleanupCombatForSession(ctx.session.ws);
   ctx.send({ type: 'text', text: `${combat.mob.name}에게서 도망쳤습니다.` });
+  sendCombatEnd(ctx);
 }
 
 function performRound(ctx: CommandContext, mob: MobInstance): void {
@@ -116,12 +126,14 @@ function performRound(ctx: CommandContext, mob: MobInstance): void {
 
   if (!mob.alive) {
     cleanupCombatForSession(ctx.session.ws);
+    sendCombatEnd(ctx);
     return;
   }
 
   const character = loadCharacter(ctx.session.characterId);
   if (!character) {
     cleanupCombatForSession(ctx.session.ws);
+    sendCombatEnd(ctx);
     return;
   }
 
@@ -142,8 +154,11 @@ function performRound(ctx: CommandContext, mob: MobInstance): void {
   if (mob.hp <= 0) {
     handleMobDefeat(ctx, mob, character.id);
     cleanupCombatForSession(ctx.session.ws);
+    sendCombatEnd(ctx);
     return;
   }
+
+  sendCombatStatus(ctx, mob);
 
   const mobAttack = resolveAttack(mobStats, playerStats, mob.damageType);
   if (mobAttack.evaded) {
@@ -164,6 +179,7 @@ function performRound(ctx: CommandContext, mob: MobInstance): void {
   if (newHp <= 0) {
     defeatCharacter(ctx);
     cleanupCombatForSession(ctx.session.ws);
+    sendCombatEnd(ctx);
   }
 }
 
