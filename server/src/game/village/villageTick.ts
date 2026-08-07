@@ -20,7 +20,9 @@ export function runVillageProductionTick(): void {
     const produced = { wood: 0, ore: 0, food: 0 };
     for (const plot of plots) {
       const definition = BUILDING_CATALOG[plot.building_type];
-      if (definition) produced[definition.resource] += definition.output;
+      if (definition?.resource && definition.output) {
+        produced[definition.resource] += definition.output;
+      }
     }
 
     if (produced.wood === 0 && produced.ore === 0 && produced.food === 0) continue;

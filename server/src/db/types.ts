@@ -35,7 +35,21 @@ export interface ItemRow {
   value: number;
 }
 
-export type BuildingType = 'lumber_camp' | 'mine' | 'farm';
+export type BuildingType = 'lumber_camp' | 'mine' | 'farm' | 'watchtower';
+
+export interface MobTemplateRow {
+  id: number;
+  name: string;
+  hp: number;
+  strength: number;
+  dexterity: number;
+  physical_defense: number;
+  magic_defense: number;
+  element: ElementType;
+  damage_type: 'physical' | 'magic';
+  exp_reward: number;
+  gold_reward: number;
+}
 
 export interface VillageRow {
   id: number;
@@ -67,4 +81,10 @@ export interface VillageMemberRow {
   character_id: number;
   role: VillageMemberRole;
   joined_at: string;
+}
+
+export interface VillageGarrisonRow {
+  id: number;
+  village_id: number;
+  mob_template_id: number;
 }

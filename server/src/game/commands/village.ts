@@ -2,8 +2,10 @@ import { db } from '../../db/client.js';
 import { FRONTIER_ROOM_ID } from '../../db/seed.js';
 import type { VillageRow } from '../../db/types.js';
 import { loadCharacter, loadCharacterState } from '../characterState.js';
+import { getMobsInRoom } from '../MobManager.js';
 import { broadcastRoomSnapshot, sendRoomSnapshot } from '../roomSnapshot.js';
 import {
+  addGarrisonMob,
   BUILDING_CATALOG,
   buildOnPlot,
   buyLand,
@@ -12,6 +14,7 @@ import {
   findVillageByName,
   findVillageByRoomId,
   foundVillage,
+  getGarrisonCapacity,
   getVillageMembers,
   joinVillage,
   listVillages,
@@ -197,6 +200,60 @@ function handleMembers(ctx: CommandContext): void {
   ctx.send({ type: 'text', text: `${village.name} 마을원 (${members.length}명):\n${lines.join('\n')}` });
 }
 
+function handleGarrisonAdd(ctx: CommandContext, mobName: string): void {
+  const check = requireLord(ctx);
+  if (!check.ok) {
+    ctx.send({ type: 'text', text: check.error });
+    return;
+  }
+
+  const result = addGarrisonMob(check.village, mobName);
+  if (!result.success) {
+    ctx.send({ type: 'text', text: result.error ?? '수비대를 배치할 수 없습니다.' });
+    return;
+  }
+
+  ctx.send({
+    type: 'text',
+    text: `${result.mobName}을(를) 수비대로 배치했습니다. (국고 gold -${result.cost})`,
+  });
+  broadcastRoomSnapshot(check.village.room_id);
+}
+
+function handleGarrisonList(ctx: CommandContext): void {
+  const village = findVillageByCharacterMembership(ctx.session.characterId);
+  if (!village) {
+    ctx.send({ type: 'text', text: '소속된 마을이 없습니다.' });
+    return;
+  }
+
+  const capacity = getGarrisonCapacity(village.id);
+  const garrison = getMobsInRoom(village.room_id);
+  if (garrison.length === 0) {
+    ctx.send({ type: 'text', text: `수비대가 없습니다. (0/${capacity})` });
+    return;
+  }
+
+  const lines = garrison.map((mob) => `${mob.name} (${mob.hp}/${mob.maxHp})`);
+  ctx.send({ type: 'text', text: `수비대 (${garrison.length}/${capacity}):\n${lines.join('\n')}` });
+}
+
+function handleGarrison(ctx: CommandContext, rest: string): void {
+  const spaceIndex = rest.trim().indexOf(' ');
+  const sub = spaceIndex === -1 ? rest.trim() : rest.trim().slice(0, spaceIndex);
+  const subRest = spaceIndex === -1 ? '' : rest.trim().slice(spaceIndex + 1);
+
+  if (sub.toLowerCase() === 'add') {
+    handleGarrisonAdd(ctx, subRest);
+    return;
+  }
+  if (sub.toLowerCase() === 'list') {
+    handleGarrisonList(ctx);
+    return;
+  }
+  ctx.send({ type: 'error', text: '사용법: village garrison add <몬스터> | village garrison list' });
+}
+
 export function handleVillage(ctx: CommandContext, rest: string): void {
   const trimmed = rest.trim();
   const spaceIndex = trimmed.indexOf(' ');
@@ -232,10 +289,13 @@ export function handleVillage(ctx: CommandContext, rest: string): void {
     case 'members':
       handleMembers(ctx);
       return;
+    case 'garrison':
+      handleGarrison(ctx, subRest);
+      return;
     default:
       ctx.send({
         type: 'text',
-        text: '사용법: village found <이름> | village list | village join | village quit | village members | village deposit <금액> | village land buy | village build <칸번호> <종류>',
+        text: '사용법: village found <이름> | village list | village join | village quit | village members | village deposit <금액> | village land buy | village build <칸번호> <종류> | village garrison add <몬스터> | village garrison list',
       });
   }
 }

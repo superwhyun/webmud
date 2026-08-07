@@ -1,7 +1,10 @@
 import type { ElementType } from '@mud/shared';
 import { db } from '../db/client.js';
+import type { MobTemplateRow } from '../db/types.js';
 
 export type DamageType = 'physical' | 'magic';
+
+const GARRISON_RESPAWN_SECONDS = 120;
 
 export interface MobInstance {
   spawnId: number;
@@ -40,7 +43,60 @@ interface MobSpawnRow {
   gold_reward: number;
 }
 
+interface GarrisonRow {
+  garrison_id: number;
+  room_id: number;
+  template_id: number;
+  name: string;
+  hp: number;
+  strength: number;
+  dexterity: number;
+  physical_defense: number;
+  magic_defense: number;
+  element: ElementType;
+  damage_type: DamageType;
+  exp_reward: number;
+  gold_reward: number;
+}
+
 const mobs = new Map<number, MobInstance>();
+
+function toMobInstance(params: {
+  spawnId: number;
+  templateId: number;
+  roomId: number;
+  name: string;
+  hp: number;
+  strength: number;
+  dexterity: number;
+  physicalDefense: number;
+  magicDefense: number;
+  element: ElementType;
+  damageType: DamageType;
+  expReward: number;
+  goldReward: number;
+  respawnSeconds: number;
+}): MobInstance {
+  return {
+    spawnId: params.spawnId,
+    templateId: params.templateId,
+    roomId: params.roomId,
+    name: params.name,
+    maxHp: params.hp,
+    hp: params.hp,
+    strength: params.strength,
+    dexterity: params.dexterity,
+    physicalDefense: params.physicalDefense,
+    magicDefense: params.magicDefense,
+    element: params.element,
+    damageType: params.damageType,
+    expReward: params.expReward,
+    goldReward: params.goldReward,
+    respawnSeconds: params.respawnSeconds,
+    alive: true,
+    respawnAt: null,
+  };
+}
 
 export function loadMobs(): void {
   mobs.clear();
@@ -57,26 +113,88 @@ export function loadMobs(): void {
     .all() as MobSpawnRow[];
 
   for (const row of spawnRows) {
-    mobs.set(row.spawn_id, {
-      spawnId: row.spawn_id,
-      templateId: row.template_id,
-      roomId: row.room_id,
-      name: row.name,
-      maxHp: row.hp,
-      hp: row.hp,
-      strength: row.strength,
-      dexterity: row.dexterity,
-      physicalDefense: row.physical_defense,
-      magicDefense: row.magic_defense,
-      element: row.element,
-      damageType: row.damage_type,
-      expReward: row.exp_reward,
-      goldReward: row.gold_reward,
-      respawnSeconds: row.respawn_seconds,
-      alive: true,
-      respawnAt: null,
-    });
+    mobs.set(
+      row.spawn_id,
+      toMobInstance({
+        spawnId: row.spawn_id,
+        templateId: row.template_id,
+        roomId: row.room_id,
+        name: row.name,
+        hp: row.hp,
+        strength: row.strength,
+        dexterity: row.dexterity,
+        physicalDefense: row.physical_defense,
+        magicDefense: row.magic_defense,
+        element: row.element,
+        damageType: row.damage_type,
+        expReward: row.exp_reward,
+        goldReward: row.gold_reward,
+        respawnSeconds: row.respawn_seconds,
+      }),
+    );
   }
+
+  const garrisonRows = db
+    .prepare(
+      `SELECT vg.id as garrison_id, v.room_id,
+              mt.id as template_id, mt.name, mt.hp, mt.strength, mt.dexterity,
+              mt.physical_defense, mt.magic_defense, mt.element, mt.damage_type,
+              mt.exp_reward, mt.gold_reward
+       FROM village_garrison vg
+       JOIN villages v ON v.id = vg.village_id
+       JOIN mob_templates mt ON mt.id = vg.mob_template_id`,
+    )
+    .all() as GarrisonRow[];
+
+  for (const row of garrisonRows) {
+    const spawnId = -row.garrison_id;
+    mobs.set(
+      spawnId,
+      toMobInstance({
+        spawnId,
+        templateId: row.template_id,
+        roomId: row.room_id,
+        name: row.name,
+        hp: row.hp,
+        strength: row.strength,
+        dexterity: row.dexterity,
+        physicalDefense: row.physical_defense,
+        magicDefense: row.magic_defense,
+        element: row.element,
+        damageType: row.damage_type,
+        expReward: row.exp_reward,
+        goldReward: row.gold_reward,
+        respawnSeconds: GARRISON_RESPAWN_SECONDS,
+      }),
+    );
+  }
+}
+
+/** Registers a newly hired garrison mob without reloading (and resetting) the rest of the world's mobs. */
+export function spawnGarrisonMob(
+  garrisonId: number,
+  roomId: number,
+  template: MobTemplateRow,
+): MobInstance {
+  const spawnId = -garrisonId;
+  const instance = toMobInstance({
+    spawnId,
+    templateId: template.id,
+    roomId,
+    name: template.name,
+    hp: template.hp,
+    strength: template.strength,
+    dexterity: template.dexterity,
+    physicalDefense: template.physical_defense,
+    magicDefense: template.magic_defense,
+    element: template.element,
+    damageType: template.damage_type,
+    expReward: template.exp_reward,
+    goldReward: template.gold_reward,
+    respawnSeconds: GARRISON_RESPAWN_SECONDS,
+  });
+  mobs.set(spawnId, instance);
+  return instance;
 }
 
 export function getMobsInRoom(roomId: number): MobInstance[] {
@@ -86,6 +204,12 @@ export function getMobsInRoom(roomId: number): MobInstance[] {
 export function findMobInRoomByName(roomId: number, nameQuery: string): MobInstance | undefined {
   const lower = nameQuery.toLowerCase();
   return getMobsInRoom(roomId).find((mob) => mob.name.toLowerCase().includes(lower));
+}
+
+export function findMobTemplateByName(name: string): MobTemplateRow | undefined {
+  const lower = name.toLowerCase();
+  const rows = db.prepare('SELECT * FROM mob_templates').all() as MobTemplateRow[];
+  return rows.find((row) => row.name.toLowerCase().includes(lower));
 }
 
 export function killMob(mob: MobInstance): void {
