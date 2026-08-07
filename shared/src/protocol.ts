@@ -1,4 +1,5 @@
 import type { ElementType } from './elements.js';
+import type { EquipmentSlot } from './equipment.js';
 import type { ItemGrade } from './itemGrades.js';
 
 export interface CharacterState {
@@ -64,9 +65,22 @@ export interface RoomSnapshot {
   village?: VillageInfo;
 }
 
+export interface InventoryItemInfo {
+  inventoryId: number;
+  name: string;
+  quantity: number;
+  equipped: boolean;
+  slot: EquipmentSlot | null;
+  grade: ItemGrade;
+}
+
+export type EquipmentSnapshot = Partial<Record<EquipmentSlot, InventoryItemInfo>>;
+
 export type ClientMessage =
   | { type: 'auth'; token: string }
-  | { type: 'command'; text: string };
+  | { type: 'command'; text: string }
+  | { type: 'equipItem'; inventoryId: number }
+  | { type: 'unequipItem'; slot: EquipmentSlot };
 
 export type ChatChannel = 'say' | 'shout' | 'admin';
 
@@ -76,4 +90,6 @@ export type ServerMessage =
   | { type: 'room'; room: RoomSnapshot }
   | { type: 'error'; text: string }
   | { type: 'combat'; mobName: string; mobHp: number; mobMaxHp: number }
-  | { type: 'combatEnd' };
+  | { type: 'combatEnd' }
+  | { type: 'equipment'; slots: EquipmentSnapshot }
+  | { type: 'inventory'; items: InventoryItemInfo[] };

@@ -27,6 +27,7 @@ export interface ItemRow {
   name: string;
   description: string;
   type: string;
+  slot: string | null;
   level: number;
   grade: ItemGrade;
   strength_bonus: number;

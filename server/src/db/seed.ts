@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3';
 import bcrypt from 'bcryptjs';
-import type { ElementType, ItemGrade } from '@mud/shared';
+import type { ElementType, EquipmentSlot, ItemGrade } from '@mud/shared';
 
 export const STARTING_ROOM_ID = 1;
 
@@ -31,6 +31,7 @@ interface ItemSeed {
   name: string;
   description: string;
   type: 'weapon' | 'armor' | 'consumable';
+  slot: EquipmentSlot | null;
   level: number;
   grade: ItemGrade;
   strengthBonus: number;
@@ -151,6 +152,7 @@ const ITEMS: ItemSeed[] = [
     name: '낡은 검',
     description: '날이 조금 무뎌졌지만 여전히 쓸만한 검이다.',
     type: 'weapon',
+    slot: 'weapon',
     level: 1,
     grade: 'low',
     strengthBonus: 3,
@@ -165,6 +167,7 @@ const ITEMS: ItemSeed[] = [
     name: '나무 방패',
     description: '투박하지만 튼튼한 나무 방패다.',
     type: 'armor',
+    slot: 'shield',
     level: 1,
     grade: 'low',
     strengthBonus: 0,
@@ -179,6 +182,7 @@ const ITEMS: ItemSeed[] = [
     name: '체력 물약',
     description: '마시면 체력이 회복되는 붉은 물약이다.',
     type: 'consumable',
+    slot: null,
     level: 1,
     grade: 'low',
     strengthBonus: 0,
@@ -188,12 +192,140 @@ const ITEMS: ItemSeed[] = [
     healAmount: 10,
     value: 5,
   },
+  {
+    id: 4,
+    name: '가죽 모자',
+    description: '가볍게 머리를 보호해주는 가죽 모자다.',
+    type: 'armor',
+    slot: 'hat',
+    level: 1,
+    grade: 'low',
+    strengthBonus: 0,
+    dexterityBonus: 0,
+    physicalDefenseBonus: 1,
+    magicDefenseBonus: 0,
+    healAmount: 0,
+    value: 6,
+  },
+  {
+    id: 5,
+    name: '은귀걸이',
+    description: '은은하게 빛나는 은귀걸이다.',
+    type: 'armor',
+    slot: 'earring',
+    level: 1,
+    grade: 'low',
+    strengthBonus: 0,
+    dexterityBonus: 1,
+    physicalDefenseBonus: 0,
+    magicDefenseBonus: 0,
+    healAmount: 0,
+    value: 7,
+  },
+  {
+    id: 6,
+    name: '수호의 목걸이',
+    description: '마법 기운이 감도는 목걸이다.',
+    type: 'armor',
+    slot: 'necklace',
+    level: 1,
+    grade: 'low',
+    strengthBonus: 0,
+    dexterityBonus: 0,
+    physicalDefenseBonus: 0,
+    magicDefenseBonus: 2,
+    healAmount: 0,
+    value: 9,
+  },
+  {
+    id: 7,
+    name: '가죽 갑옷',
+    description: '몸통을 감싸는 튼튼한 가죽 갑옷이다.',
+    type: 'armor',
+    slot: 'top',
+    level: 1,
+    grade: 'low',
+    strengthBonus: 0,
+    dexterityBonus: 0,
+    physicalDefenseBonus: 2,
+    magicDefenseBonus: 1,
+    healAmount: 0,
+    value: 10,
+  },
+  {
+    id: 8,
+    name: '가죽 각반',
+    description: '다리를 보호하는 가죽 각반이다.',
+    type: 'armor',
+    slot: 'bottom',
+    level: 1,
+    grade: 'low',
+    strengthBonus: 0,
+    dexterityBonus: 1,
+    physicalDefenseBonus: 1,
+    magicDefenseBonus: 0,
+    healAmount: 0,
+    value: 8,
+  },
+  {
+    id: 9,
+    name: '가죽 장갑',
+    description: '손놀림을 가볍게 해주는 가죽 장갑이다.',
+    type: 'armor',
+    slot: 'gloves',
+    level: 1,
+    grade: 'low',
+    strengthBonus: 1,
+    dexterityBonus: 1,
+    physicalDefenseBonus: 0,
+    magicDefenseBonus: 0,
+    healAmount: 0,
+    value: 7,
+  },
+  {
+    id: 10,
+    name: '가죽 신발',
+    description: '발걸음을 가볍게 해주는 가죽 신발이다.',
+    type: 'armor',
+    slot: 'shoes',
+    level: 1,
+    grade: 'low',
+    strengthBonus: 0,
+    dexterityBonus: 2,
+    physicalDefenseBonus: 0,
+    magicDefenseBonus: 0,
+    healAmount: 0,
+    value: 7,
+  },
+  {
+    id: 11,
+    name: '힘의 반지',
+    description: '착용자의 힘을 북돋아주는 반지다.',
+    type: 'armor',
+    slot: 'ring',
+    level: 1,
+    grade: 'low',
+    strengthBonus: 2,
+    dexterityBonus: 0,
+    physicalDefenseBonus: 0,
+    magicDefenseBonus: 0,
+    healAmount: 0,
+    value: 12,
+  },
 ];
 
 const ROOM_ITEMS: RoomItemSeed[] = [
   { roomId: 3, itemId: 1, quantity: 1 },
   { roomId: 4, itemId: 2, quantity: 1 },
   { roomId: 2, itemId: 3, quantity: 2 },
+  { roomId: 4, itemId: 4, quantity: 1 },
+  { roomId: 4, itemId: 5, quantity: 1 },
+  { roomId: 4, itemId: 6, quantity: 1 },
+  { roomId: 4, itemId: 7, quantity: 1 },
+  { roomId: 4, itemId: 8, quantity: 1 },
+  { roomId: 4, itemId: 9, quantity: 1 },
+  { roomId: 4, itemId: 10, quantity: 1 },
+  { roomId: 4, itemId: 11, quantity: 1 },
 ];
 
 const MOB_TEMPLATES: MobTemplateSeed[] = [
@@ -240,8 +372,8 @@ export function seed(db: Database.Database): void {
     'INSERT INTO room_exits (room_id, direction, target_room_id) VALUES (?, ?, ?)',
   );
   const insertItem = db.prepare(
-    `INSERT INTO items (id, name, description, type, level, grade, strength_bonus, dexterity_bonus, physical_defense_bonus, magic_defense_bonus, heal_amount, value)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO items (id, name, description, type, slot, level, grade, strength_bonus, dexterity_bonus, physical_defense_bonus, magic_defense_bonus, heal_amount, value)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   const insertRoomItem = db.prepare(
     'INSERT INTO room_items (room_id, item_id, quantity) VALUES (?, ?, ?)',
@@ -267,6 +399,7 @@ export function seed(db: Database.Database): void {
         item.name,
         item.description,
         item.type,
+        item.slot,
         item.level,
         item.grade,
         item.strengthBonus,

@@ -1,8 +1,13 @@
 import {
   ELEMENT_LABELS,
+  EQUIPMENT_SLOTS,
+  EQUIPMENT_SLOT_LABELS,
   ITEM_MENTION_PATTERN,
   type CharacterState,
   type ClientMessage,
+  type EquipmentSlot,
+  type EquipmentSnapshot,
+  type InventoryItemInfo,
   type RoomSnapshot,
   type ServerMessage,
   type VillageInfo,
@@ -29,7 +34,9 @@ const CARDINAL_OFFSET: Record<'north' | 'south' | 'east' | 'west', { dx: number;
   west: { dx: -1, dy: 0 },
 };
 
-const MINIMAP_RADIUS = 2;
+const MINIMAP_COL_RADIUS = 2; // 5 columns wide
+const MINIMAP_ROW_START = -4;
+const MINIMAP_ROW_END = 5; // 10 rows tall
 
 export function renderGameScreen(
   container: HTMLElement,
@@ -49,7 +56,8 @@ export function renderGameScreen(
       <div class="terminal" id="terminal"></div>
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-stats" id="sidebar-stats"></div>
-        <div class="minimap" id="minimap"></div>
+        <div class="equipment-panel" id="equipment-panel"></div>
+        <button type="button" id="equip-swap-button" class="equip-swap-btn">장비 교체</button>
         <button type="button" id="logout-button" class="logout-btn">로그아웃</button>
       </aside>
       ${
@@ -75,6 +83,19 @@ export function renderGameScreen(
       </aside>`
           : ''
       }
+      <aside class="map-panel" id="map-panel">
+        <div class="map-panel-title">지도</div>
+        <div class="minimap" id="minimap"></div>
+      </aside>
+    </div>
+    <div class="modal-overlay" id="equip-modal" hidden>
+      <div class="modal-content">
+        <div class="modal-header">
+          <span>장비 교체</span>
+          <button type="button" id="equip-modal-close" class="modal-close-btn" aria-label="닫기">✕</button>
+        </div>
+        <div class="modal-body" id="equip-modal-body"></div>
+      </div>
     </div>
   `;
 
@@ -82,8 +103,11 @@ export function renderGameScreen(
   const combatPanel = container.querySelector<HTMLDivElement>('#combat-panel')!;
   const terminal = container.querySelector<HTMLDivElement>('#terminal')!;
   const sidebarStats = container.querySelector<HTMLDivElement>('#sidebar-stats')!;
+  const equipmentPanel = container.querySelector<HTMLDivElement>('#equipment-panel')!;
   const minimap = container.querySelector<HTMLDivElement>('#minimap')!;
   const commandInput = container.querySelector<HTMLInputElement>('#command')!;
+  const equipModal = container.querySelector<HTMLDivElement>('#equip-modal')!;
+  const equipModalBody = container.querySelector<HTMLDivElement>('#equip-modal-body')!;
 
   function appendItemMentions(target: HTMLElement, text: string): void {
     ITEM_MENTION_PATTERN.lastIndex = 0;
@@ -138,6 +162,75 @@ export function renderGameScreen(
       <div class="stat">속성 ${ELEMENT_LABELS[character.element]}</div>
       <div class="stat stat-room">${character.roomName}</div>
     `;
+  }
+
+  let equipmentState: EquipmentSnapshot = {};
+  let inventoryState: InventoryItemInfo[] = [];
+
+  function renderEquipmentPanel(): void {
+    equipmentPanel.innerHTML = EQUIPMENT_SLOTS.map((slot) => {
+      const equipped = equipmentState[slot];
+      return `
+        <div class="equipment-slot">
+          <span class="equipment-slot-label">${EQUIPMENT_SLOT_LABELS[slot]}</span>
+          <span class="equipment-slot-value">${equipped ? `<span class="item-grade-${equipped.grade}">${escapeHtml(equipped.name)}</span>` : '비어있음'}</span>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderEquipModal(): void {
+    equipModalBody.innerHTML = EQUIPMENT_SLOTS.map((slot) => {
+      const equipped = equipmentState[slot];
+      const options = inventoryState.filter((item) => item.slot === slot && !item.equipped);
+      return `
+        <div class="equip-modal-row">
+          <div class="equip-modal-slot-label">${EQUIPMENT_SLOT_LABELS[slot]}</div>
+          <div class="equip-modal-current">
+            ${equipped ? `<span class="item-grade-${equipped.grade}">${escapeHtml(equipped.name)}</span>` : '비어있음'}
+            ${equipped ? `<button type="button" class="equip-modal-unequip-btn" data-unequip-slot="${slot}">해제</button>` : ''}
+          </div>
+          <div class="equip-modal-options">
+            ${
+              options.length > 0
+                ? `<select data-slot-select="${slot}">
+                    ${options.map((item) => `<option value="${item.inventoryId}">${escapeHtml(item.name)}${item.quantity > 1 ? ` x${item.quantity}` : ''}</option>`).join('')}
+                  </select>
+                  <button type="button" class="equip-modal-equip-btn" data-equip-slot="${slot}">장착</button>`
+                : '<span class="equip-modal-empty">착용 가능한 아이템 없음</span>'
+            }
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    equipModalBody.querySelectorAll<HTMLButtonElement>('[data-equip-slot]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const slot = button.dataset.equipSlot!;
+        const select = equipModalBody.querySelector<HTMLSelectElement>(`[data-slot-select="${slot}"]`);
+        const inventoryId = Number(select?.value);
+        if (!inventoryId) return;
+        const message: ClientMessage = { type: 'equipItem', inventoryId };
+        socket.send(JSON.stringify(message));
+      });
+    });
+
+    equipModalBody.querySelectorAll<HTMLButtonElement>('[data-unequip-slot]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const slot = button.dataset.unequipSlot as EquipmentSlot;
+        const message: ClientMessage = { type: 'unequipItem', slot };
+        socket.send(JSON.stringify(message));
+      });
+    });
+  }
+
+  function openEquipModal(): void {
+    renderEquipModal();
+    equipModal.hidden = false;
+  }
+
+  function closeEquipModal(): void {
+    equipModal.hidden = true;
   }
 
   function raidStatusText(raidProtectedUntil: string | null): string {
@@ -235,8 +328,8 @@ export function renderGameScreen(
     const center = currentRoomId !== null ? roomCoord.get(currentRoomId) : undefined;
     if (!center) return;
 
-    for (let dy = -MINIMAP_RADIUS; dy <= MINIMAP_RADIUS; dy++) {
-      for (let dx = -MINIMAP_RADIUS; dx <= MINIMAP_RADIUS; dx++) {
+    for (let dy = MINIMAP_ROW_START; dy <= MINIMAP_ROW_END; dy++) {
+      for (let dx = -MINIMAP_COL_RADIUS; dx <= MINIMAP_COL_RADIUS; dx++) {
         const roomId = coordRoom.get(`${center.x + dx},${center.y + dy}`);
         const cell = document.createElement('span');
         cell.className = 'minimap-cell';
@@ -293,8 +386,17 @@ export function renderGameScreen(
       renderCombat(message.mobName, message.mobHp, message.mobMaxHp);
     } else if (message.type === 'combatEnd') {
       hideCombat();
+    } else if (message.type === 'equipment') {
+      equipmentState = message.slots;
+      renderEquipmentPanel();
+      if (!equipModal.hidden) renderEquipModal();
+    } else if (message.type === 'inventory') {
+      inventoryState = message.items;
+      if (!equipModal.hidden) renderEquipModal();
     }
   });
+
+  renderEquipmentPanel();
 
   const commandHistory: string[] = [];
   let historyIndex = 0;
@@ -368,5 +470,15 @@ export function renderGameScreen(
   logoutButton.addEventListener('click', () => {
     socket.close();
     onLogout();
+  });
+
+  const equipSwapButton = container.querySelector<HTMLButtonElement>('#equip-swap-button')!;
+  equipSwapButton.addEventListener('click', () => openEquipModal());
+
+  const equipModalCloseButton = container.querySelector<HTMLButtonElement>('#equip-modal-close')!;
+  equipModalCloseButton.addEventListener('click', () => closeEquipModal());
+
+  equipModal.addEventListener('click', (event) => {
+    if (event.target === equipModal) closeEquipModal();
   });
 }

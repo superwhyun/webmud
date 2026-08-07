@@ -6,6 +6,7 @@ export function toItemDto(row: ItemRow) {
     name: row.name,
     description: row.description,
     type: row.type,
+    slot: row.slot,
     level: row.level,
     grade: row.grade,
     strengthBonus: row.strength_bonus,

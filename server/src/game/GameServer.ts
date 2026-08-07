@@ -6,6 +6,7 @@ import { loadCharacter, toCharacterState } from './characterState.js';
 import { cleanupCombatForSession } from './combat/CombatManager.js';
 import { getEffectiveStats } from './combatStats.js';
 import { dispatchCommand } from './commands/index.js';
+import { handleEquipItemMessage, handleUnequipItemMessage, sendEquipmentAndInventory } from './commands/equipment.js';
 import { broadcastRoomSnapshot, sendRoomSnapshot } from './roomSnapshot.js';
 import { addSession, getSession, removeSession, type Session } from './sessionRegistry.js';
 import { send } from './wsUtil.js';
@@ -43,6 +44,7 @@ function handleAuth(ws: WebSocket, token: string): void {
   send(ws, { type: 'text', text: `다시 오신 것을 환영합니다, ${character.name}님.` });
   send(ws, { type: 'state', character: toCharacterState(character, getEffectiveStats(character)) });
   sendRoomSnapshot({ session, send: (message) => send(ws, message) });
+  sendEquipmentAndInventory({ session, send: (message) => send(ws, message) });
   broadcastRoomSnapshot(session.roomId);
 }
 
@@ -53,6 +55,12 @@ function handleCommand(ws: WebSocket, text: string): void {
     return;
   }
   dispatchCommand({ session, send: (message) => send(ws, message) }, text);
+}
+
+function requireSession(ws: WebSocket): ReturnType<typeof getSession> {
+  const session = getSession(ws);
+  if (!session) send(ws, { type: 'error', text: '인증이 필요합니다.' });
+  return session;
 }
 
 export function handleConnection(ws: WebSocket): void {
@@ -71,6 +79,12 @@ export function handleConnection(ws: WebSocket): void {
       handleAuth(ws, message.token);
     } else if (message.type === 'command') {
       handleCommand(ws, message.text);
+    } else if (message.type === 'equipItem') {
+      const session = requireSession(ws);
+      if (session) handleEquipItemMessage({ session, send: (m) => send(ws, m) }, message.inventoryId);
+    } else if (message.type === 'unequipItem') {
+      const session = requireSession(ws);
+      if (session) handleUnequipItemMessage({ session, send: (m) => send(ws, m) }, message.slot);
     }
   });
 

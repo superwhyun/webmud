@@ -4,6 +4,7 @@ import { loadCharacter, loadCharacterState } from '../characterState.js';
 import { broadcastRoomSnapshot } from '../roomSnapshot.js';
 import { broadcastToRoom } from '../sessionRegistry.js';
 import type { CommandContext } from './context.js';
+import { equipInventoryItem, sendEquipmentAndInventory } from './equipment.js';
 
 interface InventoryRow {
   id: number;
@@ -12,6 +13,7 @@ interface InventoryRow {
   equipped: number;
   name: string;
   type: string;
+  slot: string | null;
   level: number;
   grade: ItemGrade;
   heal_amount: number;
@@ -28,7 +30,7 @@ interface RoomItemRow {
 function findInventoryItem(characterId: number, nameQuery: string): InventoryRow | undefined {
   const rows = db
     .prepare(
-      `SELECT inv.id, inv.item_id, inv.quantity, inv.equipped, i.name, i.type, i.level, i.grade, i.heal_amount
+      `SELECT inv.id, inv.item_id, inv.quantity, inv.equipped, i.name, i.type, i.slot, i.level, i.grade, i.heal_amount
        FROM inventory_items inv
        JOIN items i ON i.id = inv.item_id
        WHERE inv.character_id = ?`,
@@ -95,6 +97,7 @@ export function handleGet(ctx: CommandContext, itemName: string): void {
     ctx.session.ws,
   );
   broadcastRoomSnapshot(ctx.session.roomId);
+  sendEquipmentAndInventory(ctx);
 }
 
 export function handleDrop(ctx: CommandContext, itemName: string): void {
@@ -140,6 +143,7 @@ export function handleDrop(ctx: CommandContext, itemName: string): void {
     ctx.session.ws,
   );
   broadcastRoomSnapshot(ctx.session.roomId);
+  sendEquipmentAndInventory(ctx);
 }
 
 export function handleInventory(ctx: CommandContext): void {
@@ -175,36 +179,17 @@ export function handleEquip(ctx: CommandContext, itemName: string): void {
     ctx.send({ type: 'text', text: '그런 아이템을 가지고 있지 않습니다.' });
     return;
   }
-  if (item.type !== 'weapon' && item.type !== 'armor') {
-    ctx.send({ type: 'text', text: '장착할 수 없는 아이템입니다.' });
-    return;
-  }
-  if (item.equipped) {
-    ctx.send({ type: 'text', text: '이미 장착 중입니다.' });
-    return;
-  }
 
-  const character = loadCharacter(ctx.session.characterId);
-  if (!character) return;
-
-  if (character.level < item.level) {
-    ctx.send({
-      type: 'text',
-      text: `레벨이 부족합니다. ${formatItemMention(item.name, item.grade)}은(는) 레벨 ${item.level}부터 장착할 수 있습니다.`,
-    });
+  const result = equipInventoryItem(ctx.session.characterId, item.id);
+  if (!result.ok) {
+    ctx.send({ type: 'text', text: result.reason });
     return;
   }
 
-  const equipTx = db.transaction(() => {
-    db.prepare(
-      `UPDATE inventory_items SET equipped = 0
-       WHERE character_id = ? AND equipped = 1 AND item_id IN (SELECT id FROM items WHERE type = ?)`,
-    ).run(ctx.session.characterId, item.type);
-    db.prepare('UPDATE inventory_items SET equipped = 1 WHERE id = ?').run(item.id);
-  });
-  equipTx();
-
-  ctx.send({ type: 'text', text: `${formatItemMention(item.name, item.grade)}을(를) 장착했습니다.` });
+  ctx.send({ type: 'text', text: `${result.itemName}을(를) 장착했습니다.` });
+  sendEquipmentAndInventory(ctx);
+  const state = loadCharacterState(ctx.session.characterId);
+  if (state) ctx.send({ type: 'state', character: state });
 }
 
 export function handleUse(ctx: CommandContext, itemName: string): void {
@@ -247,4 +232,5 @@ export function handleUse(ctx: CommandContext, itemName: string): void {
 
   const state = loadCharacterState(ctx.session.characterId);
   if (state) ctx.send({ type: 'state', character: state });
+  sendEquipmentAndInventory(ctx);
 }

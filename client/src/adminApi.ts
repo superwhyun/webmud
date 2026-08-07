@@ -1,4 +1,4 @@
-import type { ElementType, ItemGrade } from '@mud/shared';
+import type { ElementType, EquipmentSlot, ItemGrade } from '@mud/shared';
 import { apiRequest, authHeader } from './api';
 
 export interface AccountDto {
@@ -24,6 +24,7 @@ export interface ItemTemplateDto {
   name: string;
   description: string;
   type: string;
+  slot: EquipmentSlot | null;
   level: number;
   grade: ItemGrade;
   strengthBonus: number;
