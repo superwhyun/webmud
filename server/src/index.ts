@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import express from 'express';
 import { WebSocketServer } from 'ws';
 import { authRouter } from './auth/routes.js';
+import { builderRouter } from './builder/routes.js';
 import { handleConnection } from './game/GameServer.js';
 import { startVillageTick } from './game/village/villageTick.js';
 import { startWorldTick } from './game/worldTick.js';
@@ -12,6 +13,7 @@ const app = express();
 app.use(express.json());
 app.get('/health', (_req, res) => res.json({ ok: true }));
 app.use('/api', authRouter);
+app.use('/api/builder', builderRouter);
 
 const httpServer = createServer(app);
 const wss = new WebSocketServer({ server: httpServer, path: '/ws' });

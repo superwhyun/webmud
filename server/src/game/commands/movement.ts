@@ -1,7 +1,7 @@
+import { DIRECTION_LABELS, OPPOSITE_DIRECTION } from '@mud/shared';
 import { db } from '../../db/client.js';
 import { loadCharacterState } from '../characterState.js';
 import { isInCombat } from '../combat/CombatManager.js';
-import { DIRECTION_LABELS, OPPOSITE_DIRECTION } from '../directions.js';
 import { broadcastRoomSnapshot } from '../roomSnapshot.js';
 import { broadcastToRoom } from '../sessionRegistry.js';
 import { getRoom } from '../World.js';

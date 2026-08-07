@@ -1,8 +1,7 @@
 import type { WebSocket } from 'ws';
-import type { RoomSnapshot, VillageInfo } from '@mud/shared';
+import { DIRECTION_LABELS, type RoomSnapshot, type VillageInfo } from '@mud/shared';
 import { db } from '../db/client.js';
 import type { CommandContext } from './commands/context.js';
-import { DIRECTION_LABELS } from './directions.js';
 import { getMobsInRoom } from './MobManager.js';
 import { getSessionsInRoom } from './sessionRegistry.js';
 import { BUILDING_CATALOG, findVillageByRoomId, getVillagePlots } from './village/VillageService.js';

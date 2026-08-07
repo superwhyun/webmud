@@ -17,7 +17,7 @@ async function start(): Promise<void> {
   try {
     const me = await fetchMe(token);
     if (me.character) {
-      renderGameScreen(app, token);
+      renderGameScreen(app, token, me.isBuilder);
     } else {
       showCharacterCreate(token);
     }

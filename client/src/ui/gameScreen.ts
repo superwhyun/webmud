@@ -6,6 +6,7 @@ import {
   type ServerMessage,
   type VillageInfo,
 } from '@mud/shared';
+import { renderBuilderScreen } from './builderScreen';
 
 const CARDINAL_ALIASES: Record<string, 'north' | 'south' | 'east' | 'west'> = {
   n: 'north',
@@ -27,7 +28,7 @@ const CARDINAL_OFFSET: Record<'north' | 'south' | 'east' | 'west', { dx: number;
 
 const MINIMAP_RADIUS = 2;
 
-export function renderGameScreen(container: HTMLElement, token: string): void {
+export function renderGameScreen(container: HTMLElement, token: string, isBuilder = false): void {
   container.innerHTML = `
     <div class="room-panel" id="room-panel"></div>
     <div class="combat-panel" id="combat-panel" hidden></div>
@@ -35,6 +36,7 @@ export function renderGameScreen(container: HTMLElement, token: string): void {
       <div class="terminal" id="terminal"></div>
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-stats" id="sidebar-stats"></div>
+        ${isBuilder ? '<button type="button" id="builder-entry" class="builder-entry-btn">🛠 빌더</button>' : ''}
         <div class="minimap" id="minimap"></div>
       </aside>
     </div>
@@ -289,5 +291,11 @@ export function renderGameScreen(container: HTMLElement, token: string): void {
     const text = commandInput.value.trim();
     if (!text) return;
     sendCommand(text);
+  });
+
+  const builderEntryButton = container.querySelector<HTMLButtonElement>('#builder-entry');
+  builderEntryButton?.addEventListener('click', () => {
+    socket.close();
+    renderBuilderScreen(container, token, () => renderGameScreen(container, token, isBuilder));
   });
 }

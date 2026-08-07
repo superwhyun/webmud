@@ -93,7 +93,10 @@ authRouter.post('/login', async (req, res) => {
 
 authRouter.get('/me', requireAuth, (req: AuthedRequest, res) => {
   const character = findCharacterByAccountId(req.accountId!);
-  res.json({ username: req.username, character: character ?? null });
+  const account = db.prepare('SELECT is_builder FROM accounts WHERE id = ?').get(req.accountId) as
+    | { is_builder: number }
+    | undefined;
+  res.json({ username: req.username, character: character ?? null, isBuilder: Boolean(account?.is_builder) });
 });
 
 authRouter.post('/character', requireAuth, (req: AuthedRequest, res) => {

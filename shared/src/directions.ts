@@ -15,3 +15,5 @@ export const OPPOSITE_DIRECTION: Record<string, string> = {
   up: 'down',
   down: 'up',
 };
+
+export const DIRECTION_VALUES: string[] = Object.keys(DIRECTION_LABELS);

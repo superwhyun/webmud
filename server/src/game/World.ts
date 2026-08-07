@@ -52,4 +52,21 @@ export function unregisterRoom(roomId: number): void {
   rooms.delete(roomId);
 }
 
+export function updateRoom(id: number, patch: { name?: string; description?: string }): void {
+  const room = rooms.get(id);
+  if (!room) return;
+  if (patch.name !== undefined) room.name = patch.name;
+  if (patch.description !== undefined) room.description = patch.description;
+}
+
+export function addExit(roomId: number, direction: string, targetRoomId: number): void {
+  const room = rooms.get(roomId);
+  if (room) room.exits[direction] = targetRoomId;
+}
+
+export function removeExit(roomId: number, direction: string): void {
+  const room = rooms.get(roomId);
+  if (room) delete room.exits[direction];
+}
+
 loadWorld();

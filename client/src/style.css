@@ -392,6 +392,248 @@ body::after {
   font-size: 1rem;
 }
 
+.builder-entry-btn {
+  background: var(--color-surface);
+  border: 1px solid var(--color-accent);
+  color: var(--color-accent);
+  padding: 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  transition: box-shadow var(--transition-fast);
+}
+
+.builder-entry-btn:hover {
+  box-shadow: var(--glow-accent);
+}
+
+.builder-screen {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1rem;
+  gap: 0.75rem;
+}
+
+.builder-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.75rem 1rem;
+}
+
+.builder-title {
+  color: var(--color-accent);
+  font-weight: bold;
+  text-shadow: var(--glow-accent);
+  margin-right: auto;
+}
+
+.builder-toolbar button {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+}
+
+.builder-toolbar button:hover {
+  border-color: var(--color-accent);
+}
+
+.builder-body {
+  flex: 1;
+  display: flex;
+  gap: 0.75rem;
+  min-height: 0;
+}
+
+.builder-canvas-wrap {
+  flex: 1;
+  overflow: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+}
+
+.builder-canvas {
+  display: block;
+}
+
+.builder-node {
+  cursor: grab;
+}
+
+.builder-node-rect {
+  fill: var(--color-bg);
+  stroke: var(--color-border);
+  stroke-width: 1.5;
+}
+
+.builder-node-selected {
+  stroke: var(--color-accent);
+  filter: drop-shadow(0 0 4px rgba(77, 255, 136, 0.55));
+}
+
+.builder-node-label {
+  fill: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  pointer-events: none;
+}
+
+.builder-edge {
+  stroke: var(--color-text-dim);
+  stroke-width: 1.5;
+}
+
+.builder-edge-vertical {
+  stroke-dasharray: 4 3;
+}
+
+.builder-arrow-head {
+  fill: var(--color-text-dim);
+}
+
+.builder-panel {
+  width: 320px;
+  flex-shrink: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+.builder-panel h3 {
+  color: var(--color-accent);
+  margin-top: 0;
+}
+
+.builder-panel h4 {
+  color: var(--color-text-dim);
+  margin-bottom: 0.4rem;
+}
+
+.builder-panel-empty {
+  color: var(--color-text-dim);
+}
+
+.builder-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 0.75rem;
+}
+
+.builder-field label {
+  color: var(--color-text-dim);
+  font-size: 0.85rem;
+}
+
+.builder-field input,
+.builder-field textarea,
+.builder-exit-form select {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  padding: 0.5rem;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  resize: vertical;
+}
+
+.builder-field input:focus-visible,
+.builder-field textarea:focus-visible {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.builder-form-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.builder-form-row button {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  padding: 0.45rem 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+}
+
+.builder-form-row button:hover:not(:disabled) {
+  border-color: var(--color-accent);
+}
+
+.builder-form-row button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.builder-exit-list {
+  list-style: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.builder-exit-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--color-text-dim);
+  font-size: 0.9rem;
+}
+
+.builder-exit-empty {
+  color: var(--color-text-dim);
+  font-size: 0.9rem;
+}
+
+.builder-exit-delete {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-danger);
+  border-radius: 4px;
+  padding: 0.2rem 0.5rem;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.builder-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--color-text-dim);
+  font-size: 0.85rem;
+}
+
+.builder-error {
+  color: var(--color-danger);
+  min-height: 1.2em;
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+}
+
 @media (max-width: 768px) {
   #app {
     padding: 0.5rem;
