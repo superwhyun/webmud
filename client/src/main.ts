@@ -8,7 +8,7 @@ const TOKEN_KEY = 'mud_token';
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
 async function start(): Promise<void> {
-  const token = localStorage.getItem(TOKEN_KEY);
+  const token = sessionStorage.getItem(TOKEN_KEY);
   if (!token) {
     showLogin();
     return;
@@ -17,26 +17,31 @@ async function start(): Promise<void> {
   try {
     const me = await fetchMe(token);
     if (me.character) {
-      renderGameScreen(app, token, me.isBuilder, me.isAdmin);
+      renderGameScreen(app, token, me.isBuilder, me.isAdmin, logout);
     } else {
       showCharacterCreate(token);
     }
   } catch {
-    localStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(TOKEN_KEY);
     showLogin();
   }
+}
+
+function logout(): void {
+  sessionStorage.removeItem(TOKEN_KEY);
+  showLogin();
 }
 
 function showLogin(): void {
   renderLoginScreen(app, {
     onLogin: async (username, password) => {
       const { token } = await login(username, password);
-      localStorage.setItem(TOKEN_KEY, token);
+      sessionStorage.setItem(TOKEN_KEY, token);
       await start();
     },
     onRegister: async (username, password) => {
       const { token } = await register(username, password);
-      localStorage.setItem(TOKEN_KEY, token);
+      sessionStorage.setItem(TOKEN_KEY, token);
       await start();
     },
   });

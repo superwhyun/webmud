@@ -198,6 +198,37 @@ body::after {
   padding: 1rem;
 }
 
+.ops-menu {
+  width: 180px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 1rem;
+}
+
+.ops-menu-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.ops-menu-section:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.ops-menu-title {
+  color: var(--color-text-dim);
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
+}
+
 .stat {
   color: var(--color-text-dim);
 }
@@ -395,6 +426,23 @@ body::after {
   color: var(--color-text);
   font-family: var(--font-mono);
   font-size: 1rem;
+}
+
+.logout-btn {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-dim);
+  padding: 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.logout-btn:hover {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
 }
 
 .builder-entry-btn {
@@ -707,17 +755,32 @@ body::after {
   pointer-events: none;
 }
 
+.builder-edge-group {
+  cursor: pointer;
+}
+
+.builder-edge-hit {
+  stroke: transparent;
+  stroke-width: 14;
+}
+
 .builder-edge {
   stroke: var(--color-text-dim);
   stroke-width: 1.5;
+  pointer-events: none;
 }
 
-.builder-edge-vertical {
-  stroke-dasharray: 4 3;
+.builder-edge-blocked {
+  stroke: var(--color-danger);
+  stroke-dasharray: 5 4;
 }
 
 .builder-arrow-head {
   fill: var(--color-text-dim);
+}
+
+.builder-arrow-head-blocked {
+  fill: var(--color-danger);
 }
 
 .builder-panel {
@@ -742,6 +805,18 @@ body::after {
 
 .builder-panel-empty {
   color: var(--color-text-dim);
+}
+
+.builder-panel-hint {
+  color: var(--color-text-dim);
+  font-size: 0.85rem;
+  margin: 0 0 0.75rem;
+  line-height: 1.4;
+}
+
+.builder-toolbar-error {
+  color: var(--color-danger);
+  font-size: 0.85rem;
 }
 
 .builder-field {

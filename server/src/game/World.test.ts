@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { addExit, getRoom, removeExit, updateRoom } from './World.js';
+import { addExit, getRoom, removeExit, setExitBlocked, updateRoom } from './World.js';
 
 const TEST_ROOM_ID = 1;
 let originalName: string;
@@ -47,7 +47,7 @@ describe('updateRoom', () => {
 describe('addExit / removeExit', () => {
   it('adds a new direction to the in-memory room', () => {
     addExit(TEST_ROOM_ID, 'up', 2);
-    expect(getRoom(TEST_ROOM_ID)!.exits.up).toBe(2);
+    expect(getRoom(TEST_ROOM_ID)!.exits.up).toEqual({ targetRoomId: 2, blocked: false });
   });
 
   it('removes a direction from the in-memory room', () => {
@@ -59,5 +59,17 @@ describe('addExit / removeExit', () => {
   it('does nothing for an unknown room id', () => {
     expect(() => addExit(999999, 'up', 2)).not.toThrow();
     expect(() => removeExit(999999, 'up')).not.toThrow();
+  });
+});
+
+describe('setExitBlocked', () => {
+  it('toggles the blocked flag on an existing exit', () => {
+    addExit(TEST_ROOM_ID, 'up', 2);
+    setExitBlocked(TEST_ROOM_ID, 'up', true);
+    expect(getRoom(TEST_ROOM_ID)!.exits.up).toEqual({ targetRoomId: 2, blocked: true });
+  });
+
+  it('does nothing for a direction with no exit', () => {
+    expect(() => setExitBlocked(TEST_ROOM_ID, 'up', true)).not.toThrow();
   });
 });

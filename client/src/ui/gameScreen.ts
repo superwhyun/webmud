@@ -34,6 +34,7 @@ export function renderGameScreen(
   token: string,
   isBuilder = false,
   isAdmin = false,
+  onLogout: () => void = () => {},
 ): void {
   container.innerHTML = `
     <div class="room-panel" id="room-panel"></div>
@@ -46,10 +47,32 @@ export function renderGameScreen(
       <div class="terminal" id="terminal"></div>
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-stats" id="sidebar-stats"></div>
-        ${isBuilder ? '<button type="button" id="builder-entry" class="builder-entry-btn">🛠 빌더</button>' : ''}
-        ${isAdmin ? '<button type="button" id="admin-entry" class="admin-entry-btn">⚙ 어드민</button>' : ''}
         <div class="minimap" id="minimap"></div>
+        <button type="button" id="logout-button" class="logout-btn">로그아웃</button>
       </aside>
+      ${
+        isBuilder || isAdmin
+          ? `
+      <aside class="ops-menu" id="ops-menu">
+        ${
+          isBuilder
+            ? `<div class="ops-menu-section">
+                <div class="ops-menu-title">🛠 빌더 메뉴</div>
+                <button type="button" id="builder-entry" class="builder-entry-btn">맵 편집기 열기</button>
+              </div>`
+            : ''
+        }
+        ${
+          isAdmin
+            ? `<div class="ops-menu-section">
+                <div class="ops-menu-title">⚙ 어드민 메뉴</div>
+                <button type="button" id="admin-entry" class="admin-entry-btn">관리자 패널 열기</button>
+              </div>`
+            : ''
+        }
+      </aside>`
+          : ''
+      }
     </div>
   `;
 
@@ -128,7 +151,10 @@ export function renderGameScreen(
   }
 
   function renderRoom(room: RoomSnapshot): void {
-    const exitsText = room.exits.length > 0 ? room.exits.map((exit) => exit.label).join(', ') : '없음';
+    const exitsText =
+      room.exits.length > 0
+        ? room.exits.map((exit) => (exit.blocked ? `${exit.label} [막힘]` : exit.label)).join(', ')
+        : '없음';
     const mobsText =
       room.mobs.length > 0 ? room.mobs.map((mob) => `${mob.name} (${mob.hp}/${mob.maxHp})`).join(', ') : '-';
     const itemsText =
@@ -303,12 +329,18 @@ export function renderGameScreen(
   const builderEntryButton = container.querySelector<HTMLButtonElement>('#builder-entry');
   builderEntryButton?.addEventListener('click', () => {
     socket.close();
-    renderBuilderScreen(container, token, () => renderGameScreen(container, token, isBuilder, isAdmin));
+    renderBuilderScreen(container, token, () => renderGameScreen(container, token, isBuilder, isAdmin, onLogout));
   });
 
   const adminEntryButton = container.querySelector<HTMLButtonElement>('#admin-entry');
   adminEntryButton?.addEventListener('click', () => {
     socket.close();
-    renderAdminScreen(container, token, () => renderGameScreen(container, token, isBuilder, isAdmin));
+    renderAdminScreen(container, token, () => renderGameScreen(container, token, isBuilder, isAdmin, onLogout));
+  });
+
+  const logoutButton = container.querySelector<HTMLButtonElement>('#logout-button')!;
+  logoutButton.addEventListener('click', () => {
+    socket.close();
+    onLogout();
   });
 }

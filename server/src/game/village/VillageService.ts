@@ -118,7 +118,7 @@ export function foundVillage(
   });
   tx();
 
-  registerRoom({ id: roomId, name: roomName, description: roomDescription, exits: {} });
+  registerRoom({ id: roomId, name: roomName, description: roomDescription, x: 0, y: 0, exits: {} });
 
   return { success: true, village, roomId };
 }

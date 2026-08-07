@@ -1,11 +1,11 @@
-import { DIRECTION_LABELS, DIRECTION_VALUES } from '@mud/shared';
+import { DIRECTION_LABELS } from '@mud/shared';
 import {
+  type BuilderExitDto,
   type BuilderRoomDto,
-  createBuilderExit,
   createBuilderRoom,
-  deleteBuilderExit,
   deleteBuilderRoom,
   fetchBuilderRooms,
+  setExitBlocked,
   updateBuilderRoom,
 } from '../builderApi';
 import { escapeHtml } from '../domUtils';
@@ -15,78 +15,29 @@ const GRID_SPACING = 160;
 const NODE_WIDTH = 140;
 const NODE_HEIGHT = 56;
 const CANVAS_PADDING = 100;
-const POSITIONS_KEY = 'mud_builder_positions';
+const EDGE_OFFSET = 5;
+const EDGE_GAP = 6;
 
-const CARDINAL_OFFSET: Record<string, { dx: number; dy: number }> = {
+type CardinalDirection = 'north' | 'south' | 'east' | 'west';
+
+const CARDINAL_OFFSET: Record<CardinalDirection, { dx: number; dy: number }> = {
   north: { dx: 0, dy: -1 },
   south: { dx: 0, dy: 1 },
   east: { dx: 1, dy: 0 },
   west: { dx: -1, dy: 0 },
 };
+const CARDINAL_DIRECTIONS = Object.keys(CARDINAL_OFFSET) as CardinalDirection[];
 
 interface Point {
   x: number;
   y: number;
 }
 
-function loadSavedPositions(): Map<number, Point> {
-  try {
-    const raw = localStorage.getItem(POSITIONS_KEY);
-    const parsed = raw ? (JSON.parse(raw) as Record<string, Point>) : {};
-    return new Map(Object.entries(parsed).map(([id, pos]) => [Number(id), pos]));
-  } catch {
-    return new Map();
-  }
-}
-
-function persistPosition(positions: Map<number, Point>, roomId: number, pos: Point): void {
-  positions.set(roomId, pos);
-  const plain: Record<string, Point> = {};
-  for (const [id, p] of positions) plain[id] = p;
-  localStorage.setItem(POSITIONS_KEY, JSON.stringify(plain));
-}
-
-function computeLayout(rooms: BuilderRoomDto[], saved: Map<number, Point>): Map<number, Point> {
-  const positions = new Map(saved);
-  const roomsById = new Map(rooms.map((room) => [room.id, room]));
-
-  const queue = [...positions.keys()].filter((id) => roomsById.has(id));
-  if (queue.length === 0 && rooms.length > 0) {
-    positions.set(rooms[0].id, { x: 0, y: 0 });
-    queue.push(rooms[0].id);
-  }
-  const visited = new Set(queue);
-
-  while (queue.length > 0) {
-    const currentId = queue.shift()!;
-    const current = roomsById.get(currentId);
-    const currentPos = positions.get(currentId);
-    if (!current || !currentPos) continue;
-
-    for (const exit of current.exits) {
-      const offset = CARDINAL_OFFSET[exit.direction];
-      if (!offset || positions.has(exit.targetRoomId) || !roomsById.has(exit.targetRoomId)) continue;
-      positions.set(exit.targetRoomId, {
-        x: currentPos.x + offset.dx * GRID_SPACING,
-        y: currentPos.y + offset.dy * GRID_SPACING,
-      });
-      if (!visited.has(exit.targetRoomId)) {
-        visited.add(exit.targetRoomId);
-        queue.push(exit.targetRoomId);
-      }
-    }
-  }
-
-  const unplaced = rooms.filter((room) => !positions.has(room.id));
-  if (unplaced.length > 0) {
-    const ys = [...positions.values()].map((pos) => pos.y);
-    const rowY = (ys.length > 0 ? Math.max(...ys) : 0) + GRID_SPACING * 2;
-    unplaced.forEach((room, index) => {
-      positions.set(room.id, { x: index * GRID_SPACING, y: rowY });
-    });
-  }
-
-  return positions;
+interface EdgeEntry {
+  fromId: number;
+  toId: number;
+  direction: string;
+  blocked: boolean;
 }
 
 export function renderBuilderScreen(container: HTMLElement, token: string, onBack: () => void): void {
@@ -95,6 +46,7 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
       <div class="builder-toolbar">
         <span class="builder-title">빌더</span>
         <button type="button" id="builder-add-room">+ 방 추가</button>
+        <span class="builder-toolbar-error" id="builder-toolbar-error"></span>
         <button type="button" id="builder-back">게임으로 돌아가기</button>
       </div>
       <div class="builder-body">
@@ -112,14 +64,14 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
   const panel = container.querySelector<HTMLDivElement>('#builder-panel')!;
   const addRoomButton = container.querySelector<HTMLButtonElement>('#builder-add-room')!;
   const backButton = container.querySelector<HTMLButtonElement>('#builder-back')!;
+  const toolbarError = container.querySelector<HTMLSpanElement>('#builder-toolbar-error')!;
 
   let rooms: BuilderRoomDto[] = [];
-  const positions = loadSavedPositions();
   let selectedRoomId: number | null = null;
   let panelMode: 'create' | 'edit' | 'empty' = 'empty';
 
+  const livePositions = new Map<number, Point>();
   const nodeElements = new Map<number, SVGGElement>();
-  const edgeElements: { fromId: number; toId: number; line: SVGLineElement }[] = [];
   let dragState: { roomId: number; offsetX: number; offsetY: number; moved: boolean } | null = null;
 
   function toSvgPoint(clientX: number, clientY: number): Point {
@@ -136,24 +88,66 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
     return rooms.find((room) => room.id === id);
   }
 
-  function roomHasAnyExit(roomId: number): boolean {
-    if ((findRoom(roomId)?.exits.length ?? 0) > 0) return true;
-    return rooms.some((room) => room.exits.some((exit) => exit.targetRoomId === roomId));
+  function cellOccupant(x: number, y: number, excludeId?: number): BuilderRoomDto | undefined {
+    return rooms.find((room) => room.id !== excludeId && room.x === x && room.y === y);
+  }
+
+  function availableDirectionsFrom(room: BuilderRoomDto): CardinalDirection[] {
+    return CARDINAL_DIRECTIONS.filter((direction) => {
+      const offset = CARDINAL_OFFSET[direction];
+      return !cellOccupant(room.x + offset.dx, room.y + offset.dy);
+    });
+  }
+
+  function computeFreeCell(): Point {
+    if (rooms.length === 0) return { x: 0, y: 0 };
+    const maxY = Math.max(...rooms.map((room) => room.y));
+    const targetY = maxY + 2;
+    let x = 0;
+    while (cellOccupant(x, targetY)) x += 1;
+    return { x, y: targetY };
+  }
+
+  function showToolbarError(message: string): void {
+    toolbarError.textContent = message;
+    setTimeout(() => {
+      if (toolbarError.textContent === message) toolbarError.textContent = '';
+    }, 3000);
   }
 
   async function refresh(): Promise<void> {
     const result = await fetchBuilderRooms(token);
     rooms = result.rooms;
-    const layout = computeLayout(rooms, positions);
-    for (const [id, pos] of layout) positions.set(id, pos);
     renderCanvas();
     renderPanel();
+  }
+
+  function collectEdges(): EdgeEntry[] {
+    const edges: EdgeEntry[] = [];
+    for (const room of rooms) {
+      for (const exit of room.exits as BuilderExitDto[]) {
+        edges.push({ fromId: room.id, toId: exit.targetRoomId, direction: exit.direction, blocked: exit.blocked });
+      }
+    }
+    return edges;
+  }
+
+  function groupEdgesByPair(edges: EdgeEntry[]): Map<string, EdgeEntry[]> {
+    const groups = new Map<string, EdgeEntry[]>();
+    for (const edge of edges) {
+      const key = edge.fromId < edge.toId ? `${edge.fromId}:${edge.toId}` : `${edge.toId}:${edge.fromId}`;
+      const list = groups.get(key) ?? [];
+      list.push(edge);
+      groups.set(key, list);
+    }
+    return groups;
   }
 
   function renderCanvas(): void {
     svg.innerHTML = '';
     nodeElements.clear();
-    edgeElements.length = 0;
+    livePositions.clear();
+    for (const room of rooms) livePositions.set(room.id, { x: room.x * GRID_SPACING, y: room.y * GRID_SPACING });
 
     if (rooms.length === 0) {
       svg.setAttribute('width', '400');
@@ -167,8 +161,8 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
     marker.setAttribute('viewBox', '0 0 10 10');
     marker.setAttribute('refX', '9');
     marker.setAttribute('refY', '5');
-    marker.setAttribute('markerWidth', '6');
-    marker.setAttribute('markerHeight', '6');
+    marker.setAttribute('markerWidth', '9');
+    marker.setAttribute('markerHeight', '9');
     marker.setAttribute('orient', 'auto-start-reverse');
     const arrowPath = document.createElementNS(SVG_NS, 'path');
     arrowPath.setAttribute('d', 'M0,0 L10,5 L0,10 z');
@@ -177,8 +171,22 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
     defs.appendChild(marker);
     svg.appendChild(defs);
 
-    const xs = [...positions.values()].map((pos) => pos.x);
-    const ys = [...positions.values()].map((pos) => pos.y);
+    const marker2 = document.createElementNS(SVG_NS, 'marker');
+    marker2.setAttribute('id', 'builder-arrow-blocked');
+    marker2.setAttribute('viewBox', '0 0 10 10');
+    marker2.setAttribute('refX', '9');
+    marker2.setAttribute('refY', '5');
+    marker2.setAttribute('markerWidth', '9');
+    marker2.setAttribute('markerHeight', '9');
+    marker2.setAttribute('orient', 'auto-start-reverse');
+    const arrowPath2 = document.createElementNS(SVG_NS, 'path');
+    arrowPath2.setAttribute('d', 'M0,0 L10,5 L0,10 z');
+    arrowPath2.setAttribute('class', 'builder-arrow-head-blocked');
+    marker2.appendChild(arrowPath2);
+    defs.appendChild(marker2);
+
+    const xs = [...livePositions.values()].map((pos) => pos.x);
+    const ys = [...livePositions.values()].map((pos) => pos.y);
     const minX = Math.min(...xs) - NODE_WIDTH / 2 - CANVAS_PADDING;
     const minY = Math.min(...ys) - NODE_HEIGHT / 2 - CANVAS_PADDING;
     const maxX = Math.max(...xs) + NODE_WIDTH / 2 + CANVAS_PADDING;
@@ -193,22 +201,63 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
     const edgeLayer = document.createElementNS(SVG_NS, 'g');
     svg.appendChild(edgeLayer);
 
-    for (const room of rooms) {
-      const from = positions.get(room.id);
-      if (!from) continue;
-      for (const exit of room.exits) {
-        const to = positions.get(exit.targetRoomId);
-        if (!to) continue;
-        const isVertical = exit.direction === 'up' || exit.direction === 'down';
+    const groups = groupEdgesByPair(collectEdges());
+    for (const [, groupEdges] of groups) {
+      const offset = groupEdges.length > 1 ? EDGE_OFFSET : 0;
+      for (const edge of groupEdges) {
+        const from = livePositions.get(edge.fromId);
+        const to = livePositions.get(edge.toId);
+        if (!from || !to) continue;
+
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        const len = Math.hypot(dx, dy) || 1;
+        const nx = (-dy / len) * offset;
+        const ny = (dx / len) * offset;
+
+        // Grid connections are always axis-aligned, so trim each end back by half the node's
+        // size along that axis (plus a small gap) so the arrowhead lands in open space instead
+        // of being drawn underneath the (opaque) destination node rectangle.
+        const inset = dx !== 0 ? NODE_WIDTH / 2 + EDGE_GAP : NODE_HEIGHT / 2 + EDGE_GAP;
+        const ux = dx / len;
+        const uy = dy / len;
+        const lineFromX = from.x + nx + ux * inset;
+        const lineFromY = from.y + ny + uy * inset;
+        const lineToX = to.x + nx - ux * inset;
+        const lineToY = to.y + ny - uy * inset;
+
+        const g = document.createElementNS(SVG_NS, 'g');
+        g.setAttribute('class', 'builder-edge-group');
+        g.setAttribute('data-room-id', String(edge.fromId));
+        g.setAttribute('data-direction', edge.direction);
+
+        const hit = document.createElementNS(SVG_NS, 'line');
+        hit.setAttribute('x1', String(from.x + nx));
+        hit.setAttribute('y1', String(from.y + ny));
+        hit.setAttribute('x2', String(to.x + nx));
+        hit.setAttribute('y2', String(to.y + ny));
+        hit.setAttribute('class', 'builder-edge-hit');
+        g.appendChild(hit);
+
         const line = document.createElementNS(SVG_NS, 'line');
-        line.setAttribute('x1', String(from.x));
-        line.setAttribute('y1', String(from.y));
-        line.setAttribute('x2', String(to.x));
-        line.setAttribute('y2', String(to.y));
-        line.setAttribute('class', isVertical ? 'builder-edge builder-edge-vertical' : 'builder-edge');
-        line.setAttribute('marker-end', 'url(#builder-arrow)');
-        edgeLayer.appendChild(line);
-        edgeElements.push({ fromId: room.id, toId: exit.targetRoomId, line });
+        line.setAttribute('x1', String(lineFromX));
+        line.setAttribute('y1', String(lineFromY));
+        line.setAttribute('x2', String(lineToX));
+        line.setAttribute('y2', String(lineToY));
+        line.setAttribute('class', edge.blocked ? 'builder-edge builder-edge-blocked' : 'builder-edge');
+        line.setAttribute('marker-end', edge.blocked ? 'url(#builder-arrow-blocked)' : 'url(#builder-arrow)');
+        g.appendChild(line);
+
+        g.addEventListener('pointerdown', (event) => {
+          event.stopPropagation();
+          setExitBlocked(token, edge.fromId, edge.direction, !edge.blocked)
+            .then(() => refresh())
+            .catch((error: unknown) => {
+              showToolbarError(error instanceof Error ? error.message : '출구 상태 변경에 실패했습니다.');
+            });
+        });
+
+        edgeLayer.appendChild(g);
       }
     }
 
@@ -216,7 +265,7 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
     svg.appendChild(nodeLayer);
 
     for (const room of rooms) {
-      const pos = positions.get(room.id);
+      const pos = livePositions.get(room.id);
       if (!pos) continue;
 
       const group = document.createElementNS(SVG_NS, 'g');
@@ -247,7 +296,7 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
 
       group.addEventListener('pointerdown', (event: PointerEvent) => {
         event.stopPropagation();
-        const currentPos = positions.get(room.id)!;
+        const currentPos = livePositions.get(room.id)!;
         const svgPoint = toSvgPoint(event.clientX, event.clientY);
         dragState = { roomId: room.id, offsetX: svgPoint.x - currentPos.x, offsetY: svgPoint.y - currentPos.y, moved: false };
         group.setPointerCapture(event.pointerId);
@@ -258,18 +307,8 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
         const svgPoint = toSvgPoint(event.clientX, event.clientY);
         const nextPos = { x: svgPoint.x - dragState.offsetX, y: svgPoint.y - dragState.offsetY };
         dragState.moved = true;
-        positions.set(room.id, nextPos);
+        livePositions.set(room.id, nextPos);
         group.setAttribute('transform', `translate(${nextPos.x}, ${nextPos.y})`);
-        for (const edge of edgeElements) {
-          if (edge.fromId === room.id) {
-            edge.line.setAttribute('x1', String(nextPos.x));
-            edge.line.setAttribute('y1', String(nextPos.y));
-          }
-          if (edge.toId === room.id) {
-            edge.line.setAttribute('x2', String(nextPos.x));
-            edge.line.setAttribute('y2', String(nextPos.y));
-          }
-        }
       });
 
       group.addEventListener('pointerup', (event: PointerEvent) => {
@@ -277,14 +316,36 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
         const wasMoved = dragState.moved;
         group.releasePointerCapture(event.pointerId);
         dragState = null;
-        if (wasMoved) {
-          persistPosition(positions, room.id, positions.get(room.id)!);
-        } else {
+
+        if (!wasMoved) {
           selectedRoomId = room.id;
           panelMode = 'edit';
           renderCanvas();
           renderPanel();
+          return;
         }
+
+        const livePos = livePositions.get(room.id)!;
+        const gridX = Math.round(livePos.x / GRID_SPACING);
+        const gridY = Math.round(livePos.y / GRID_SPACING);
+
+        if (gridX === room.x && gridY === room.y) {
+          renderCanvas();
+          return;
+        }
+
+        if (cellOccupant(gridX, gridY, room.id)) {
+          showToolbarError('이미 그 위치에 방이 있습니다.');
+          renderCanvas();
+          return;
+        }
+
+        updateBuilderRoom(token, room.id, { x: gridX, y: gridY })
+          .then(() => refresh())
+          .catch((error: unknown) => {
+            showToolbarError(error instanceof Error ? error.message : '이동에 실패했습니다.');
+            renderCanvas();
+          });
       });
 
       nodeLayer.appendChild(group);
@@ -298,8 +359,29 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
 
   function renderPanel(): void {
     if (panelMode === 'create') {
+      const anchor = selectedRoomId !== null ? findRoom(selectedRoomId) : undefined;
+      const directions = anchor ? availableDirectionsFrom(anchor) : [];
+      const willLink = Boolean(anchor && directions.length > 0);
+
+      const hint = willLink
+        ? `<p class="builder-panel-hint">"${escapeHtml(anchor!.name)}"에 연결된 새 방을 만듭니다.</p>`
+        : anchor
+          ? `<p class="builder-panel-hint">"${escapeHtml(anchor.name)}" 주변에 빈 칸이 없어 독립된 위치에 만듭니다.</p>`
+          : `<p class="builder-panel-hint">방을 선택하지 않아 독립된 위치에 만듭니다.</p>`;
+
       panel.innerHTML = `
         <h3>새 방</h3>
+        ${hint}
+        ${
+          willLink
+            ? fieldRow(
+                '방향',
+                `<select id="builder-new-direction">${directions
+                  .map((direction) => `<option value="${direction}">${DIRECTION_LABELS[direction]}</option>`)
+                  .join('')}</select>`,
+              )
+            : ''
+        }
         ${fieldRow('이름', '<input id="builder-new-name" type="text" maxlength="50" />')}
         ${fieldRow('설명', '<textarea id="builder-new-desc" maxlength="500" rows="4"></textarea>')}
         <p class="builder-error" id="builder-create-error"></p>
@@ -320,9 +402,20 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
           errorEl.textContent = '이름과 설명을 모두 입력하세요.';
           return;
         }
-        createBuilderRoom(token, name, description)
-          .then(() => {
-            panelMode = 'empty';
+
+        let target: Point;
+        if (willLink) {
+          const direction = panel.querySelector<HTMLSelectElement>('#builder-new-direction')!.value as CardinalDirection;
+          const offset = CARDINAL_OFFSET[direction];
+          target = { x: anchor!.x + offset.dx, y: anchor!.y + offset.dy };
+        } else {
+          target = computeFreeCell();
+        }
+
+        createBuilderRoom(token, name, description, target.x, target.y)
+          .then((result) => {
+            selectedRoomId = result.room.id;
+            panelMode = 'edit';
             return refresh();
           })
           .catch((error: unknown) => {
@@ -340,28 +433,7 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
         return;
       }
 
-      const usedDirections = new Set(room.exits.map((exit) => exit.direction));
-      const availableDirections = DIRECTION_VALUES.filter((direction) => !usedDirections.has(direction));
-      const directionOptions = availableDirections
-        .map((direction) => `<option value="${direction}">${DIRECTION_LABELS[direction]}</option>`)
-        .join('');
-      const targetOptions = rooms
-        .filter((candidate) => candidate.id !== room.id)
-        .map((candidate) => `<option value="${candidate.id}">${escapeHtml(candidate.name)}</option>`)
-        .join('');
-
-      const exitItems = room.exits
-        .map(
-          (exit) => `
-            <li class="builder-exit-item" data-direction="${exit.direction}">
-              <span>${DIRECTION_LABELS[exit.direction] ?? exit.direction} → ${escapeHtml(findRoom(exit.targetRoomId)?.name ?? '?')}</span>
-              <button type="button" class="builder-exit-delete" data-direction="${exit.direction}">삭제</button>
-            </li>
-          `,
-        )
-        .join('');
-
-      const blocked = roomHasAnyExit(room.id);
+      const hasNeighbor = room.exits.length > 0;
 
       panel.innerHTML = `
         <h3>방 편집</h3>
@@ -373,23 +445,10 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
         </div>
 
         <h4>출구</h4>
-        <ul class="builder-exit-list">${exitItems || '<li class="builder-exit-empty">없음</li>'}</ul>
-
-        ${
-          availableDirections.length > 0 && targetOptions
-            ? `
-        <div class="builder-form-row builder-exit-form">
-          <select id="builder-exit-direction">${directionOptions}</select>
-          <select id="builder-exit-target">${targetOptions}</select>
-          <label class="builder-checkbox"><input type="checkbox" id="builder-exit-bidirectional" checked /> 양방향</label>
-          <button type="button" id="builder-exit-add">출구 추가</button>
-        </div>
-        `
-            : ''
-        }
+        <p class="builder-panel-hint">출구는 지도에서 방을 드래그해 인접시키거나 떨어뜨려서 관리합니다. 화살표를 클릭하면 해당 방향을 막거나 열 수 있습니다.</p>
 
         <div class="builder-form-row">
-          <button type="button" id="builder-room-delete" ${blocked ? 'disabled title="연결된 출구가 있어 삭제할 수 없습니다."' : ''}>방 삭제</button>
+          <button type="button" id="builder-room-delete" ${hasNeighbor ? 'disabled title="인접한 방이 있어 삭제할 수 없습니다. 먼저 드래그로 떨어뜨리세요."' : ''}>방 삭제</button>
         </div>
       `;
 
@@ -409,29 +468,6 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
           .then(() => refresh())
           .catch((error: unknown) => {
             errorEl.textContent = error instanceof Error ? error.message : '수정에 실패했습니다.';
-          });
-      });
-
-      panel.querySelectorAll<HTMLButtonElement>('.builder-exit-delete').forEach((button) => {
-        button.addEventListener('click', () => {
-          const direction = button.dataset.direction!;
-          deleteBuilderExit(token, room.id, direction, true)
-            .then(() => refresh())
-            .catch((error: unknown) => {
-              errorEl.textContent = error instanceof Error ? error.message : '출구 삭제에 실패했습니다.';
-            });
-        });
-      });
-
-      const addExitButton = panel.querySelector<HTMLButtonElement>('#builder-exit-add');
-      addExitButton?.addEventListener('click', () => {
-        const direction = panel.querySelector<HTMLSelectElement>('#builder-exit-direction')!.value;
-        const targetRoomId = Number(panel.querySelector<HTMLSelectElement>('#builder-exit-target')!.value);
-        const bidirectional = panel.querySelector<HTMLInputElement>('#builder-exit-bidirectional')!.checked;
-        createBuilderExit(token, room.id, direction, targetRoomId, bidirectional)
-          .then(() => refresh())
-          .catch((error: unknown) => {
-            errorEl.textContent = error instanceof Error ? error.message : '출구 추가에 실패했습니다.';
           });
       });
 
@@ -460,7 +496,6 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
   });
 
   addRoomButton.addEventListener('click', () => {
-    selectedRoomId = null;
     panelMode = 'create';
     renderPanel();
   });

@@ -18,6 +18,7 @@ export interface CharacterState {
 export interface RoomExitInfo {
   direction: string;
   label: string;
+  blocked: boolean;
 }
 
 export interface RoomItemInfo {

@@ -33,12 +33,19 @@ export function handleMove(ctx: CommandContext, direction: string): void {
   }
 
   const room = getRoom(ctx.session.roomId);
-  const targetRoomId = room?.exits[direction];
+  const exit = room?.exits[direction];
 
-  if (!room || targetRoomId === undefined || !getRoom(targetRoomId)) {
+  if (!room || !exit || !getRoom(exit.targetRoomId)) {
     ctx.send({ type: 'text', text: '그 방향으로는 갈 수 없습니다.' });
     return;
   }
+
+  if (exit.blocked) {
+    ctx.send({ type: 'text', text: '그 방향은 막혀 있습니다.' });
+    return;
+  }
+
+  const targetRoomId = exit.targetRoomId;
 
   const oldRoomId = room.id;
 

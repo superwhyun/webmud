@@ -11,13 +11,16 @@ CREATE TABLE IF NOT EXISTS accounts (
 CREATE TABLE IF NOT EXISTS rooms (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
-  description TEXT NOT NULL
+  description TEXT NOT NULL,
+  x INTEGER NOT NULL DEFAULT 0,
+  y INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS room_exits (
   room_id INTEGER NOT NULL REFERENCES rooms(id),
   direction TEXT NOT NULL,
   target_room_id INTEGER NOT NULL REFERENCES rooms(id),
+  blocked INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (room_id, direction)
 );
 

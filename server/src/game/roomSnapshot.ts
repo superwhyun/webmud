@@ -45,9 +45,10 @@ export function buildRoomSnapshot(roomId: number, viewerWs?: WebSocket): RoomSna
   const room = getRoom(roomId);
   if (!room) return undefined;
 
-  const exits = Object.keys(room.exits).map((direction) => ({
+  const exits = Object.entries(room.exits).map(([direction, exit]) => ({
     direction,
     label: DIRECTION_LABELS[direction] ?? direction,
+    blocked: exit.blocked,
   }));
 
   const items = db
