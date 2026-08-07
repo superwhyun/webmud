@@ -172,6 +172,11 @@ body::after {
   color: var(--color-danger);
 }
 
+.line-admin {
+  color: var(--color-accent);
+  font-weight: bold;
+}
+
 .terminal::-webkit-scrollbar {
   width: 8px;
 }
@@ -406,6 +411,218 @@ body::after {
 
 .builder-entry-btn:hover {
   box-shadow: var(--glow-accent);
+}
+
+.admin-entry-btn {
+  background: var(--color-surface);
+  border: 1px solid var(--color-warning);
+  color: var(--color-warning);
+  padding: 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  transition: box-shadow var(--transition-fast);
+}
+
+.admin-entry-btn:hover {
+  box-shadow: 0 0 8px rgba(242, 201, 76, 0.45);
+}
+
+.admin-screen {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1rem;
+  gap: 0.75rem;
+  overflow-y: auto;
+}
+
+.admin-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.75rem 1rem;
+  flex-shrink: 0;
+}
+
+.admin-title {
+  color: var(--color-warning);
+  font-weight: bold;
+  margin-right: auto;
+}
+
+.admin-toolbar button {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+}
+
+.admin-toolbar button:hover {
+  border-color: var(--color-accent);
+}
+
+.admin-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow-y: auto;
+}
+
+.admin-section {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 1rem;
+}
+
+.admin-section h3 {
+  color: var(--color-accent);
+  margin-top: 0;
+}
+
+.admin-section h4 {
+  color: var(--color-text-dim);
+  margin-bottom: 0.4rem;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.admin-table th,
+.admin-table td {
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+
+.admin-table th {
+  color: var(--color-text-dim);
+  font-weight: normal;
+}
+
+.admin-session-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-size: 0.9rem;
+}
+
+.admin-list {
+  list-style: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.admin-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--color-text-dim);
+  font-size: 0.9rem;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 0.3rem;
+}
+
+.admin-panel-empty {
+  color: var(--color-text-dim);
+  font-size: 0.9rem;
+}
+
+.admin-form-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.admin-form-row input,
+.admin-form-row select {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  padding: 0.4rem 0.5rem;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+}
+
+.admin-form-row input[type='number'] {
+  width: 80px;
+}
+
+.admin-form-row button,
+.admin-toolbar button {
+  font-family: var(--font-mono);
+}
+
+.admin-form-row button {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  padding: 0.4rem 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.admin-form-row button:hover {
+  border-color: var(--color-accent);
+}
+
+.admin-remove-btn {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-danger);
+  border-radius: 4px;
+  padding: 0.2rem 0.5rem;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.admin-move-btn,
+.admin-kick-btn {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.admin-kick-btn {
+  color: var(--color-danger);
+}
+
+.admin-error {
+  color: var(--color-danger);
+  min-height: 1.2em;
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
 }
 
 .builder-screen {

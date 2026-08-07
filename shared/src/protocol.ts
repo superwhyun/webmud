@@ -65,7 +65,7 @@ export type ClientMessage =
   | { type: 'auth'; token: string }
   | { type: 'command'; text: string };
 
-export type ChatChannel = 'say' | 'shout';
+export type ChatChannel = 'say' | 'shout' | 'admin';
 
 export type ServerMessage =
   | { type: 'text'; text: string; channel?: ChatChannel }

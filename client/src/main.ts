@@ -17,7 +17,7 @@ async function start(): Promise<void> {
   try {
     const me = await fetchMe(token);
     if (me.character) {
-      renderGameScreen(app, token, me.isBuilder);
+      renderGameScreen(app, token, me.isBuilder, me.isAdmin);
     } else {
       showCharacterCreate(token);
     }
@@ -46,7 +46,7 @@ function showCharacterCreate(token: string): void {
   renderCharacterCreateScreen(app, {
     onCreate: async (name, element) => {
       await createCharacter(token, name, element);
-      renderGameScreen(app, token);
+      await start();
     },
   });
 }

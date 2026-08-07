@@ -197,6 +197,33 @@ export function spawnGarrisonMob(
   return instance;
 }
 
+/** Registers a newly created mob spawn without reloading (and resetting) the rest of the world's mobs. */
+export function registerMobSpawn(
+  spawnId: number,
+  roomId: number,
+  template: MobTemplateRow,
+  respawnSeconds: number,
+): MobInstance {
+  const instance = toMobInstance({
+    spawnId,
+    templateId: template.id,
+    roomId,
+    name: template.name,
+    hp: template.hp,
+    strength: template.strength,
+    dexterity: template.dexterity,
+    physicalDefense: template.physical_defense,
+    magicDefense: template.magic_defense,
+    element: template.element,
+    damageType: template.damage_type,
+    expReward: template.exp_reward,
+    goldReward: template.gold_reward,
+    respawnSeconds,
+  });
+  mobs.set(spawnId, instance);
+  return instance;
+}
+
 /** Removes a mob instance entirely (e.g. a fired garrison guard). Unlike killMob, it never respawns. */
 export function despawnMob(spawnId: number): void {
   mobs.delete(spawnId);

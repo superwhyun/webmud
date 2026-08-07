@@ -32,6 +32,10 @@ export function getAllSessions(): Session[] {
   return [...sessions.values()];
 }
 
+export function getSessionByCharacterName(characterName: string): Session | undefined {
+  return [...sessions.values()].find((session) => session.characterName === characterName);
+}
+
 export function broadcastToRoom(roomId: number, message: ServerMessage, excludeWs?: WebSocket): void {
   for (const session of getSessionsInRoom(roomId)) {
     if (session.ws === excludeWs) continue;

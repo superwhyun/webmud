@@ -6,6 +6,7 @@ import {
   type ServerMessage,
   type VillageInfo,
 } from '@mud/shared';
+import { renderAdminScreen } from './adminScreen';
 import { renderBuilderScreen } from './builderScreen';
 
 const CARDINAL_ALIASES: Record<string, 'north' | 'south' | 'east' | 'west'> = {
@@ -28,21 +29,27 @@ const CARDINAL_OFFSET: Record<'north' | 'south' | 'east' | 'west', { dx: number;
 
 const MINIMAP_RADIUS = 2;
 
-export function renderGameScreen(container: HTMLElement, token: string, isBuilder = false): void {
+export function renderGameScreen(
+  container: HTMLElement,
+  token: string,
+  isBuilder = false,
+  isAdmin = false,
+): void {
   container.innerHTML = `
     <div class="room-panel" id="room-panel"></div>
+    <div class="command-input">
+      <span class="prompt">&gt;</span>
+      <input id="command" type="text" autocomplete="off" autofocus aria-label="명령어 입력" />
+    </div>
     <div class="combat-panel" id="combat-panel" hidden></div>
     <div class="game-layout">
       <div class="terminal" id="terminal"></div>
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-stats" id="sidebar-stats"></div>
         ${isBuilder ? '<button type="button" id="builder-entry" class="builder-entry-btn">🛠 빌더</button>' : ''}
+        ${isAdmin ? '<button type="button" id="admin-entry" class="admin-entry-btn">⚙ 어드민</button>' : ''}
         <div class="minimap" id="minimap"></div>
       </aside>
-    </div>
-    <div class="command-input">
-      <span class="prompt">&gt;</span>
-      <input id="command" type="text" autocomplete="off" autofocus aria-label="명령어 입력" />
     </div>
   `;
 
@@ -296,6 +303,12 @@ export function renderGameScreen(container: HTMLElement, token: string, isBuilde
   const builderEntryButton = container.querySelector<HTMLButtonElement>('#builder-entry');
   builderEntryButton?.addEventListener('click', () => {
     socket.close();
-    renderBuilderScreen(container, token, () => renderGameScreen(container, token, isBuilder));
+    renderBuilderScreen(container, token, () => renderGameScreen(container, token, isBuilder, isAdmin));
+  });
+
+  const adminEntryButton = container.querySelector<HTMLButtonElement>('#admin-entry');
+  adminEntryButton?.addEventListener('click', () => {
+    socket.close();
+    renderAdminScreen(container, token, () => renderGameScreen(container, token, isBuilder, isAdmin));
   });
 }

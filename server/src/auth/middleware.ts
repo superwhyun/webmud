@@ -34,3 +34,16 @@ export function requireBuilder(req: AuthedRequest, res: Response, next: NextFunc
 
   next();
 }
+
+export function requireAdmin(req: AuthedRequest, res: Response, next: NextFunction): void {
+  const account = db.prepare('SELECT is_admin FROM accounts WHERE id = ?').get(req.accountId) as
+    | { is_admin: number }
+    | undefined;
+
+  if (!account?.is_admin) {
+    res.status(403).json({ error: '어드민 권한이 없습니다.' });
+    return;
+  }
+
+  next();
+}

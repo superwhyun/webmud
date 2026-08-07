@@ -8,6 +8,7 @@ import {
   fetchBuilderRooms,
   updateBuilderRoom,
 } from '../builderApi';
+import { escapeHtml } from '../domUtils';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const GRID_SPACING = 160;
@@ -26,12 +27,6 @@ const CARDINAL_OFFSET: Record<string, { dx: number; dy: number }> = {
 interface Point {
   x: number;
   y: number;
-}
-
-function escapeHtml(text: string): string {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
 }
 
 function loadSavedPositions(): Map<number, Point> {

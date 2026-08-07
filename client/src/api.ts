@@ -21,6 +21,7 @@ export interface MeResponse {
   username: string;
   character: CharacterDto | null;
   isBuilder: boolean;
+  isAdmin: boolean;
 }
 
 interface ErrorResponse {
