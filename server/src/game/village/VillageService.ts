@@ -1,5 +1,5 @@
 import { db } from '../../db/client.js';
-import type { BuildingType, VillagePlotRow, VillageRow } from '../../db/types.js';
+import type { BuildingType, VillageMemberRow, VillagePlotRow, VillageRow } from '../../db/types.js';
 import { registerRoom } from '../World.js';
 
 export const FOUND_COST_GOLD = 100;
@@ -212,4 +212,92 @@ export function buildOnPlot(village: VillageRow, plotIndex: number, buildingType
   tx();
 
   return { success: true, building: definition };
+}
+
+export interface JoinResult {
+  success: boolean;
+  error?: string;
+  village?: VillageRow;
+}
+
+export function joinVillage(characterId: number, roomId: number): JoinResult {
+  const village = findVillageByRoomId(roomId);
+  if (!village) {
+    return { success: false, error: '이곳은 마을이 아닙니다.' };
+  }
+  if (findVillageByCharacterMembership(characterId)) {
+    return { success: false, error: '이미 소속된 마을이 있습니다. 먼저 village quit으로 탈퇴하세요.' };
+  }
+
+  db.prepare('INSERT INTO village_members (village_id, character_id, role) VALUES (?, ?, ?)').run(
+    village.id,
+    characterId,
+    'member',
+  );
+
+  return { success: true, village };
+}
+
+export interface QuitResult {
+  success: boolean;
+  error?: string;
+  village?: VillageRow;
+}
+
+export function quitVillage(characterId: number): QuitResult {
+  const village = findVillageByCharacterMembership(characterId);
+  if (!village) {
+    return { success: false, error: '소속된 마을이 없습니다.' };
+  }
+  if (village.lord_character_id === characterId) {
+    return { success: false, error: '영주는 마을을 탈퇴할 수 없습니다.' };
+  }
+
+  db.prepare('DELETE FROM village_members WHERE character_id = ?').run(characterId);
+
+  return { success: true, village };
+}
+
+export interface VillageMemberWithName extends VillageMemberRow {
+  character_name: string;
+}
+
+export function getVillageMembers(villageId: number): VillageMemberWithName[] {
+  return db
+    .prepare(
+      `SELECT vm.*, c.name as character_name FROM village_members vm
+       JOIN characters c ON c.id = vm.character_id
+       WHERE vm.village_id = ?
+       ORDER BY (vm.role = 'lord') DESC, vm.joined_at ASC`,
+    )
+    .all(villageId) as VillageMemberWithName[];
+}
+
+export function splitTithe(
+  totalAmount: number,
+  tithePercent: number,
+): { personalAmount: number; titheAmount: number } {
+  const titheAmount = Math.floor((totalAmount * tithePercent) / 100);
+  return { personalAmount: totalAmount - titheAmount, titheAmount };
+}
+
+export interface GoldEarningsResult {
+  personalAmount: number;
+  titheAmount: number;
+  village?: VillageRow;
+}
+
+/** Credits gold earned by a character, redirecting a tithe cut to their village's treasury if they're a member. */
+export function applyGoldEarnings(characterId: number, totalAmount: number): GoldEarningsResult {
+  const village = findVillageByCharacterMembership(characterId);
+  if (!village) {
+    return { personalAmount: totalAmount, titheAmount: 0 };
+  }
+
+  const { personalAmount, titheAmount } = splitTithe(totalAmount, village.tithe_percent);
+  if (titheAmount > 0) {
+    db.prepare('UPDATE villages SET gold = gold + ? WHERE id = ?').run(titheAmount, village.id);
+  }
+
+  return { personalAmount, titheAmount, village };
 }

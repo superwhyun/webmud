@@ -12,7 +12,10 @@ import {
   findVillageByName,
   findVillageByRoomId,
   foundVillage,
+  getVillageMembers,
+  joinVillage,
   listVillages,
+  quitVillage,
 } from '../village/VillageService.js';
 import type { CommandContext } from './context.js';
 
@@ -155,6 +158,45 @@ function handleDeposit(ctx: CommandContext, rest: string): void {
   broadcastRoomSnapshot(ctx.session.roomId);
 }
 
+function handleJoin(ctx: CommandContext): void {
+  const result = joinVillage(ctx.session.characterId, ctx.session.roomId);
+  if (!result.success || !result.village) {
+    ctx.send({ type: 'text', text: result.error ?? '가입할 수 없습니다.' });
+    return;
+  }
+
+  ctx.send({
+    type: 'text',
+    text: `${result.village.name} 마을에 가입했습니다. 이제 전투로 얻는 gold의 ${result.village.tithe_percent}%가 마을에 자동으로 상납됩니다.`,
+  });
+  broadcastRoomSnapshot(ctx.session.roomId);
+}
+
+function handleQuit(ctx: CommandContext): void {
+  const result = quitVillage(ctx.session.characterId);
+  if (!result.success || !result.village) {
+    ctx.send({ type: 'text', text: result.error ?? '탈퇴할 수 없습니다.' });
+    return;
+  }
+
+  ctx.send({ type: 'text', text: `${result.village.name} 마을에서 탈퇴했습니다.` });
+  broadcastRoomSnapshot(result.village.room_id);
+}
+
+function handleMembers(ctx: CommandContext): void {
+  const village = findVillageByCharacterMembership(ctx.session.characterId);
+  if (!village) {
+    ctx.send({ type: 'text', text: '소속된 마을이 없습니다.' });
+    return;
+  }
+
+  const members = getVillageMembers(village.id);
+  const lines = members.map(
+    (member) => `${member.character_name}${member.role === 'lord' ? ' (영주)' : ''}`,
+  );
+  ctx.send({ type: 'text', text: `${village.name} 마을원 (${members.length}명):\n${lines.join('\n')}` });
+}
+
 export function handleVillage(ctx: CommandContext, rest: string): void {
   const trimmed = rest.trim();
   const spaceIndex = trimmed.indexOf(' ');
@@ -181,10 +223,19 @@ export function handleVillage(ctx: CommandContext, rest: string): void {
     case 'deposit':
       handleDeposit(ctx, subRest);
       return;
+    case 'join':
+      handleJoin(ctx);
+      return;
+    case 'quit':
+      handleQuit(ctx);
+      return;
+    case 'members':
+      handleMembers(ctx);
+      return;
     default:
       ctx.send({
         type: 'text',
-        text: '사용법: village found <이름> | village list | village deposit <금액> | village land buy | village build <칸번호> <종류>',
+        text: '사용법: village found <이름> | village list | village join | village quit | village members | village deposit <금액> | village land buy | village build <칸번호> <종류>',
       });
   }
 }

@@ -58,3 +58,13 @@ export interface VillagePlotRow {
   plot_index: number;
   building_type: BuildingType | null;
 }
+
+export type VillageMemberRole = 'lord' | 'member';
+
+export interface VillageMemberRow {
+  id: number;
+  village_id: number;
+  character_id: number;
+  role: VillageMemberRole;
+  joined_at: string;
+}

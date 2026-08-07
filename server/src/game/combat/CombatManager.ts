@@ -8,6 +8,7 @@ import type { CommandContext } from '../commands/context.js';
 import { killMob, type DamageType, type MobInstance } from '../MobManager.js';
 import { broadcastRoomSnapshot } from '../roomSnapshot.js';
 import { broadcastToRoom } from '../sessionRegistry.js';
+import { applyGoldEarnings } from '../village/VillageService.js';
 import { getRoom } from '../World.js';
 
 const COMBAT_TICK_MS = 2000;
@@ -177,11 +178,20 @@ function handleMobDefeat(ctx: CommandContext, mob: MobInstance, characterId: num
     ctx.session.ws,
   );
 
+  const earnings = applyGoldEarnings(characterId, mob.goldReward);
   db.prepare('UPDATE characters SET exp = exp + ?, gold = gold + ? WHERE id = ?').run(
     mob.expReward,
-    mob.goldReward,
+    earnings.personalAmount,
     characterId,
   );
+
+  if (earnings.titheAmount > 0 && earnings.village) {
+    ctx.send({
+      type: 'text',
+      text: `${earnings.village.name} 마을에 gold ${earnings.titheAmount}을(를) 상납했습니다.`,
+    });
+    broadcastRoomSnapshot(earnings.village.room_id);
+  }
 
   killMob(mob);
   broadcastRoomSnapshot(ctx.session.roomId);
