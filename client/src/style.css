@@ -135,6 +135,23 @@ body::after {
   line-height: 1.5;
 }
 
+.line-say {
+  color: var(--color-text);
+}
+
+.line-shout {
+  color: var(--color-warning);
+  font-weight: bold;
+}
+
+.line-echo {
+  color: var(--color-text-dim);
+}
+
+.line-error {
+  color: var(--color-danger);
+}
+
 .terminal::-webkit-scrollbar {
   width: 8px;
 }

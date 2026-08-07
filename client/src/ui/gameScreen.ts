@@ -25,9 +25,10 @@ export function renderGameScreen(container: HTMLElement, token: string): void {
   const sidebar = container.querySelector<HTMLDivElement>('#sidebar')!;
   const commandInput = container.querySelector<HTMLInputElement>('#command')!;
 
-  function appendLine(text: string): void {
+  function appendLine(text: string, channel?: string): void {
     const line = document.createElement('div');
     line.textContent = text;
+    line.className = `line line-${channel ?? 'system'}`;
     terminal.appendChild(line);
     terminal.scrollTop = terminal.scrollHeight;
   }
@@ -113,8 +114,10 @@ export function renderGameScreen(container: HTMLElement, token: string): void {
 
   socket.addEventListener('message', (event: MessageEvent<string>) => {
     const message = JSON.parse(event.data) as ServerMessage;
-    if (message.type === 'text' || message.type === 'error') {
-      appendLine(message.text);
+    if (message.type === 'text') {
+      appendLine(message.text, message.channel);
+    } else if (message.type === 'error') {
+      appendLine(message.text, 'error');
     } else if (message.type === 'state') {
       renderState(message.character);
     } else if (message.type === 'room') {
@@ -122,15 +125,54 @@ export function renderGameScreen(container: HTMLElement, token: string): void {
     }
   });
 
+  const commandHistory: string[] = [];
+  let historyIndex = 0;
+  let historyDraft = '';
+
   function sendCommand(text: string): void {
-    appendLine(`> ${text}`);
+    appendLine(`> ${text}`, 'echo');
     const message: ClientMessage = { type: 'command', text };
     socket.send(JSON.stringify(message));
     commandInput.value = '';
+
+    if (commandHistory[commandHistory.length - 1] !== text) {
+      commandHistory.push(text);
+    }
+    historyIndex = commandHistory.length;
+  }
+
+  function navigateHistory(direction: -1 | 1): void {
+    if (commandHistory.length === 0) return;
+
+    if (direction === -1) {
+      if (historyIndex === 0) return;
+      if (historyIndex === commandHistory.length) historyDraft = commandInput.value;
+      historyIndex -= 1;
+    } else {
+      if (historyIndex === commandHistory.length) return;
+      historyIndex += 1;
+    }
+
+    commandInput.value = historyIndex === commandHistory.length ? historyDraft : commandHistory[historyIndex];
+    commandInput.setSelectionRange(commandInput.value.length, commandInput.value.length);
   }
 
   commandInput.addEventListener('keydown', (event: KeyboardEvent) => {
-    if (event.key !== 'Enter' || event.isComposing) return;
+    if (event.isComposing) return;
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      navigateHistory(-1);
+      return;
+    }
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      navigateHistory(1);
+      return;
+    }
+
+    if (event.key !== 'Enter') return;
     const text = commandInput.value.trim();
     if (!text) return;
     sendCommand(text);

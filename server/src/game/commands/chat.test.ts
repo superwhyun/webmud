@@ -44,6 +44,8 @@ describe('chat commands', () => {
     expect(textsOf(alice.sent)).toContain('당신이 말했습니다: "hello"');
     expect(textsOf(bob.sent)).toContain('Alice님이 말했습니다: "hello"');
     expect(carol.sent).toHaveLength(0);
+    expect(alice.sent.every((m) => m.type !== 'text' || m.channel === 'say')).toBe(true);
+    expect(bob.sent.every((m) => m.type !== 'text' || m.channel === 'say')).toBe(true);
   });
 
   it('say with empty message sends an error and does not broadcast', () => {
@@ -70,6 +72,8 @@ describe('chat commands', () => {
     expect(textsOf(alice.sent)).toContain('당신이 외쳤습니다: "hi everyone"');
     expect(textsOf(bob.sent)).toContain('Alice님이 외쳤습니다: "hi everyone"');
     expect(textsOf(carol.sent)).toContain('Alice님이 외쳤습니다: "hi everyone"');
+    expect(alice.sent.every((m) => m.type !== 'text' || m.channel === 'shout')).toBe(true);
+    expect(bob.sent.every((m) => m.type !== 'text' || m.channel === 'shout')).toBe(true);
   });
 
   it('who lists every connected character name', () => {

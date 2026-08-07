@@ -9,10 +9,10 @@ export function handleSay(ctx: CommandContext, message: string): void {
     return;
   }
 
-  ctx.send({ type: 'text', text: `당신이 말했습니다: "${trimmed}"` });
+  ctx.send({ type: 'text', text: `당신이 말했습니다: "${trimmed}"`, channel: 'say' });
   broadcastToRoom(
     ctx.session.roomId,
-    { type: 'text', text: `${ctx.session.characterName}님이 말했습니다: "${trimmed}"` },
+    { type: 'text', text: `${ctx.session.characterName}님이 말했습니다: "${trimmed}"`, channel: 'say' },
     ctx.session.ws,
   );
 }
@@ -24,10 +24,14 @@ export function handleShout(ctx: CommandContext, message: string): void {
     return;
   }
 
-  ctx.send({ type: 'text', text: `당신이 외쳤습니다: "${trimmed}"` });
+  ctx.send({ type: 'text', text: `당신이 외쳤습니다: "${trimmed}"`, channel: 'shout' });
   for (const session of getAllSessions()) {
     if (session.ws === ctx.session.ws) continue;
-    send(session.ws, { type: 'text', text: `${ctx.session.characterName}님이 외쳤습니다: "${trimmed}"` });
+    send(session.ws, {
+      type: 'text',
+      text: `${ctx.session.characterName}님이 외쳤습니다: "${trimmed}"`,
+      channel: 'shout',
+    });
   }
 }
 
