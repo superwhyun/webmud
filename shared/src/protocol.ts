@@ -45,6 +45,8 @@ export interface VillageInfo {
   wood: number;
   ore: number;
   food: number;
+  tithePercent: number;
+  raidProtectedUntil: string | null;
   plots: VillagePlotInfo[];
 }
 

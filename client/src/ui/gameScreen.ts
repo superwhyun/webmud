@@ -86,6 +86,13 @@ export function renderGameScreen(container: HTMLElement, token: string): void {
     `;
   }
 
+  function raidStatusText(raidProtectedUntil: string | null): string {
+    if (!raidProtectedUntil) return '무방비';
+    const protectedUntil = new Date(raidProtectedUntil);
+    if (protectedUntil.getTime() <= Date.now()) return '무방비';
+    return `보호 중 (${protectedUntil.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}까지)`;
+  }
+
   function renderVillageSection(village: VillageInfo): string {
     const plotsText = village.plots
       .map((plot) => `${plot.index}:${plot.buildingName ?? '빈 땅'}`)
@@ -99,6 +106,10 @@ export function renderGameScreen(container: HTMLElement, token: string): void {
           <span><strong>목재</strong>${village.wood}</span>
           <span><strong>광석</strong>${village.ore}</span>
           <span><strong>식량</strong>${village.food}</span>
+        </div>
+        <div class="room-meta">
+          <span><strong>상납율</strong>${village.tithePercent}%</span>
+          <span><strong>침공 상태</strong>${raidStatusText(village.raidProtectedUntil)}</span>
         </div>
         <div class="room-meta">
           <span><strong>땅</strong>${plotsText || '없음'}</span>

@@ -36,6 +36,8 @@ function buildVillageInfo(roomId: number): VillageInfo | undefined {
     wood: village.wood,
     ore: village.ore,
     food: village.food,
+    tithePercent: village.tithe_percent,
+    raidProtectedUntil: village.raid_protected_until,
     plots,
   };
 }
