@@ -13,6 +13,7 @@
     "test": "npm test -w server && npm test -w client"
   },
   "devDependencies": {
-    "concurrently": "^10.0.4"
+    "concurrently": "^10.0.4",
+    "playwright": "^1.62.1"
   }
 }
