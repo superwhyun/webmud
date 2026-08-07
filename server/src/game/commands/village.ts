@@ -19,12 +19,13 @@ import {
   joinVillage,
   listVillages,
   quitVillage,
+  upgradeVillage,
 } from '../village/VillageService.js';
 import type { CommandContext } from './context.js';
 
-type LordCheck = { ok: true; village: VillageRow } | { ok: false; error: string };
+export type LordCheck = { ok: true; village: VillageRow } | { ok: false; error: string };
 
-function requireLord(ctx: CommandContext): LordCheck {
+export function requireLord(ctx: CommandContext): LordCheck {
   const village = findVillageByCharacterMembership(ctx.session.characterId);
   if (!village) return { ok: false, error: '소속된 마을이 없습니다.' };
   if (village.lord_character_id !== ctx.session.characterId) {
@@ -254,6 +255,26 @@ function handleGarrison(ctx: CommandContext, rest: string): void {
   ctx.send({ type: 'error', text: '사용법: village garrison add <몬스터> | village garrison list' });
 }
 
+function handleUpgrade(ctx: CommandContext): void {
+  const check = requireLord(ctx);
+  if (!check.ok) {
+    ctx.send({ type: 'text', text: check.error });
+    return;
+  }
+
+  const result = upgradeVillage(check.village);
+  if (!result.success || !result.cost || result.newLevel === undefined) {
+    ctx.send({ type: 'text', text: result.error ?? '업그레이드할 수 없습니다.' });
+    return;
+  }
+
+  ctx.send({
+    type: 'text',
+    text: `마을이 Lv.${result.newLevel}(으)로 성장했습니다! (국고 gold -${result.cost.gold}, 목재 -${result.cost.wood}, 광석 -${result.cost.ore}, 식량 -${result.cost.food})`,
+  });
+  broadcastRoomSnapshot(check.village.room_id);
+}
+
 export function handleVillage(ctx: CommandContext, rest: string): void {
   const trimmed = rest.trim();
   const spaceIndex = trimmed.indexOf(' ');
@@ -292,10 +313,13 @@ export function handleVillage(ctx: CommandContext, rest: string): void {
     case 'garrison':
       handleGarrison(ctx, subRest);
       return;
+    case 'upgrade':
+      handleUpgrade(ctx);
+      return;
     default:
       ctx.send({
         type: 'text',
-        text: '사용법: village found <이름> | village list | village join | village quit | village members | village deposit <금액> | village land buy | village build <칸번호> <종류> | village garrison add <몬스터> | village garrison list',
+        text: '사용법: village found <이름> | village list | village join | village quit | village members | village deposit <금액> | village land buy | village build <칸번호> <종류> | village garrison add <몬스터> | village garrison list | village upgrade',
       });
   }
 }

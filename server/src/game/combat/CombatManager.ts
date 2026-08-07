@@ -60,7 +60,7 @@ export function resolveAttack(
   return { damage: Math.max(MIN_DAMAGE, rawDamage), evaded: false };
 }
 
-function mobCombatantStats(mob: MobInstance): CombatantStats {
+export function mobCombatantStats(mob: MobInstance): CombatantStats {
   return {
     strength: mob.strength,
     dexterity: mob.dexterity,
@@ -162,7 +162,7 @@ function performRound(ctx: CommandContext, mob: MobInstance): void {
   if (state) ctx.send({ type: 'state', character: state });
 
   if (newHp <= 0) {
-    handlePlayerDefeat(ctx);
+    defeatCharacter(ctx);
     cleanupCombatForSession(ctx.session.ws);
   }
 }
@@ -200,7 +200,7 @@ function handleMobDefeat(ctx: CommandContext, mob: MobInstance, characterId: num
   if (state) ctx.send({ type: 'state', character: state });
 }
 
-function handlePlayerDefeat(ctx: CommandContext): void {
+export function defeatCharacter(ctx: CommandContext): void {
   const oldRoomId = ctx.session.roomId;
 
   ctx.send({ type: 'text', text: '당신은 쓰러졌습니다...' });

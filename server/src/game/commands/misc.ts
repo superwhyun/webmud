@@ -31,8 +31,10 @@ export function showHelp(ctx: CommandContext): void {
       'village build <칸번호> <종류> - (영주) 건물을 짓습니다. (초소=watchtower는 수비대 자리)',
       'village garrison add <몬스터> - (영주) 수비대를 고용합니다.',
       'village garrison list - 수비대 현황을 봅니다.',
+      'village upgrade - (영주) 마을을 업그레이드합니다. (레벨 3부터 습격 가능/피습 가능)',
       'travel <마을이름> - (미개척지) 마을로 이동합니다.',
       'leave - 마을에서 미개척지로 돌아갑니다.',
+      'raid <마을이름> - (영주) 레벨 3+ 마을을 습격합니다.',
       'help - 이 도움말을 봅니다.',
     ].join('\n'),
   });
