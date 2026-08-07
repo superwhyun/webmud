@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { ELEMENT_VALUES } from '@mud/shared';
+import { ELEMENT_VALUES, ITEM_GRADE_VALUES } from '@mud/shared';
 import { db } from '../db/client.js';
 import { toItemDto, toMobTemplateDto } from '../db/dto.js';
 import type { ItemRow, MobTemplateRow } from '../db/types.js';
@@ -162,6 +162,8 @@ const itemSchema = z.object({
   name: z.string().min(1, '이름을 입력하세요.').max(30, '이름은 30자 이하여야 합니다.'),
   description: z.string().min(1, '설명을 입력하세요.').max(200, '설명은 200자 이하여야 합니다.'),
   type: z.enum(ITEM_TYPES, { message: '올바른 종류가 아닙니다.' }),
+  level: z.number().int().min(1, '레벨은 1 이상이어야 합니다.').default(1),
+  grade: z.enum(ITEM_GRADE_VALUES as [string, ...string[]], { message: '올바른 등급이 아닙니다.' }),
   strengthBonus: z.number().int().default(0),
   dexterityBonus: z.number().int().default(0),
   physicalDefenseBonus: z.number().int().default(0),
@@ -180,10 +182,22 @@ adminRouter.post('/items', (req, res) => {
   const d = parsed.data;
   const info = db
     .prepare(
-      `INSERT INTO items (name, description, type, strength_bonus, dexterity_bonus, physical_defense_bonus, magic_defense_bonus, heal_amount, value)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO items (name, description, type, level, grade, strength_bonus, dexterity_bonus, physical_defense_bonus, magic_defense_bonus, heal_amount, value)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .run(d.name, d.description, d.type, d.strengthBonus, d.dexterityBonus, d.physicalDefenseBonus, d.magicDefenseBonus, d.healAmount, d.value);
+    .run(
+      d.name,
+      d.description,
+      d.type,
+      d.level,
+      d.grade,
+      d.strengthBonus,
+      d.dexterityBonus,
+      d.physicalDefenseBonus,
+      d.magicDefenseBonus,
+      d.healAmount,
+      d.value,
+    );
 
   const row = db.prepare('SELECT * FROM items WHERE id = ?').get(Number(info.lastInsertRowid)) as ItemRow;
   res.status(201).json({ item: toItemDto(row) });

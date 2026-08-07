@@ -1,5 +1,6 @@
 import {
   ELEMENT_LABELS,
+  ITEM_MENTION_PATTERN,
   type CharacterState,
   type ClientMessage,
   type RoomSnapshot,
@@ -8,6 +9,7 @@ import {
 } from '@mud/shared';
 import { renderAdminScreen } from './adminScreen';
 import { renderBuilderScreen } from './builderScreen';
+import { escapeHtml } from '../domUtils';
 
 const CARDINAL_ALIASES: Record<string, 'north' | 'south' | 'east' | 'west'> = {
   n: 'north',
@@ -83,10 +85,30 @@ export function renderGameScreen(
   const minimap = container.querySelector<HTMLDivElement>('#minimap')!;
   const commandInput = container.querySelector<HTMLInputElement>('#command')!;
 
+  function appendItemMentions(target: HTMLElement, text: string): void {
+    ITEM_MENTION_PATTERN.lastIndex = 0;
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = ITEM_MENTION_PATTERN.exec(text))) {
+      if (match.index > lastIndex) {
+        target.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+      }
+      const [, grade, name] = match;
+      const span = document.createElement('span');
+      span.className = `item-grade-${grade}`;
+      span.textContent = name;
+      target.appendChild(span);
+      lastIndex = match.index + match[0].length;
+    }
+    if (lastIndex < text.length) {
+      target.appendChild(document.createTextNode(text.slice(lastIndex)));
+    }
+  }
+
   function appendLine(text: string, channel?: string): void {
     const line = document.createElement('div');
-    line.textContent = text;
     line.className = `line line-${channel ?? 'system'}`;
+    appendItemMentions(line, text);
     terminal.appendChild(line);
     terminal.scrollTop = terminal.scrollHeight;
   }
@@ -158,7 +180,11 @@ export function renderGameScreen(
     const mobsText =
       room.mobs.length > 0 ? room.mobs.map((mob) => `${mob.name} (${mob.hp}/${mob.maxHp})`).join(', ') : '-';
     const itemsText =
-      room.items.length > 0 ? room.items.map((item) => `${item.name} x${item.quantity}`).join(', ') : '-';
+      room.items.length > 0
+        ? room.items
+            .map((item) => `<span class="item-grade-${item.grade}">${escapeHtml(item.name)}</span> x${item.quantity}`)
+            .join(', ')
+        : '-';
     const playersText = room.players.length > 0 ? room.players.join(', ') : '-';
 
     roomPanel.innerHTML = `

@@ -8,6 +8,13 @@
   --color-danger: #ff6b6b;
   --color-warning: #f2c94c;
 
+  --grade-low: #9aa8a2;
+  --grade-mid: #58d68d;
+  --grade-high: #55c1f0;
+  --grade-rare: #b083f0;
+  --grade-legend: #ff9f43;
+  --grade-epic: #ffd447;
+
   --font-mono: 'JetBrains Mono', 'Courier New', monospace;
 
   --glow-accent: 0 0 8px rgba(77, 255, 136, 0.45);
@@ -175,6 +182,33 @@ body::after {
 .line-admin {
   color: var(--color-accent);
   font-weight: bold;
+}
+
+.item-grade-low {
+  color: var(--grade-low);
+}
+
+.item-grade-mid {
+  color: var(--grade-mid);
+}
+
+.item-grade-high {
+  color: var(--grade-high);
+}
+
+.item-grade-rare {
+  color: var(--grade-rare);
+}
+
+.item-grade-legend {
+  color: var(--grade-legend);
+  font-weight: bold;
+}
+
+.item-grade-epic {
+  color: var(--grade-epic);
+  font-weight: bold;
+  text-shadow: 0 0 6px rgba(255, 212, 71, 0.55);
 }
 
 .terminal::-webkit-scrollbar {

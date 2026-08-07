@@ -176,7 +176,7 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
             .map(
               (item) => `
                 <li>
-                  <span class="builder-palette-name">${escapeHtml(item.name)} <span class="builder-palette-qty">x${PLACEHOLDER_OWNED_QTY}</span></span>
+                  <span class="builder-palette-name"><span class="item-grade-${item.grade}">${escapeHtml(item.name)}</span> <span class="builder-palette-qty">x${PLACEHOLDER_OWNED_QTY}</span></span>
                   <div class="builder-palette-actions">
                     <input type="number" class="builder-palette-num-input" data-item-qty="${item.id}" value="1" min="1" />
                     <button type="button" data-place-item="${item.id}" ${room ? '' : 'disabled'}>배치</button>
@@ -196,7 +196,7 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
                 .map(
                   (row) => `
                     <li>
-                      <span>${escapeHtml(row.itemName)} x${row.quantity}</span>
+                      <span><span class="item-grade-${row.itemGrade}">${escapeHtml(row.itemName)}</span> x${row.quantity}</span>
                       <button type="button" class="builder-exit-delete" data-remove-item="${row.id}">제거</button>
                     </li>
                   `,

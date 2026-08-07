@@ -285,11 +285,19 @@ builderRouter.get('/mob-templates', (_req, res) => {
 builderRouter.get('/room-items', (_req, res) => {
   const rows = db
     .prepare(
-      `SELECT ri.id, ri.room_id, ri.item_id, ri.quantity, r.name as room_name, i.name as item_name
+      `SELECT ri.id, ri.room_id, ri.item_id, ri.quantity, r.name as room_name, i.name as item_name, i.grade as item_grade
        FROM room_items ri JOIN rooms r ON r.id = ri.room_id JOIN items i ON i.id = ri.item_id
        ORDER BY ri.id`,
     )
-    .all() as { id: number; room_id: number; item_id: number; quantity: number; room_name: string; item_name: string }[];
+    .all() as {
+    id: number;
+    room_id: number;
+    item_id: number;
+    quantity: number;
+    room_name: string;
+    item_name: string;
+    item_grade: string;
+  }[];
 
   res.json({
     roomItems: rows.map((row) => ({
@@ -298,6 +306,7 @@ builderRouter.get('/room-items', (_req, res) => {
       roomName: row.room_name,
       itemId: row.item_id,
       itemName: row.item_name,
+      itemGrade: row.item_grade,
       quantity: row.quantity,
     })),
   });

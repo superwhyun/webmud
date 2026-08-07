@@ -1,4 +1,11 @@
-import { ELEMENT_LABELS, ELEMENT_VALUES, type ElementType } from '@mud/shared';
+import {
+  ELEMENT_LABELS,
+  ELEMENT_VALUES,
+  ITEM_GRADE_LABELS,
+  ITEM_GRADE_VALUES,
+  type ElementType,
+  type ItemGrade,
+} from '@mud/shared';
 import {
   createItemTemplate,
   createMobTemplate,
@@ -68,6 +75,10 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
               <option value="weapon">무기</option>
               <option value="armor">방어구</option>
               <option value="consumable">소모품</option>
+            </select>
+            <input id="admin-item-level" type="number" placeholder="레벨" value="1" min="1" />
+            <select id="admin-item-grade">
+              ${ITEM_GRADE_VALUES.map((grade) => `<option value="${grade}">${ITEM_GRADE_LABELS[grade]}</option>`).join('')}
             </select>
           </div>
           <div class="admin-form-row">
@@ -207,7 +218,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
       items
         .map(
           (item) =>
-            `<li>${escapeHtml(item.name)} (${ITEM_TYPE_LABELS[item.type] ?? item.type}, 가치 ${item.value})</li>`,
+            `<li><span class="item-grade-${item.grade}">${escapeHtml(item.name)}</span> (${ITEM_TYPE_LABELS[item.type] ?? item.type}, Lv.${item.level}, ${ITEM_GRADE_LABELS[item.grade]}, 가치 ${item.value})</li>`,
         )
         .join('') || '<li class="admin-panel-empty">없음</li>';
   }
@@ -244,6 +255,8 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
     const name = container.querySelector<HTMLInputElement>('#admin-item-name')!.value.trim();
     const description = container.querySelector<HTMLInputElement>('#admin-item-desc')!.value.trim();
     const type = container.querySelector<HTMLSelectElement>('#admin-item-type')!.value;
+    const level = Number(container.querySelector<HTMLInputElement>('#admin-item-level')!.value);
+    const grade = container.querySelector<HTMLSelectElement>('#admin-item-grade')!.value as ItemGrade;
     itemError.textContent = '';
     if (!name || !description) {
       itemError.textContent = '이름과 설명을 입력하세요.';
@@ -253,6 +266,8 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
       name,
       description,
       type,
+      level,
+      grade,
       strengthBonus: Number(container.querySelector<HTMLInputElement>('#admin-item-str')!.value),
       dexterityBonus: Number(container.querySelector<HTMLInputElement>('#admin-item-dex')!.value),
       physicalDefenseBonus: Number(container.querySelector<HTMLInputElement>('#admin-item-pdef')!.value),

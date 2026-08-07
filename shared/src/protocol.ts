@@ -1,4 +1,5 @@
 import type { ElementType } from './elements.js';
+import type { ItemGrade } from './itemGrades.js';
 
 export interface CharacterState {
   name: string;
@@ -24,6 +25,7 @@ export interface RoomExitInfo {
 export interface RoomItemInfo {
   name: string;
   quantity: number;
+  grade: ItemGrade;
 }
 
 export interface RoomMobInfo {

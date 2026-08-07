@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3';
 import bcrypt from 'bcryptjs';
-import type { ElementType } from '@mud/shared';
+import type { ElementType, ItemGrade } from '@mud/shared';
 
 export const STARTING_ROOM_ID = 1;
 
@@ -31,6 +31,8 @@ interface ItemSeed {
   name: string;
   description: string;
   type: 'weapon' | 'armor' | 'consumable';
+  level: number;
+  grade: ItemGrade;
   strengthBonus: number;
   dexterityBonus: number;
   physicalDefenseBonus: number;
@@ -149,6 +151,8 @@ const ITEMS: ItemSeed[] = [
     name: '낡은 검',
     description: '날이 조금 무뎌졌지만 여전히 쓸만한 검이다.',
     type: 'weapon',
+    level: 1,
+    grade: 'low',
     strengthBonus: 3,
     dexterityBonus: 0,
     physicalDefenseBonus: 0,
@@ -161,6 +165,8 @@ const ITEMS: ItemSeed[] = [
     name: '나무 방패',
     description: '투박하지만 튼튼한 나무 방패다.',
     type: 'armor',
+    level: 1,
+    grade: 'low',
     strengthBonus: 0,
     dexterityBonus: 0,
     physicalDefenseBonus: 2,
@@ -173,6 +179,8 @@ const ITEMS: ItemSeed[] = [
     name: '체력 물약',
     description: '마시면 체력이 회복되는 붉은 물약이다.',
     type: 'consumable',
+    level: 1,
+    grade: 'low',
     strengthBonus: 0,
     dexterityBonus: 0,
     physicalDefenseBonus: 0,
@@ -232,8 +240,8 @@ export function seed(db: Database.Database): void {
     'INSERT INTO room_exits (room_id, direction, target_room_id) VALUES (?, ?, ?)',
   );
   const insertItem = db.prepare(
-    `INSERT INTO items (id, name, description, type, strength_bonus, dexterity_bonus, physical_defense_bonus, magic_defense_bonus, heal_amount, value)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO items (id, name, description, type, level, grade, strength_bonus, dexterity_bonus, physical_defense_bonus, magic_defense_bonus, heal_amount, value)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   const insertRoomItem = db.prepare(
     'INSERT INTO room_items (room_id, item_id, quantity) VALUES (?, ?, ?)',
@@ -259,6 +267,8 @@ export function seed(db: Database.Database): void {
         item.name,
         item.description,
         item.type,
+        item.level,
+        item.grade,
         item.strengthBonus,
         item.dexterityBonus,
         item.physicalDefenseBonus,

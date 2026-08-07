@@ -1,4 +1,4 @@
-import type { ElementType } from '@mud/shared';
+import type { ElementType, ItemGrade } from '@mud/shared';
 
 export interface CharacterRow {
   id: number;
@@ -27,6 +27,8 @@ export interface ItemRow {
   name: string;
   description: string;
   type: string;
+  level: number;
+  grade: ItemGrade;
   strength_bonus: number;
   dexterity_bonus: number;
   physical_defense_bonus: number;

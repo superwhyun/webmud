@@ -1,5 +1,5 @@
 import type { WebSocket } from 'ws';
-import { DIRECTION_LABELS, type RoomSnapshot, type VillageInfo } from '@mud/shared';
+import { DIRECTION_LABELS, type ItemGrade, type RoomSnapshot, type VillageInfo } from '@mud/shared';
 import { db } from '../db/client.js';
 import type { CommandContext } from './commands/context.js';
 import { getMobsInRoom } from './MobManager.js';
@@ -11,6 +11,7 @@ import { send } from './wsUtil.js';
 interface RoomItemQueryRow {
   name: string;
   quantity: number;
+  grade: ItemGrade;
 }
 
 function buildVillageInfo(roomId: number): VillageInfo | undefined {
@@ -53,7 +54,7 @@ export function buildRoomSnapshot(roomId: number, viewerWs?: WebSocket): RoomSna
 
   const items = db
     .prepare(
-      `SELECT i.name, ri.quantity FROM room_items ri JOIN items i ON i.id = ri.item_id WHERE ri.room_id = ?`,
+      `SELECT i.name, i.grade, ri.quantity FROM room_items ri JOIN items i ON i.id = ri.item_id WHERE ri.room_id = ?`,
     )
     .all(roomId) as RoomItemQueryRow[];
 
