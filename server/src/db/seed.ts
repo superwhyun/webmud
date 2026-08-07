@@ -1,7 +1,18 @@
 import type Database from 'better-sqlite3';
+import bcrypt from 'bcryptjs';
 import type { ElementType } from '@mud/shared';
 
 export const STARTING_ROOM_ID = 1;
+
+const DEFAULT_ADMIN_USERNAME = process.env.DEFAULT_ADMIN_USERNAME ?? 'admin';
+const DEFAULT_ADMIN_PASSWORD = process.env.DEFAULT_ADMIN_PASSWORD ?? 'admin1234';
+const SALT_ROUNDS = 10;
+
+if (!process.env.DEFAULT_ADMIN_PASSWORD) {
+  console.warn(
+    `[db] DEFAULT_ADMIN_PASSWORD not set; seeding default admin account "${DEFAULT_ADMIN_USERNAME}" with a well-known password. Change it (or set DEFAULT_ADMIN_USERNAME/DEFAULT_ADMIN_PASSWORD) before exposing this server publicly.`,
+  );
+}
 
 interface RoomSeed {
   id: number;
@@ -234,8 +245,12 @@ export function seed(db: Database.Database): void {
   const insertMobSpawn = db.prepare(
     'INSERT INTO mob_spawns (room_id, mob_template_id, respawn_seconds) VALUES (?, ?, ?)',
   );
+  const insertAdminAccount = db.prepare(
+    'INSERT INTO accounts (username, password_hash, is_builder, is_admin) VALUES (?, ?, 1, 1)',
+  );
 
   const seedTx = db.transaction(() => {
+    insertAdminAccount.run(DEFAULT_ADMIN_USERNAME, bcrypt.hashSync(DEFAULT_ADMIN_PASSWORD, SALT_ROUNDS));
     for (const room of ROOMS) insertRoom.run(room.id, room.name, room.description);
     for (const exit of EXITS) insertExit.run(exit.roomId, exit.direction, exit.targetRoomId);
     for (const item of ITEMS) {
