@@ -2,10 +2,9 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { ELEMENT_VALUES } from '@mud/shared';
 import { db } from '../db/client.js';
+import { toItemDto, toMobTemplateDto } from '../db/dto.js';
 import type { ItemRow, MobTemplateRow } from '../db/types.js';
 import { requireAdmin, requireAuth } from '../auth/middleware.js';
-import { despawnMob, registerMobSpawn } from '../game/MobManager.js';
-import { broadcastRoomSnapshot } from '../game/roomSnapshot.js';
 import { getAllSessions, getSessionByCharacterName } from '../game/sessionRegistry.js';
 import { getRoom } from '../game/World.js';
 import { send } from '../game/wsUtil.js';
@@ -152,21 +151,6 @@ adminRouter.get('/rooms', (_req, res) => {
   res.json({ rooms: rows });
 });
 
-function toItemDto(row: ItemRow) {
-  return {
-    id: row.id,
-    name: row.name,
-    description: row.description,
-    type: row.type,
-    strengthBonus: row.strength_bonus,
-    dexterityBonus: row.dexterity_bonus,
-    physicalDefenseBonus: row.physical_defense_bonus,
-    magicDefenseBonus: row.magic_defense_bonus,
-    healAmount: row.heal_amount,
-    value: row.value,
-  };
-}
-
 adminRouter.get('/items', (_req, res) => {
   const rows = db.prepare('SELECT * FROM items ORDER BY id').all() as ItemRow[];
   res.json({ items: rows.map(toItemDto) });
@@ -205,88 +189,6 @@ adminRouter.post('/items', (req, res) => {
   res.status(201).json({ item: toItemDto(row) });
 });
 
-adminRouter.get('/room-items', (_req, res) => {
-  const rows = db
-    .prepare(
-      `SELECT ri.id, ri.room_id, ri.item_id, ri.quantity, r.name as room_name, i.name as item_name
-       FROM room_items ri JOIN rooms r ON r.id = ri.room_id JOIN items i ON i.id = ri.item_id
-       ORDER BY ri.id`,
-    )
-    .all() as { id: number; room_id: number; item_id: number; quantity: number; room_name: string; item_name: string }[];
-
-  res.json({
-    roomItems: rows.map((row) => ({
-      id: row.id,
-      roomId: row.room_id,
-      roomName: row.room_name,
-      itemId: row.item_id,
-      itemName: row.item_name,
-      quantity: row.quantity,
-    })),
-  });
-});
-
-const roomItemSchema = z.object({
-  roomId: z.number().int(),
-  itemId: z.number().int(),
-  quantity: z.number().int().min(1).default(1),
-});
-
-adminRouter.post('/room-items', (req, res) => {
-  const parsed = roomItemSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
-    return;
-  }
-
-  const { roomId, itemId, quantity } = parsed.data;
-  if (!getRoom(roomId)) {
-    res.status(404).json({ error: '방을 찾을 수 없습니다.' });
-    return;
-  }
-  if (!db.prepare('SELECT id FROM items WHERE id = ?').get(itemId)) {
-    res.status(404).json({ error: '아이템을 찾을 수 없습니다.' });
-    return;
-  }
-
-  db.prepare('INSERT INTO room_items (room_id, item_id, quantity) VALUES (?, ?, ?)').run(roomId, itemId, quantity);
-  broadcastRoomSnapshot(roomId);
-  res.status(201).send();
-});
-
-const roomItemDeleteSchema = z.object({ roomItemId: z.number().int() });
-
-adminRouter.delete('/room-items', (req, res) => {
-  const parsed = roomItemDeleteSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
-    return;
-  }
-
-  const row = db.prepare('SELECT room_id FROM room_items WHERE id = ?').get(parsed.data.roomItemId) as
-    | { room_id: number }
-    | undefined;
-  db.prepare('DELETE FROM room_items WHERE id = ?').run(parsed.data.roomItemId);
-  if (row) broadcastRoomSnapshot(row.room_id);
-  res.status(204).send();
-});
-
-function toMobTemplateDto(row: MobTemplateRow) {
-  return {
-    id: row.id,
-    name: row.name,
-    hp: row.hp,
-    strength: row.strength,
-    dexterity: row.dexterity,
-    physicalDefense: row.physical_defense,
-    magicDefense: row.magic_defense,
-    element: row.element,
-    damageType: row.damage_type,
-    expReward: row.exp_reward,
-    goldReward: row.gold_reward,
-  };
-}
-
 adminRouter.get('/mob-templates', (_req, res) => {
   const rows = db.prepare('SELECT * FROM mob_templates ORDER BY id').all() as MobTemplateRow[];
   res.json({ mobTemplates: rows.map(toMobTemplateDto) });
@@ -324,81 +226,4 @@ adminRouter.post('/mob-templates', (req, res) => {
 
   const row = db.prepare('SELECT * FROM mob_templates WHERE id = ?').get(Number(info.lastInsertRowid)) as MobTemplateRow;
   res.status(201).json({ mobTemplate: toMobTemplateDto(row) });
-});
-
-adminRouter.get('/mob-spawns', (_req, res) => {
-  const rows = db
-    .prepare(
-      `SELECT ms.id, ms.room_id, ms.mob_template_id, ms.respawn_seconds, r.name as room_name, mt.name as mob_name
-       FROM mob_spawns ms JOIN rooms r ON r.id = ms.room_id JOIN mob_templates mt ON mt.id = ms.mob_template_id
-       ORDER BY ms.id`,
-    )
-    .all() as {
-    id: number;
-    room_id: number;
-    mob_template_id: number;
-    respawn_seconds: number;
-    room_name: string;
-    mob_name: string;
-  }[];
-
-  res.json({
-    mobSpawns: rows.map((row) => ({
-      id: row.id,
-      roomId: row.room_id,
-      roomName: row.room_name,
-      mobTemplateId: row.mob_template_id,
-      mobName: row.mob_name,
-      respawnSeconds: row.respawn_seconds,
-    })),
-  });
-});
-
-const mobSpawnSchema = z.object({
-  roomId: z.number().int(),
-  mobTemplateId: z.number().int(),
-  respawnSeconds: z.number().int().min(5).default(20),
-});
-
-adminRouter.post('/mob-spawns', (req, res) => {
-  const parsed = mobSpawnSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
-    return;
-  }
-
-  const { roomId, mobTemplateId, respawnSeconds } = parsed.data;
-  if (!getRoom(roomId)) {
-    res.status(404).json({ error: '방을 찾을 수 없습니다.' });
-    return;
-  }
-
-  const template = db.prepare('SELECT * FROM mob_templates WHERE id = ?').get(mobTemplateId) as
-    | MobTemplateRow
-    | undefined;
-  if (!template) {
-    res.status(404).json({ error: '몹 템플릿을 찾을 수 없습니다.' });
-    return;
-  }
-
-  const info = db
-    .prepare('INSERT INTO mob_spawns (room_id, mob_template_id, respawn_seconds) VALUES (?, ?, ?)')
-    .run(roomId, mobTemplateId, respawnSeconds);
-  const spawnId = Number(info.lastInsertRowid);
-
-  registerMobSpawn(spawnId, roomId, template, respawnSeconds);
-  broadcastRoomSnapshot(roomId);
-
-  res.status(201).json({ spawnId });
-});
-
-adminRouter.delete('/mob-spawns/:id', (req, res) => {
-  const spawnId = Number(req.params.id);
-  const row = db.prepare('SELECT room_id FROM mob_spawns WHERE id = ?').get(spawnId) as { room_id: number } | undefined;
-
-  db.prepare('DELETE FROM mob_spawns WHERE id = ?').run(spawnId);
-  despawnMob(spawnId);
-  if (row) broadcastRoomSnapshot(row.room_id);
-
-  res.status(204).send();
 });

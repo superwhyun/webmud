@@ -27,7 +27,7 @@ describe('canDeleteRoom', () => {
     expect(canDeleteRoom(roomId)).toEqual({ allowed: true });
   });
 
-  it('blocks deleting a room that has an outgoing exit', () => {
+  it('allows deleting a room with an outgoing exit (exits are cascade-removed by the route handler)', () => {
     const roomId = insertRoom();
     const otherId = insertRoom();
     db.prepare('INSERT INTO room_exits (room_id, direction, target_room_id) VALUES (?, ?, ?)').run(
@@ -36,10 +36,10 @@ describe('canDeleteRoom', () => {
       otherId,
     );
 
-    expect(canDeleteRoom(roomId).allowed).toBe(false);
+    expect(canDeleteRoom(roomId).allowed).toBe(true);
   });
 
-  it('blocks deleting a room that is the target of another room\'s exit', () => {
+  it('allows deleting a room that is the target of another room\'s exit (exits are cascade-removed by the route handler)', () => {
     const roomId = insertRoom();
     const otherId = insertRoom();
     db.prepare('INSERT INTO room_exits (room_id, direction, target_room_id) VALUES (?, ?, ?)').run(
@@ -48,7 +48,7 @@ describe('canDeleteRoom', () => {
       roomId,
     );
 
-    expect(canDeleteRoom(roomId).allowed).toBe(false);
+    expect(canDeleteRoom(roomId).allowed).toBe(true);
   });
 
   it('blocks deleting a room that has a character standing in it', () => {

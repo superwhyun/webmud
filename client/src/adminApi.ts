@@ -32,15 +32,6 @@ export interface ItemTemplateDto {
   value: number;
 }
 
-export interface RoomItemDto {
-  id: number;
-  roomId: number;
-  roomName: string;
-  itemId: number;
-  itemName: string;
-  quantity: number;
-}
-
 export interface MobTemplateDto {
   id: number;
   name: string;
@@ -53,15 +44,6 @@ export interface MobTemplateDto {
   damageType: 'physical' | 'magic';
   expReward: number;
   goldReward: number;
-}
-
-export interface MobSpawnDto {
-  id: number;
-  roomId: number;
-  roomName: string;
-  mobTemplateId: number;
-  mobName: string;
-  respawnSeconds: number;
 }
 
 export function fetchAccounts(token: string): Promise<{ accounts: AccountDto[] }> {
@@ -123,26 +105,6 @@ export function createItemTemplate(
   return apiRequest('/admin/items', { method: 'POST', headers: authHeader(token), body: JSON.stringify(data) });
 }
 
-export function fetchRoomItems(token: string): Promise<{ roomItems: RoomItemDto[] }> {
-  return apiRequest('/admin/room-items', { headers: authHeader(token) });
-}
-
-export function placeRoomItem(token: string, roomId: number, itemId: number, quantity: number): Promise<void> {
-  return apiRequest('/admin/room-items', {
-    method: 'POST',
-    headers: authHeader(token),
-    body: JSON.stringify({ roomId, itemId, quantity }),
-  });
-}
-
-export function removeRoomItem(token: string, roomItemId: number): Promise<void> {
-  return apiRequest('/admin/room-items', {
-    method: 'DELETE',
-    headers: authHeader(token),
-    body: JSON.stringify({ roomItemId }),
-  });
-}
-
 export function fetchMobTemplates(token: string): Promise<{ mobTemplates: MobTemplateDto[] }> {
   return apiRequest('/admin/mob-templates', { headers: authHeader(token) });
 }
@@ -158,23 +120,3 @@ export function createMobTemplate(
   });
 }
 
-export function fetchMobSpawns(token: string): Promise<{ mobSpawns: MobSpawnDto[] }> {
-  return apiRequest('/admin/mob-spawns', { headers: authHeader(token) });
-}
-
-export function placeMobSpawn(
-  token: string,
-  roomId: number,
-  mobTemplateId: number,
-  respawnSeconds: number,
-): Promise<{ spawnId: number }> {
-  return apiRequest('/admin/mob-spawns', {
-    method: 'POST',
-    headers: authHeader(token),
-    body: JSON.stringify({ roomId, mobTemplateId, respawnSeconds }),
-  });
-}
-
-export function removeMobSpawn(token: string, spawnId: number): Promise<void> {
-  return apiRequest(`/admin/mob-spawns/${spawnId}`, { method: 'DELETE', headers: authHeader(token) });
-}

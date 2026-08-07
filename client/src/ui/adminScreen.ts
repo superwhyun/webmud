@@ -5,16 +5,10 @@ import {
   fetchAccounts,
   fetchAdminRooms,
   fetchItemTemplates,
-  fetchMobSpawns,
   fetchMobTemplates,
-  fetchRoomItems,
   fetchSessions,
   moderationKick,
   moderationMove,
-  placeMobSpawn,
-  placeRoomItem,
-  removeMobSpawn,
-  removeRoomItem,
   sendAnnouncement,
   updateAccount,
   type RoomOptionDto,
@@ -86,15 +80,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
             <button type="button" id="admin-item-create">아이템 생성</button>
           </div>
           <p class="admin-error" id="admin-item-error"></p>
-
-          <h4>배치</h4>
-          <div class="admin-form-row">
-            <select id="admin-item-place-item"></select>
-            <select id="admin-item-place-room"></select>
-            <input id="admin-item-place-qty" type="number" value="1" min="1" />
-            <button type="button" id="admin-item-place-btn">배치</button>
-          </div>
-          <ul class="admin-list" id="admin-room-items"></ul>
+          <p class="admin-panel-empty">아이템 배치는 맵 빌더에서 할 수 있습니다.</p>
         </section>
 
         <section class="admin-section">
@@ -119,15 +105,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
             <button type="button" id="admin-mob-create">몬스터 생성</button>
           </div>
           <p class="admin-error" id="admin-mob-error"></p>
-
-          <h4>배치</h4>
-          <div class="admin-form-row">
-            <select id="admin-mob-place-mob"></select>
-            <select id="admin-mob-place-room"></select>
-            <input id="admin-mob-place-respawn" type="number" value="20" min="5" placeholder="리스폰(초)" />
-            <button type="button" id="admin-mob-place-btn">배치</button>
-          </div>
-          <ul class="admin-list" id="admin-mob-spawns"></ul>
+          <p class="admin-panel-empty">몬스터 배치는 맵 빌더에서 할 수 있습니다.</p>
         </section>
       </div>
     </div>
@@ -142,16 +120,10 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
 
   const itemTemplatesList = container.querySelector<HTMLUListElement>('#admin-item-templates')!;
   const itemError = container.querySelector<HTMLParagraphElement>('#admin-item-error')!;
-  const itemPlaceSelect = container.querySelector<HTMLSelectElement>('#admin-item-place-item')!;
-  const itemPlaceRoomSelect = container.querySelector<HTMLSelectElement>('#admin-item-place-room')!;
-  const roomItemsList = container.querySelector<HTMLUListElement>('#admin-room-items')!;
 
   const mobTemplatesList = container.querySelector<HTMLUListElement>('#admin-mob-templates')!;
   const mobError = container.querySelector<HTMLParagraphElement>('#admin-mob-error')!;
   const mobElementSelect = container.querySelector<HTMLSelectElement>('#admin-mob-element')!;
-  const mobPlaceSelect = container.querySelector<HTMLSelectElement>('#admin-mob-place-mob')!;
-  const mobPlaceRoomSelect = container.querySelector<HTMLSelectElement>('#admin-mob-place-room')!;
-  const mobSpawnsList = container.querySelector<HTMLUListElement>('#admin-mob-spawns')!;
 
   mobElementSelect.innerHTML = ELEMENT_VALUES.map(
     (value) => `<option value="${value}">${ELEMENT_LABELS[value]}</option>`,
@@ -165,8 +137,6 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
 
   async function refreshRooms(): Promise<void> {
     rooms = (await fetchAdminRooms(token)).rooms;
-    itemPlaceRoomSelect.innerHTML = roomOptionsHtml();
-    mobPlaceRoomSelect.innerHTML = roomOptionsHtml();
   }
 
   async function refreshAccounts(): Promise<void> {
@@ -231,7 +201,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
   }
 
   async function refreshItems(): Promise<void> {
-    const [{ items }, { roomItems }] = await Promise.all([fetchItemTemplates(token), fetchRoomItems(token)]);
+    const { items } = await fetchItemTemplates(token);
 
     itemTemplatesList.innerHTML =
       items
@@ -240,30 +210,10 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
             `<li>${escapeHtml(item.name)} (${ITEM_TYPE_LABELS[item.type] ?? item.type}, 가치 ${item.value})</li>`,
         )
         .join('') || '<li class="admin-panel-empty">없음</li>';
-
-    itemPlaceSelect.innerHTML = items.map((item) => `<option value="${item.id}">${escapeHtml(item.name)}</option>`).join('');
-
-    roomItemsList.innerHTML =
-      roomItems
-        .map(
-          (row) => `
-            <li>
-              ${escapeHtml(row.roomName)}: ${escapeHtml(row.itemName)} x${row.quantity}
-              <button type="button" class="admin-remove-btn" data-room-item-id="${row.id}">제거</button>
-            </li>
-          `,
-        )
-        .join('') || '<li class="admin-panel-empty">배치된 아이템 없음</li>';
-
-    roomItemsList.querySelectorAll<HTMLButtonElement>('.admin-remove-btn').forEach((button) => {
-      button.addEventListener('click', () => {
-        removeRoomItem(token, Number(button.dataset.roomItemId)).then(() => refreshItems());
-      });
-    });
   }
 
   async function refreshMobs(): Promise<void> {
-    const [{ mobTemplates }, { mobSpawns }] = await Promise.all([fetchMobTemplates(token), fetchMobSpawns(token)]);
+    const { mobTemplates } = await fetchMobTemplates(token);
 
     mobTemplatesList.innerHTML =
       mobTemplates
@@ -272,28 +222,6 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
             `<li>${escapeHtml(mob.name)} (HP ${mob.hp}, ${ELEMENT_LABELS[mob.element]}, ${DAMAGE_TYPE_LABELS[mob.damageType]})</li>`,
         )
         .join('') || '<li class="admin-panel-empty">없음</li>';
-
-    mobPlaceSelect.innerHTML = mobTemplates
-      .map((mob) => `<option value="${mob.id}">${escapeHtml(mob.name)}</option>`)
-      .join('');
-
-    mobSpawnsList.innerHTML =
-      mobSpawns
-        .map(
-          (row) => `
-            <li>
-              ${escapeHtml(row.roomName)}: ${escapeHtml(row.mobName)} (리스폰 ${row.respawnSeconds}초)
-              <button type="button" class="admin-remove-btn" data-spawn-id="${row.id}">제거</button>
-            </li>
-          `,
-        )
-        .join('') || '<li class="admin-panel-empty">배치된 몬스터 없음</li>';
-
-    mobSpawnsList.querySelectorAll<HTMLButtonElement>('.admin-remove-btn').forEach((button) => {
-      button.addEventListener('click', () => {
-        removeMobSpawn(token, Number(button.dataset.spawnId)).then(() => refreshMobs());
-      });
-    });
   }
 
   container.querySelector<HTMLButtonElement>('#admin-announce-send')!.addEventListener('click', () => {
@@ -338,22 +266,6 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
       });
   });
 
-  container.querySelector<HTMLButtonElement>('#admin-item-place-btn')!.addEventListener('click', () => {
-    const itemId = Number(itemPlaceSelect.value);
-    const roomId = Number(itemPlaceRoomSelect.value);
-    const quantity = Number(container.querySelector<HTMLInputElement>('#admin-item-place-qty')!.value) || 1;
-    itemError.textContent = '';
-    if (!itemId || !roomId) {
-      itemError.textContent = '아이템과 방을 선택하세요.';
-      return;
-    }
-    placeRoomItem(token, roomId, itemId, quantity)
-      .then(() => refreshItems())
-      .catch((error: unknown) => {
-        itemError.textContent = error instanceof Error ? error.message : '배치에 실패했습니다.';
-      });
-  });
-
   container.querySelector<HTMLButtonElement>('#admin-mob-create')!.addEventListener('click', () => {
     const name = container.querySelector<HTMLInputElement>('#admin-mob-name')!.value.trim();
     mobError.textContent = '';
@@ -376,23 +288,6 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
       .then(() => refreshMobs())
       .catch((error: unknown) => {
         mobError.textContent = error instanceof Error ? error.message : '몬스터 생성에 실패했습니다.';
-      });
-  });
-
-  container.querySelector<HTMLButtonElement>('#admin-mob-place-btn')!.addEventListener('click', () => {
-    const mobTemplateId = Number(mobPlaceSelect.value);
-    const roomId = Number(mobPlaceRoomSelect.value);
-    const respawnSeconds =
-      Number(container.querySelector<HTMLInputElement>('#admin-mob-place-respawn')!.value) || 20;
-    mobError.textContent = '';
-    if (!mobTemplateId || !roomId) {
-      mobError.textContent = '몬스터와 방을 선택하세요.';
-      return;
-    }
-    placeMobSpawn(token, roomId, mobTemplateId, respawnSeconds)
-      .then(() => refreshMobs())
-      .catch((error: unknown) => {
-        mobError.textContent = error instanceof Error ? error.message : '배치에 실패했습니다.';
       });
   });
 
