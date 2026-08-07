@@ -1,7 +1,7 @@
 import { db } from '../../db/client.js';
 import type { BuildingType, VillageMemberRow, VillagePlotRow, VillageRow } from '../../db/types.js';
-import { findMobTemplateByName, spawnGarrisonMob } from '../MobManager.js';
-import { registerRoom } from '../World.js';
+import { despawnMob, findMobInRoomByName, findMobTemplateByName, getMobsInRoom, spawnGarrisonMob } from '../MobManager.js';
+import { registerRoom, unregisterRoom } from '../World.js';
 
 export const FOUND_COST_GOLD = 100;
 export const STARTING_PLOTS = 3;
@@ -224,10 +224,15 @@ export interface JoinResult {
   village?: VillageRow;
 }
 
-export function joinVillage(characterId: number, roomId: number): JoinResult {
-  const village = findVillageByRoomId(roomId);
+export function joinVillage(characterId: number, villageName: string): JoinResult {
+  const trimmed = villageName.trim();
+  if (!trimmed) {
+    return { success: false, error: '가입할 마을 이름을 입력하세요. 사용법: village join <마을이름>' };
+  }
+
+  const village = findVillageByName(trimmed);
   if (!village) {
-    return { success: false, error: '이곳은 마을이 아닙니다.' };
+    return { success: false, error: '그런 이름의 마을이 없습니다.' };
   }
   if (findVillageByCharacterMembership(characterId)) {
     return { success: false, error: '이미 소속된 마을이 있습니다. 먼저 village quit으로 탈퇴하세요.' };
@@ -414,4 +419,90 @@ export function upgradeVillage(village: VillageRow): UpgradeResult {
   ).run(newLevel, cost.gold, cost.wood, cost.ore, cost.food, village.id);
 
   return { success: true, cost, newLevel };
+}
+
+export interface TransferResult {
+  success: boolean;
+  error?: string;
+  newLordName?: string;
+}
+
+export function transferLordship(village: VillageRow, toName: string): TransferResult {
+  const trimmed = toName.trim();
+  if (!trimmed) {
+    return { success: false, error: '위임할 마을원 이름을 입력하세요. 사용법: village transfer <이름>' };
+  }
+
+  const targetCharacter = db.prepare('SELECT id, name FROM characters WHERE name = ?').get(trimmed) as
+    | { id: number; name: string }
+    | undefined;
+  if (!targetCharacter) {
+    return { success: false, error: '그런 캐릭터가 없습니다.' };
+  }
+  if (targetCharacter.id === village.lord_character_id) {
+    return { success: false, error: '이미 영주입니다.' };
+  }
+
+  const targetMembership = db
+    .prepare('SELECT id FROM village_members WHERE village_id = ? AND character_id = ?')
+    .get(village.id, targetCharacter.id);
+  if (!targetMembership) {
+    return { success: false, error: `${targetCharacter.name}님은 이 마을 소속이 아닙니다.` };
+  }
+
+  const tx = db.transaction(() => {
+    db.prepare('UPDATE villages SET lord_character_id = ? WHERE id = ?').run(targetCharacter.id, village.id);
+    db.prepare("UPDATE village_members SET role = 'member' WHERE village_id = ? AND character_id = ?").run(
+      village.id,
+      village.lord_character_id,
+    );
+    db.prepare("UPDATE village_members SET role = 'lord' WHERE village_id = ? AND character_id = ?").run(
+      village.id,
+      targetCharacter.id,
+    );
+  });
+  tx();
+
+  return { success: true, newLordName: targetCharacter.name };
+}
+
+/** Fully dissolves a village: garrison, plots, membership, the DB row, and the world's in-memory room. */
+export function disbandVillage(village: VillageRow): void {
+  for (const mob of getMobsInRoom(village.room_id)) {
+    despawnMob(mob.spawnId);
+  }
+
+  const tx = db.transaction(() => {
+    db.prepare('DELETE FROM village_garrison WHERE village_id = ?').run(village.id);
+    db.prepare('DELETE FROM village_plots WHERE village_id = ?').run(village.id);
+    db.prepare('DELETE FROM village_members WHERE village_id = ?').run(village.id);
+    db.prepare('DELETE FROM villages WHERE id = ?').run(village.id);
+  });
+  tx();
+
+  unregisterRoom(village.room_id);
+}
+
+export interface RemoveGarrisonResult {
+  success: boolean;
+  error?: string;
+  mobName?: string;
+}
+
+export function removeGarrisonMob(village: VillageRow, mobName: string): RemoveGarrisonResult {
+  const trimmed = mobName.trim();
+  if (!trimmed) {
+    return { success: false, error: '해고할 수비대 이름을 입력하세요. 사용법: village garrison remove <몬스터>' };
+  }
+
+  const mob = findMobInRoomByName(village.room_id, trimmed);
+  if (!mob || mob.spawnId >= 0) {
+    return { success: false, error: '그런 수비대가 없습니다.' };
+  }
+
+  const garrisonId = -mob.spawnId;
+  despawnMob(mob.spawnId);
+  db.prepare('DELETE FROM village_garrison WHERE id = ?').run(garrisonId);
+
+  return { success: true, mobName: mob.name };
 }

@@ -197,6 +197,11 @@ export function spawnGarrisonMob(
   return instance;
 }
 
+/** Removes a mob instance entirely (e.g. a fired garrison guard). Unlike killMob, it never respawns. */
+export function despawnMob(spawnId: number): void {
+  mobs.delete(spawnId);
+}
+
 export function getMobsInRoom(roomId: number): MobInstance[] {
   return [...mobs.values()].filter((mob) => mob.roomId === roomId && mob.alive);
 }

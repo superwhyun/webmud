@@ -47,4 +47,9 @@ export function registerRoom(room: RoomData): void {
   rooms.set(room.id, room);
 }
 
+/** Removes a dynamically registered room (e.g. a disbanded village's anchor room). */
+export function unregisterRoom(roomId: number): void {
+  rooms.delete(roomId);
+}
+
 loadWorld();

@@ -4,12 +4,14 @@ import type { VillageRow } from '../../db/types.js';
 import { loadCharacter, loadCharacterState } from '../characterState.js';
 import { getMobsInRoom } from '../MobManager.js';
 import { broadcastRoomSnapshot, sendRoomSnapshot } from '../roomSnapshot.js';
+import { RAID_UNLOCK_LEVEL } from '../village/RaidService.js';
 import {
   addGarrisonMob,
   BUILDING_CATALOG,
   buildOnPlot,
   buyLand,
   depositGold,
+  disbandVillage,
   findVillageByCharacterMembership,
   findVillageByName,
   findVillageByRoomId,
@@ -19,8 +21,12 @@ import {
   joinVillage,
   listVillages,
   quitVillage,
+  removeGarrisonMob,
+  transferLordship,
   upgradeVillage,
 } from '../village/VillageService.js';
+import { getSessionsInRoom } from '../sessionRegistry.js';
+import { send } from '../wsUtil.js';
 import type { CommandContext } from './context.js';
 
 export type LordCheck = { ok: true; village: VillageRow } | { ok: false; error: string };
@@ -162,8 +168,8 @@ function handleDeposit(ctx: CommandContext, rest: string): void {
   broadcastRoomSnapshot(ctx.session.roomId);
 }
 
-function handleJoin(ctx: CommandContext): void {
-  const result = joinVillage(ctx.session.characterId, ctx.session.roomId);
+function handleJoin(ctx: CommandContext, rest: string): void {
+  const result = joinVillage(ctx.session.characterId, rest);
   if (!result.success || !result.village) {
     ctx.send({ type: 'text', text: result.error ?? '가입할 수 없습니다.' });
     return;
@@ -173,7 +179,7 @@ function handleJoin(ctx: CommandContext): void {
     type: 'text',
     text: `${result.village.name} 마을에 가입했습니다. 이제 전투로 얻는 gold의 ${result.village.tithe_percent}%가 마을에 자동으로 상납됩니다.`,
   });
-  broadcastRoomSnapshot(ctx.session.roomId);
+  broadcastRoomSnapshot(result.village.room_id);
 }
 
 function handleQuit(ctx: CommandContext): void {
@@ -239,6 +245,23 @@ function handleGarrisonList(ctx: CommandContext): void {
   ctx.send({ type: 'text', text: `수비대 (${garrison.length}/${capacity}):\n${lines.join('\n')}` });
 }
 
+function handleGarrisonRemove(ctx: CommandContext, mobName: string): void {
+  const check = requireLord(ctx);
+  if (!check.ok) {
+    ctx.send({ type: 'text', text: check.error });
+    return;
+  }
+
+  const result = removeGarrisonMob(check.village, mobName);
+  if (!result.success) {
+    ctx.send({ type: 'text', text: result.error ?? '수비대를 해고할 수 없습니다.' });
+    return;
+  }
+
+  ctx.send({ type: 'text', text: `${result.mobName}을(를) 수비대에서 해고했습니다.` });
+  broadcastRoomSnapshot(check.village.room_id);
+}
+
 function handleGarrison(ctx: CommandContext, rest: string): void {
   const spaceIndex = rest.trim().indexOf(' ');
   const sub = spaceIndex === -1 ? rest.trim() : rest.trim().slice(0, spaceIndex);
@@ -252,7 +275,14 @@ function handleGarrison(ctx: CommandContext, rest: string): void {
     handleGarrisonList(ctx);
     return;
   }
-  ctx.send({ type: 'error', text: '사용법: village garrison add <몬스터> | village garrison list' });
+  if (sub.toLowerCase() === 'remove') {
+    handleGarrisonRemove(ctx, subRest);
+    return;
+  }
+  ctx.send({
+    type: 'error',
+    text: '사용법: village garrison add <몬스터> | village garrison list | village garrison remove <몬스터>',
+  });
 }
 
 function handleUpgrade(ctx: CommandContext): void {
@@ -273,6 +303,47 @@ function handleUpgrade(ctx: CommandContext): void {
     text: `마을이 Lv.${result.newLevel}(으)로 성장했습니다! (국고 gold -${result.cost.gold}, 목재 -${result.cost.wood}, 광석 -${result.cost.ore}, 식량 -${result.cost.food})`,
   });
   broadcastRoomSnapshot(check.village.room_id);
+}
+
+function handleTransfer(ctx: CommandContext, rest: string): void {
+  const check = requireLord(ctx);
+  if (!check.ok) {
+    ctx.send({ type: 'text', text: check.error });
+    return;
+  }
+
+  const result = transferLordship(check.village, rest);
+  if (!result.success) {
+    ctx.send({ type: 'text', text: result.error ?? '영주를 위임할 수 없습니다.' });
+    return;
+  }
+
+  ctx.send({ type: 'text', text: `영주 자리를 ${result.newLordName}님에게 위임했습니다.` });
+  broadcastRoomSnapshot(check.village.room_id);
+}
+
+function handleDisband(ctx: CommandContext): void {
+  const check = requireLord(ctx);
+  if (!check.ok) {
+    ctx.send({ type: 'text', text: check.error });
+    return;
+  }
+
+  const village = check.village;
+  const occupants = getSessionsInRoom(village.room_id);
+
+  disbandVillage(village);
+
+  ctx.send({ type: 'text', text: `${village.name} 마을을 해체했습니다.` });
+
+  for (const session of occupants) {
+    session.roomId = FRONTIER_ROOM_ID;
+    db.prepare('UPDATE characters SET room_id = ? WHERE id = ?').run(FRONTIER_ROOM_ID, session.characterId);
+    if (session.ws !== ctx.session.ws) {
+      send(session.ws, { type: 'text', text: `${village.name} 마을이 해체되어 미개척지로 이동합니다.` });
+    }
+    sendRoomSnapshot({ session, send: (message) => send(session.ws, message) });
+  }
 }
 
 export function handleVillage(ctx: CommandContext, rest: string): void {
@@ -302,7 +373,7 @@ export function handleVillage(ctx: CommandContext, rest: string): void {
       handleDeposit(ctx, subRest);
       return;
     case 'join':
-      handleJoin(ctx);
+      handleJoin(ctx, subRest);
       return;
     case 'quit':
       handleQuit(ctx);
@@ -316,10 +387,16 @@ export function handleVillage(ctx: CommandContext, rest: string): void {
     case 'upgrade':
       handleUpgrade(ctx);
       return;
+    case 'transfer':
+      handleTransfer(ctx, subRest);
+      return;
+    case 'disband':
+      handleDisband(ctx);
+      return;
     default:
       ctx.send({
         type: 'text',
-        text: '사용법: village found <이름> | village list | village join | village quit | village members | village deposit <금액> | village land buy | village build <칸번호> <종류> | village garrison add <몬스터> | village garrison list | village upgrade',
+        text: '사용법: village found <이름> | village list | village join <이름> | village quit | village members | village deposit <금액> | village land buy | village build <칸번호> <종류> | village garrison add/list/remove <몬스터> | village upgrade | village transfer <이름> | village disband',
       });
   }
 }
@@ -338,6 +415,16 @@ export function handleTravel(ctx: CommandContext, name: string): void {
   const village = findVillageByName(trimmed);
   if (!village) {
     ctx.send({ type: 'text', text: '그런 이름의 마을이 없습니다.' });
+    return;
+  }
+
+  const membership = findVillageByCharacterMembership(ctx.session.characterId);
+  const isMember = membership?.id === village.id;
+  if (!isMember && village.level < RAID_UNLOCK_LEVEL) {
+    ctx.send({
+      type: 'text',
+      text: `${village.name} 마을은 아직 다른 곳과 길이 연결되지 않았습니다. 마을원만 들어갈 수 있습니다.`,
+    });
     return;
   }
 
