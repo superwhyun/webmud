@@ -17,6 +17,7 @@ interface InventoryRow {
   level: number;
   grade: ItemGrade;
   heal_amount: number;
+  mana_amount: number;
 }
 
 interface RoomItemRow {
@@ -30,7 +31,7 @@ interface RoomItemRow {
 function findInventoryItem(characterId: number, nameQuery: string): InventoryRow | undefined {
   const rows = db
     .prepare(
-      `SELECT inv.id, inv.item_id, inv.quantity, inv.equipped, i.name, i.type, i.slot, i.level, i.grade, i.heal_amount
+      `SELECT inv.id, inv.item_id, inv.quantity, inv.equipped, i.name, i.type, i.slot, i.level, i.grade, i.heal_amount, i.mana_amount
        FROM inventory_items inv
        JOIN items i ON i.id = inv.item_id
        WHERE inv.character_id = ?`,
@@ -212,7 +213,7 @@ export function handleUse(ctx: CommandContext, itemName: string): void {
     ctx.send({ type: 'text', text: '그런 아이템을 가지고 있지 않습니다.' });
     return;
   }
-  if (item.heal_amount <= 0) {
+  if (item.heal_amount <= 0 && item.mana_amount <= 0) {
     ctx.send({ type: 'text', text: '사용할 수 없는 아이템입니다.' });
     return;
   }
@@ -221,10 +222,12 @@ export function handleUse(ctx: CommandContext, itemName: string): void {
   if (!character) return;
 
   const healed = Math.min(item.heal_amount, character.max_hp - character.hp);
+  const restoredMp = Math.min(item.mana_amount, character.max_mp - character.mp);
   const newHp = character.hp + healed;
+  const newMp = character.mp + restoredMp;
 
   const consumeTx = db.transaction(() => {
-    db.prepare('UPDATE characters SET hp = ? WHERE id = ?').run(newHp, character.id);
+    db.prepare('UPDATE characters SET hp = ?, mp = ? WHERE id = ?').run(newHp, newMp, character.id);
     if (item.quantity > 1) {
       db.prepare('UPDATE inventory_items SET quantity = quantity - 1 WHERE id = ?').run(item.id);
     } else {
@@ -233,9 +236,13 @@ export function handleUse(ctx: CommandContext, itemName: string): void {
   });
   consumeTx();
 
+  const effects: string[] = [];
+  if (healed > 0) effects.push(`체력을 ${healed}만큼 회복했습니다. (${newHp}/${character.max_hp})`);
+  if (restoredMp > 0) effects.push(`마나를 ${restoredMp}만큼 회복했습니다. (${newMp}/${character.max_mp})`);
+
   ctx.send({
     type: 'text',
-    text: `${formatItemMention(item.name, item.grade)}을(를) 사용해 체력을 ${healed}만큼 회복했습니다. (${newHp}/${character.max_hp})`,
+    text: `${formatItemMention(item.name, item.grade)}을(를) 사용해 ${effects.length > 0 ? effects.join(' ') : '하지만 효과가 없었습니다.'}`,
   });
 
   const state = loadCharacterState(ctx.session.characterId);

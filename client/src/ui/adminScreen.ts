@@ -142,6 +142,10 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
               <input id="admin-item-heal" type="number" placeholder="회복량" value="0" min="0" />
             </div>
             <div class="admin-field">
+              <label for="admin-item-mana">마나 회복량 (소모품)</label>
+              <input id="admin-item-mana" type="number" placeholder="마나 회복량" value="0" min="0" />
+            </div>
+            <div class="admin-field">
               <label for="admin-item-value">판매 가치</label>
               <input id="admin-item-value" type="number" placeholder="가치" value="0" min="0" />
             </div>
@@ -383,6 +387,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
     container.querySelector<HTMLInputElement>('#admin-item-pdef')!.value = String(item.physicalDefenseBonus);
     container.querySelector<HTMLInputElement>('#admin-item-mdef')!.value = String(item.magicDefenseBonus);
     container.querySelector<HTMLInputElement>('#admin-item-heal')!.value = String(item.healAmount);
+    container.querySelector<HTMLInputElement>('#admin-item-mana')!.value = String(item.manaAmount);
     container.querySelector<HTMLInputElement>('#admin-item-value')!.value = String(item.value);
   }
 
@@ -400,6 +405,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
     container.querySelector<HTMLInputElement>('#admin-item-pdef')!.value = '0';
     container.querySelector<HTMLInputElement>('#admin-item-mdef')!.value = '0';
     container.querySelector<HTMLInputElement>('#admin-item-heal')!.value = '0';
+    container.querySelector<HTMLInputElement>('#admin-item-mana')!.value = '0';
     container.querySelector<HTMLInputElement>('#admin-item-value')!.value = '0';
   }
 
@@ -411,6 +417,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
     if (item.physicalDefenseBonus) stats.push(`물리방어 +${item.physicalDefenseBonus}`);
     if (item.magicDefenseBonus) stats.push(`마법방어 +${item.magicDefenseBonus}`);
     if (item.healAmount) stats.push(`회복 +${item.healAmount}`);
+    if (item.manaAmount) stats.push(`마나회복 +${item.manaAmount}`);
     return stats.length ? `, ${stats.join(', ')}` : '';
   }
 
@@ -665,6 +672,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
       physicalDefenseBonus: Number(container.querySelector<HTMLInputElement>('#admin-item-pdef')!.value),
       magicDefenseBonus: Number(container.querySelector<HTMLInputElement>('#admin-item-mdef')!.value),
       healAmount: Number(container.querySelector<HTMLInputElement>('#admin-item-heal')!.value),
+      manaAmount: Number(container.querySelector<HTMLInputElement>('#admin-item-mana')!.value),
       value: Number(container.querySelector<HTMLInputElement>('#admin-item-value')!.value),
     };
     const request = editingItemId ? updateItemTemplate(token, editingItemId, data) : createItemTemplate(token, data);

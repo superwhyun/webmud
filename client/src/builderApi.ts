@@ -29,6 +29,7 @@ export interface ItemTemplateDto {
   physicalDefenseBonus: number;
   magicDefenseBonus: number;
   healAmount: number;
+  manaAmount: number;
   value: number;
 }
 

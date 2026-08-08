@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS items (
   physical_defense_bonus INTEGER NOT NULL DEFAULT 0,
   magic_defense_bonus INTEGER NOT NULL DEFAULT 0,
   heal_amount INTEGER NOT NULL DEFAULT 0,
+  mana_amount INTEGER NOT NULL DEFAULT 0,
   value INTEGER NOT NULL DEFAULT 0
 );
 

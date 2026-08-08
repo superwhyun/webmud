@@ -171,6 +171,7 @@ const itemSchema = z.object({
   physicalDefenseBonus: z.number().int().default(0),
   magicDefenseBonus: z.number().int().default(0),
   healAmount: z.number().int().min(0).default(0),
+  manaAmount: z.number().int().min(0).default(0),
   value: z.number().int().min(0).default(0),
 });
 
@@ -184,8 +185,8 @@ adminRouter.post('/items', (req, res) => {
   const d = parsed.data;
   const info = db
     .prepare(
-      `INSERT INTO items (name, description, type, slot, level, grade, strength_bonus, dexterity_bonus, attack_power_bonus, physical_defense_bonus, magic_defense_bonus, heal_amount, value)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO items (name, description, type, slot, level, grade, strength_bonus, dexterity_bonus, attack_power_bonus, physical_defense_bonus, magic_defense_bonus, heal_amount, mana_amount, value)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       d.name,
@@ -200,6 +201,7 @@ adminRouter.post('/items', (req, res) => {
       d.physicalDefenseBonus,
       d.magicDefenseBonus,
       d.healAmount,
+      d.manaAmount,
       d.value,
     );
 
@@ -223,8 +225,8 @@ adminRouter.patch('/items/:id', (req, res) => {
   const d = parsed.data;
   db.prepare(
     `UPDATE items SET name = ?, description = ?, type = ?, slot = ?, level = ?, grade = ?,
-       strength_bonus = ?, dexterity_bonus = ?, physical_defense_bonus = ?, magic_defense_bonus = ?,
-       heal_amount = ?, value = ?
+       strength_bonus = ?, dexterity_bonus = ?, attack_power_bonus = ?, physical_defense_bonus = ?, magic_defense_bonus = ?,
+       heal_amount = ?, mana_amount = ?, value = ?
      WHERE id = ?`,
   ).run(
     d.name,
@@ -235,9 +237,11 @@ adminRouter.patch('/items/:id', (req, res) => {
     d.grade,
     d.strengthBonus,
     d.dexterityBonus,
+    d.attackPowerBonus,
     d.physicalDefenseBonus,
     d.magicDefenseBonus,
     d.healAmount,
+    d.manaAmount,
     d.value,
     id,
   );

@@ -52,6 +52,7 @@ export interface ItemRow {
   physical_defense_bonus: number;
   magic_defense_bonus: number;
   heal_amount: number;
+  mana_amount: number;
   value: number;
 }
 

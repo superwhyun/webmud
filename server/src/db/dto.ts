@@ -15,6 +15,7 @@ export function toItemDto(row: ItemRow) {
     physicalDefenseBonus: row.physical_defense_bonus,
     magicDefenseBonus: row.magic_defense_bonus,
     healAmount: row.heal_amount,
+    manaAmount: row.mana_amount,
     value: row.value,
   };
 }

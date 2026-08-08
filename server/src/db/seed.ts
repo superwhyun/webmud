@@ -40,6 +40,7 @@ interface ItemSeed {
   physicalDefenseBonus: number;
   magicDefenseBonus: number;
   healAmount: number;
+  manaAmount: number;
   value: number;
 }
 
@@ -162,6 +163,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 10,
   },
   {
@@ -178,6 +180,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 2,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 8,
   },
   {
@@ -194,6 +197,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 0,
     healAmount: 10,
+    manaAmount: 0,
     value: 5,
   },
   {
@@ -210,6 +214,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 1,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 6,
   },
   {
@@ -226,6 +231,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 7,
   },
   {
@@ -242,6 +248,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 2,
     healAmount: 0,
+    manaAmount: 0,
     value: 9,
   },
   {
@@ -258,6 +265,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 2,
     magicDefenseBonus: 1,
     healAmount: 0,
+    manaAmount: 0,
     value: 10,
   },
   {
@@ -274,6 +282,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 1,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 8,
   },
   {
@@ -290,6 +299,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 7,
   },
   {
@@ -306,6 +316,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 7,
   },
   {
@@ -322,6 +333,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 12,
   },
   {
@@ -338,6 +350,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 40,
   },
   {
@@ -354,12 +367,13 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 3,
     magicDefenseBonus: 2,
     healAmount: 0,
+    manaAmount: 0,
     value: 35,
   },
   {
     id: 14,
     name: '마나 물약',
-    description: '푸르게 빛나는 회복 물약이다.',
+    description: '푸르게 빛나는 마나 회복 물약이다.',
     type: 'consumable',
     slot: null,
     level: 5,
@@ -369,7 +383,8 @@ const ITEMS: ItemSeed[] = [
     dexterityBonus: 0,
     physicalDefenseBonus: 0,
     magicDefenseBonus: 0,
-    healAmount: 20,
+    healAmount: 0,
+    manaAmount: 20,
     value: 15,
   },
   {
@@ -386,6 +401,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 4,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 30,
   },
   {
@@ -402,6 +418,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 90,
   },
   {
@@ -418,6 +435,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 6,
     magicDefenseBonus: 3,
     healAmount: 0,
+    manaAmount: 0,
     value: 80,
   },
   {
@@ -434,6 +452,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 0,
     healAmount: 40,
+    manaAmount: 0,
     value: 35,
   },
   {
@@ -450,6 +469,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 70,
   },
   {
@@ -466,6 +486,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 200,
   },
   {
@@ -482,6 +503,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 10,
     magicDefenseBonus: 5,
     healAmount: 0,
+    manaAmount: 0,
     value: 180,
   },
   {
@@ -498,6 +520,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 0,
     healAmount: 80,
+    manaAmount: 0,
     value: 90,
   },
   {
@@ -514,6 +537,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 160,
   },
   {
@@ -530,6 +554,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 500,
   },
   {
@@ -546,6 +571,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 15,
     magicDefenseBonus: 10,
     healAmount: 0,
+    manaAmount: 0,
     value: 450,
   },
   {
@@ -562,6 +588,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 0,
     healAmount: 150,
+    manaAmount: 0,
     value: 220,
   },
   {
@@ -578,6 +605,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 12,
     healAmount: 0,
+    manaAmount: 0,
     value: 400,
   },
   {
@@ -594,6 +622,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 1200,
   },
   {
@@ -610,6 +639,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 20,
     magicDefenseBonus: 15,
     healAmount: 0,
+    manaAmount: 0,
     value: 1100,
   },
   {
@@ -626,6 +656,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 0,
     healAmount: 300,
+    manaAmount: 0,
     value: 600,
   },
   {
@@ -642,6 +673,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 900,
   },
   // --- 중급(mid) 등급 보강: 등급당 10개를 채우기 위한 추가 방어구 ---
@@ -659,6 +691,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 3,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 25,
   },
   {
@@ -675,6 +708,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 22,
   },
   {
@@ -691,6 +725,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 3,
     healAmount: 0,
+    manaAmount: 0,
     value: 28,
   },
   {
@@ -707,6 +742,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 2,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 26,
   },
   {
@@ -723,6 +759,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 24,
   },
   {
@@ -739,6 +776,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 26,
   },
   // --- 상급(high) 등급 보강 ---
@@ -756,6 +794,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 8,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 75,
   },
   {
@@ -772,6 +811,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 5,
     magicDefenseBonus: 2,
     healAmount: 0,
+    manaAmount: 0,
     value: 65,
   },
   {
@@ -788,6 +828,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 60,
   },
   {
@@ -804,6 +845,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 7,
     healAmount: 0,
+    manaAmount: 0,
     value: 68,
   },
   {
@@ -820,6 +862,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 4,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 62,
   },
   {
@@ -836,6 +879,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 60,
   },
   // --- 레어(rare) 등급 보강 ---
@@ -853,6 +897,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 9,
     magicDefenseBonus: 4,
     healAmount: 0,
+    manaAmount: 0,
     value: 150,
   },
   {
@@ -869,6 +914,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 150,
   },
   {
@@ -885,6 +931,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 14,
     healAmount: 0,
+    manaAmount: 0,
     value: 170,
   },
   {
@@ -901,6 +948,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 12,
     magicDefenseBonus: 6,
     healAmount: 0,
+    manaAmount: 0,
     value: 190,
   },
   {
@@ -917,6 +965,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 8,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 150,
   },
   {
@@ -933,6 +982,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 180,
   },
   // --- 레전드(legend) 등급 보강 ---
@@ -950,6 +1000,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 22,
     magicDefenseBonus: 10,
     healAmount: 0,
+    manaAmount: 0,
     value: 420,
   },
   {
@@ -966,6 +1017,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 16,
     magicDefenseBonus: 8,
     healAmount: 0,
+    manaAmount: 0,
     value: 380,
   },
   {
@@ -982,6 +1034,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 360,
   },
   {
@@ -998,6 +1051,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 14,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 380,
   },
   {
@@ -1014,6 +1068,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 370,
   },
   {
@@ -1030,6 +1085,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 390,
   },
   // --- 에픽(epic) 등급 보강 ---
@@ -1047,6 +1103,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 25,
     magicDefenseBonus: 18,
     healAmount: 0,
+    manaAmount: 0,
     value: 950,
   },
   {
@@ -1063,6 +1120,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 900,
   },
   {
@@ -1079,6 +1137,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 28,
     healAmount: 0,
+    manaAmount: 0,
     value: 980,
   },
   {
@@ -1095,6 +1154,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 30,
     magicDefenseBonus: 22,
     healAmount: 0,
+    manaAmount: 0,
     value: 1150,
   },
   {
@@ -1111,6 +1171,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 22,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 920,
   },
   {
@@ -1127,6 +1188,7 @@ const ITEMS: ItemSeed[] = [
     physicalDefenseBonus: 0,
     magicDefenseBonus: 0,
     healAmount: 0,
+    manaAmount: 0,
     value: 900,
   },
 ];
@@ -1189,8 +1251,8 @@ export function seed(db: Database.Database): void {
     'INSERT INTO room_exits (room_id, direction, target_room_id) VALUES (?, ?, ?)',
   );
   const insertItem = db.prepare(
-    `INSERT INTO items (id, name, description, type, slot, level, grade, strength_bonus, dexterity_bonus, attack_power_bonus, physical_defense_bonus, magic_defense_bonus, heal_amount, value)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO items (id, name, description, type, slot, level, grade, strength_bonus, dexterity_bonus, attack_power_bonus, physical_defense_bonus, magic_defense_bonus, heal_amount, mana_amount, value)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   const insertRoomItem = db.prepare(
     'INSERT INTO room_items (room_id, item_id, quantity) VALUES (?, ?, ?)',
@@ -1225,6 +1287,7 @@ export function seed(db: Database.Database): void {
         item.physicalDefenseBonus,
         item.magicDefenseBonus,
         item.healAmount,
+        item.manaAmount,
         item.value,
       );
     }
