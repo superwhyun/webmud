@@ -1,4 +1,4 @@
-import { formatItemMention, type ItemGrade } from '@mud/shared';
+import { formatItemMention, MAX_INVENTORY_SLOTS, type ItemGrade } from '@mud/shared';
 import { db } from '../../db/client.js';
 import { loadCharacter, loadCharacterState } from '../characterState.js';
 import { broadcastRoomSnapshot } from '../roomSnapshot.js';
@@ -66,18 +66,26 @@ export function handleGet(ctx: CommandContext, itemName: string): void {
     return;
   }
 
+  const existing = db
+    .prepare('SELECT id FROM inventory_items WHERE character_id = ? AND item_id = ? AND equipped = 0')
+    .get(ctx.session.characterId, roomItem.item_id) as { id: number } | undefined;
+
+  if (!existing) {
+    const { count } = db
+      .prepare('SELECT COUNT(*) as count FROM inventory_items WHERE character_id = ?')
+      .get(ctx.session.characterId) as { count: number };
+    if (count >= MAX_INVENTORY_SLOTS) {
+      ctx.send({ type: 'text', text: `인벤토리가 가득 찼습니다. (${MAX_INVENTORY_SLOTS}/${MAX_INVENTORY_SLOTS})` });
+      return;
+    }
+  }
+
   const moveTx = db.transaction(() => {
     if (roomItem.quantity > 1) {
       db.prepare('UPDATE room_items SET quantity = quantity - 1 WHERE id = ?').run(roomItem.id);
     } else {
       db.prepare('DELETE FROM room_items WHERE id = ?').run(roomItem.id);
     }
-
-    const existing = db
-      .prepare(
-        'SELECT id FROM inventory_items WHERE character_id = ? AND item_id = ? AND equipped = 0',
-      )
-      .get(ctx.session.characterId, roomItem.item_id) as { id: number } | undefined;
 
     if (existing) {
       db.prepare('UPDATE inventory_items SET quantity = quantity + 1 WHERE id = ?').run(existing.id);

@@ -489,6 +489,8 @@ body::after {
   grid-template-columns: repeat(5, 1fr);
   grid-template-rows: repeat(10, 1fr);
   gap: 5px;
+  max-height: 320px;
+  overflow-y: auto;
 }
 
 .minimap-cell {
@@ -505,6 +507,37 @@ body::after {
 .minimap-current {
   background: var(--color-accent);
   box-shadow: var(--glow-accent);
+}
+
+.inventory-panel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: 0.2rem;
+}
+
+.inventory-panel-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 0.25rem;
+}
+
+.inventory-panel-qty {
+  color: var(--color-text-dim);
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.inventory-panel-empty {
+  color: var(--color-text-dim);
+  font-size: 0.85rem;
 }
 
 .stat-grid {

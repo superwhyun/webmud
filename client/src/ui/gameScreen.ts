@@ -6,6 +6,7 @@ import {
   JOB_DESCRIPTIONS,
   JOB_LABELS,
   JOB_VALUES,
+  MAX_INVENTORY_SLOTS,
   SKILLS_BY_JOB,
   type CharacterState,
   type ClientMessage,
@@ -42,6 +43,42 @@ const CARDINAL_OFFSET: Record<'north' | 'south' | 'east' | 'west', { dx: number;
 const MINIMAP_COL_RADIUS = 2; // 5 columns wide
 const MINIMAP_ROW_START = -4;
 const MINIMAP_ROW_END = 5; // 10 rows tall
+
+const COMMAND_VERBS = [
+  'look',
+  'l',
+  'help',
+  'say',
+  'shout',
+  'who',
+  'attack',
+  'flee',
+  'get',
+  'drop',
+  'inventory',
+  'inv',
+  'equip',
+  'use',
+  'village',
+  'travel',
+  'leave',
+  'raid',
+  'stat',
+  'skill',
+  'cast',
+  'north',
+  'south',
+  'east',
+  'west',
+  'n',
+  's',
+  'e',
+  'w',
+  'up',
+  'down',
+  'u',
+  'd',
+];
 
 const STAT_ALLOC_ENTRIES: { key: string; label: string; pick: (c: CharacterState) => number }[] = [
   { key: 'str', label: '힘', pick: (c) => c.strength },
@@ -101,6 +138,8 @@ export function renderGameScreen(
       <aside class="map-panel" id="map-panel">
         <div class="map-panel-title">지도</div>
         <div class="minimap" id="minimap"></div>
+        <div class="map-panel-title">인벤토리 (<span id="inventory-count">0</span>/${MAX_INVENTORY_SLOTS})</div>
+        <div class="inventory-panel-list" id="inventory-panel-list"></div>
       </aside>
     </div>
     <div class="modal-overlay" id="equip-modal" hidden>
@@ -137,6 +176,8 @@ export function renderGameScreen(
   const sidebarStats = container.querySelector<HTMLDivElement>('#sidebar-stats')!;
   const equipmentPanel = container.querySelector<HTMLDivElement>('#equipment-panel')!;
   const minimap = container.querySelector<HTMLDivElement>('#minimap')!;
+  const inventoryPanelList = container.querySelector<HTMLDivElement>('#inventory-panel-list')!;
+  const inventoryCountLabel = container.querySelector<HTMLSpanElement>('#inventory-count')!;
   const commandInput = container.querySelector<HTMLInputElement>('#command')!;
   const equipModal = container.querySelector<HTMLDivElement>('#equip-modal')!;
   const equipModalBody = container.querySelector<HTMLDivElement>('#equip-modal-body')!;
@@ -169,8 +210,8 @@ export function renderGameScreen(
     const line = document.createElement('div');
     line.className = `line line-${channel ?? 'system'}`;
     appendItemMentions(line, text);
-    terminal.appendChild(line);
-    terminal.scrollTop = terminal.scrollHeight;
+    terminal.prepend(line);
+    terminal.scrollTop = 0;
   }
 
   function hpLevel(ratio: number): 'normal' | 'warning' | 'danger' {
@@ -289,6 +330,21 @@ export function renderGameScreen(
         </div>
       `;
     }).join('');
+  }
+
+  function renderInventoryPanel(): void {
+    inventoryCountLabel.textContent = String(inventoryState.length);
+    inventoryPanelList.innerHTML =
+      inventoryState
+        .map(
+          (item) => `
+            <div class="inventory-panel-row">
+              <span class="item-grade-${item.grade}">${escapeHtml(item.name)}</span>
+              <span class="inventory-panel-qty">${item.quantity > 1 ? `x${item.quantity}` : ''}${item.equipped ? ' [장착]' : ''}</span>
+            </div>
+          `,
+        )
+        .join('') || '<div class="inventory-panel-empty">비어있음</div>';
   }
 
   function renderEquipModal(): void {
@@ -412,6 +468,7 @@ export function renderGameScreen(
   const roomNames = new Map<number, string>();
   let currentRoomId: number | null = null;
   let pendingDirection: 'north' | 'south' | 'east' | 'west' | null = null;
+  let latestRoom: RoomSnapshot | null = null;
 
   function setRoomPosition(roomId: number, x: number, y: number): void {
     roomCoord.set(roomId, { x, y });
@@ -524,6 +581,7 @@ export function renderGameScreen(
     } else if (message.type === 'state') {
       renderState(message.character);
     } else if (message.type === 'room') {
+      latestRoom = message.room;
       recordRoomVisit(message.room);
       renderRoom(message.room);
       renderMinimap();
@@ -537,6 +595,7 @@ export function renderGameScreen(
       if (!equipModal.hidden) renderEquipModal();
     } else if (message.type === 'inventory') {
       inventoryState = message.items;
+      renderInventoryPanel();
       if (!equipModal.hidden) renderEquipModal();
     } else if (message.type === 'skills') {
       learnedSkillIds = message.learnedSkillIds;
@@ -550,6 +609,7 @@ export function renderGameScreen(
   });
 
   renderEquipmentPanel();
+  renderInventoryPanel();
 
   const commandHistory: string[] = [];
   let historyIndex = 0;
@@ -563,6 +623,7 @@ export function renderGameScreen(
     const message: ClientMessage = { type: 'command', text };
     socket.send(JSON.stringify(message));
     commandInput.value = '';
+    tabCompletion = null;
 
     if (commandHistory[commandHistory.length - 1] !== text) {
       commandHistory.push(text);
@@ -586,6 +647,48 @@ export function renderGameScreen(
     commandInput.setSelectionRange(commandInput.value.length, commandInput.value.length);
   }
 
+  let tabCompletion: { base: string; candidates: string[]; index: number } | null = null;
+
+  function nameCompletionCandidates(): string[] {
+    const names = new Set<string>();
+    if (latestRoom) {
+      for (const mob of latestRoom.mobs) names.add(mob.name);
+      for (const item of latestRoom.items) names.add(item.name);
+    }
+    for (const item of inventoryState) names.add(item.name);
+    return [...names];
+  }
+
+  /**
+   * 두 번째 탭부터는 새로 후보를 계산하지 않고 이전 후보 목록을 순환한다.
+   * 동일 접두사에 여러 후보(예: "가죽"으로 시작하는 아이템 여러 개)가 있을 때
+   * 탭을 반복해서 눌러 하나씩 넘겨보게 하기 위함이다.
+   */
+  function handleTabComplete(): void {
+    const value = commandInput.value;
+    const spaceIndex = value.indexOf(' ');
+    const isFirstToken = spaceIndex === -1;
+    const base = isFirstToken ? '' : value.slice(0, spaceIndex + 1);
+    const typed = isFirstToken ? value : value.slice(spaceIndex + 1);
+
+    if (tabCompletion && tabCompletion.base === base) {
+      tabCompletion.index = (tabCompletion.index + 1) % tabCompletion.candidates.length;
+    } else {
+      const pool = isFirstToken ? COMMAND_VERBS : nameCompletionCandidates();
+      const lowerTyped = typed.toLowerCase();
+      const candidates = pool.filter((candidate) => candidate.toLowerCase().startsWith(lowerTyped));
+      if (candidates.length === 0) return;
+      tabCompletion = { base, candidates, index: 0 };
+    }
+
+    commandInput.value = base + tabCompletion.candidates[tabCompletion.index];
+    commandInput.setSelectionRange(commandInput.value.length, commandInput.value.length);
+  }
+
+  commandInput.addEventListener('input', () => {
+    tabCompletion = null;
+  });
+
   commandInput.addEventListener('keydown', (event: KeyboardEvent) => {
     if (event.isComposing) return;
 
@@ -598,6 +701,12 @@ export function renderGameScreen(
     if (event.key === 'ArrowDown') {
       event.preventDefault();
       navigateHistory(1);
+      return;
+    }
+
+    if (event.key === 'Tab') {
+      event.preventDefault();
+      handleTabComplete();
       return;
     }
 
