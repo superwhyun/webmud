@@ -489,8 +489,6 @@ body::after {
   grid-template-columns: repeat(5, 1fr);
   grid-template-rows: repeat(10, 1fr);
   gap: 5px;
-  max-height: 320px;
-  overflow-y: auto;
 }
 
 .minimap-cell {
