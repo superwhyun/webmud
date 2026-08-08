@@ -45,7 +45,15 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
   if (response.status === 204) {
     return undefined as T;
   }
-  const body = (await response.json()) as T & ErrorResponse;
+  let body: T & ErrorResponse;
+  try {
+    body = (await response.json()) as T & ErrorResponse;
+  } catch {
+    if (!response.ok) {
+      throw new Error(`서버와 통신할 수 없습니다. (상태 코드: ${response.status})`);
+    }
+    throw new Error('서버 응답을 처리하지 못했습니다.');
+  }
   if (!response.ok) {
     throw new Error(body.error ?? '요청에 실패했습니다.');
   }
