@@ -8,7 +8,7 @@ export function renderLoginScreen(container: HTMLElement, callbacks: LoginScreen
     <div class="auth-screen">
       <h1>MUD</h1>
       <form id="auth-form" class="auth-form">
-        <input id="username" type="text" placeholder="아이디" autocomplete="username" required aria-label="아이디" />
+        <input id="username" type="text" placeholder="아이디" autocomplete="username" required aria-label="아이디" value="admin" />
         <input
           id="password"
           type="password"
@@ -16,6 +16,7 @@ export function renderLoginScreen(container: HTMLElement, callbacks: LoginScreen
           autocomplete="current-password"
           required
           aria-label="비밀번호"
+          value="admin1234"
         />
         <div class="auth-actions">
           <button type="submit">로그인</button>
