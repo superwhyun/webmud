@@ -70,31 +70,68 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
 
         <section class="admin-section">
           <h3>아이템</h3>
+          <div class="admin-tabs" id="admin-item-grade-tabs"></div>
           <ul class="admin-list" id="admin-item-templates"></ul>
           <div class="admin-form-row">
-            <input id="admin-item-name" placeholder="이름" maxlength="30" />
-            <input id="admin-item-desc" placeholder="설명" maxlength="200" />
-            <select id="admin-item-type">
-              <option value="weapon">무기</option>
-              <option value="armor">방어구</option>
-              <option value="consumable">소모품</option>
-            </select>
-            <select id="admin-item-slot">
-              <option value="">착용 부위 없음</option>
-              ${EQUIPMENT_SLOTS.map((slot) => `<option value="${slot}">${EQUIPMENT_SLOT_LABELS[slot]}</option>`).join('')}
-            </select>
-            <input id="admin-item-level" type="number" placeholder="레벨" value="1" min="1" />
-            <select id="admin-item-grade">
-              ${ITEM_GRADE_VALUES.map((grade) => `<option value="${grade}">${ITEM_GRADE_LABELS[grade]}</option>`).join('')}
-            </select>
+            <div class="admin-field">
+              <label for="admin-item-name">이름</label>
+              <input id="admin-item-name" placeholder="이름" maxlength="30" />
+            </div>
+            <div class="admin-field">
+              <label for="admin-item-desc">설명</label>
+              <input id="admin-item-desc" placeholder="설명" maxlength="200" />
+            </div>
+            <div class="admin-field">
+              <label for="admin-item-type">종류</label>
+              <select id="admin-item-type">
+                <option value="weapon">무기</option>
+                <option value="armor">방어구</option>
+                <option value="consumable">소모품</option>
+              </select>
+            </div>
+            <div class="admin-field">
+              <label for="admin-item-slot">착용 부위</label>
+              <select id="admin-item-slot">
+                <option value="">착용 부위 없음</option>
+                ${EQUIPMENT_SLOTS.map((slot) => `<option value="${slot}">${EQUIPMENT_SLOT_LABELS[slot]}</option>`).join('')}
+              </select>
+            </div>
+            <div class="admin-field">
+              <label for="admin-item-level">레벨</label>
+              <input id="admin-item-level" type="number" placeholder="레벨" value="1" min="1" />
+            </div>
+            <div class="admin-field">
+              <label for="admin-item-grade">등급</label>
+              <select id="admin-item-grade">
+                ${ITEM_GRADE_VALUES.map((grade) => `<option value="${grade}">${ITEM_GRADE_LABELS[grade]}</option>`).join('')}
+              </select>
+            </div>
           </div>
           <div class="admin-form-row">
-            <input id="admin-item-str" type="number" placeholder="힘" value="0" />
-            <input id="admin-item-dex" type="number" placeholder="민첩" value="0" />
-            <input id="admin-item-pdef" type="number" placeholder="물리방어" value="0" />
-            <input id="admin-item-mdef" type="number" placeholder="마법방어" value="0" />
-            <input id="admin-item-heal" type="number" placeholder="회복량" value="0" min="0" />
-            <input id="admin-item-value" type="number" placeholder="가치" value="0" min="0" />
+            <div class="admin-field">
+              <label for="admin-item-str">힘 보너스</label>
+              <input id="admin-item-str" type="number" placeholder="힘" value="0" />
+            </div>
+            <div class="admin-field">
+              <label for="admin-item-dex">민첩 보너스</label>
+              <input id="admin-item-dex" type="number" placeholder="민첩" value="0" />
+            </div>
+            <div class="admin-field">
+              <label for="admin-item-pdef">물리방어 보너스</label>
+              <input id="admin-item-pdef" type="number" placeholder="물리방어" value="0" />
+            </div>
+            <div class="admin-field">
+              <label for="admin-item-mdef">마법방어 보너스</label>
+              <input id="admin-item-mdef" type="number" placeholder="마법방어" value="0" />
+            </div>
+            <div class="admin-field">
+              <label for="admin-item-heal">회복량 (소모품)</label>
+              <input id="admin-item-heal" type="number" placeholder="회복량" value="0" min="0" />
+            </div>
+            <div class="admin-field">
+              <label for="admin-item-value">판매 가치</label>
+              <input id="admin-item-value" type="number" placeholder="가치" value="0" min="0" />
+            </div>
             <button type="button" id="admin-item-create">아이템 생성</button>
           </div>
           <p class="admin-error" id="admin-item-error"></p>
@@ -136,8 +173,11 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
   const announceInput = container.querySelector<HTMLInputElement>('#admin-announce-input')!;
   const announceError = container.querySelector<HTMLParagraphElement>('#admin-announce-error')!;
 
+  const itemGradeTabs = container.querySelector<HTMLDivElement>('#admin-item-grade-tabs')!;
   const itemTemplatesList = container.querySelector<HTMLUListElement>('#admin-item-templates')!;
   const itemError = container.querySelector<HTMLParagraphElement>('#admin-item-error')!;
+  let itemTemplates: ItemTemplateDto[] = [];
+  let selectedItemGrade: ItemGrade = ITEM_GRADE_VALUES[0];
 
   const mobTemplatesList = container.querySelector<HTMLUListElement>('#admin-mob-templates')!;
   const mobError = container.querySelector<HTMLParagraphElement>('#admin-mob-error')!;
@@ -218,8 +258,23 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
     });
   }
 
-  async function refreshItems(): Promise<void> {
-    const { items } = await fetchItemTemplates(token);
+  function renderItemGradeTabs(): void {
+    itemGradeTabs.innerHTML = ITEM_GRADE_VALUES.map((grade) => {
+      const count = itemTemplates.filter((item) => item.grade === grade).length;
+      return `<button type="button" class="admin-tab-btn${grade === selectedItemGrade ? ' active' : ''}" data-grade="${grade}">${ITEM_GRADE_LABELS[grade]} (${count})</button>`;
+    }).join('');
+
+    itemGradeTabs.querySelectorAll<HTMLButtonElement>('.admin-tab-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        selectedItemGrade = btn.dataset.grade as ItemGrade;
+        renderItemGradeTabs();
+        renderItemList();
+      });
+    });
+  }
+
+  function renderItemList(): void {
+    const items = itemTemplates.filter((item) => item.grade === selectedItemGrade);
 
     itemTemplatesList.innerHTML =
       items
@@ -227,7 +282,14 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
           (item) =>
             `<li><span class="item-grade-${item.grade}">${escapeHtml(item.name)}</span> (${ITEM_TYPE_LABELS[item.type] ?? item.type}${item.slot ? `, ${EQUIPMENT_SLOT_LABELS[item.slot]}` : ''}, Lv.${item.level}, ${ITEM_GRADE_LABELS[item.grade]}, 가치 ${item.value})</li>`,
         )
-        .join('') || '<li class="admin-panel-empty">없음</li>';
+        .join('') || '<li class="admin-panel-empty">이 등급의 아이템이 없습니다.</li>';
+  }
+
+  async function refreshItems(): Promise<void> {
+    const { items } = await fetchItemTemplates(token);
+    itemTemplates = items;
+    renderItemGradeTabs();
+    renderItemList();
   }
 
   async function refreshMobs(): Promise<void> {
@@ -284,7 +346,10 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
       healAmount: Number(container.querySelector<HTMLInputElement>('#admin-item-heal')!.value),
       value: Number(container.querySelector<HTMLInputElement>('#admin-item-value')!.value),
     })
-      .then(() => refreshItems())
+      .then(() => {
+        selectedItemGrade = grade;
+        return refreshItems();
+      })
       .catch((error: unknown) => {
         itemError.textContent = error instanceof Error ? error.message : '아이템 생성에 실패했습니다.';
       });

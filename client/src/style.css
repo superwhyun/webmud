@@ -798,10 +798,49 @@ body::after {
 
 .admin-form-row {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 0.5rem;
   flex-wrap: wrap;
   margin-bottom: 0.75rem;
+}
+
+.admin-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.admin-field label {
+  color: var(--color-text-dim);
+  font-size: 0.75rem;
+}
+
+.admin-tabs {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+
+.admin-tab-btn {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-dim);
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.admin-tab-btn:hover {
+  border-color: var(--color-accent);
+}
+
+.admin-tab-btn.active {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: rgba(242, 201, 76, 0.12);
 }
 
 .admin-form-row input,
