@@ -883,6 +883,39 @@ body::after {
   background: rgba(242, 201, 76, 0.12);
 }
 
+.admin-main-tabs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.5rem;
+}
+
+.admin-main-tab-btn {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-dim);
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  font-weight: bold;
+}
+
+.admin-main-tab-btn:hover {
+  border-color: var(--color-accent);
+}
+
+.admin-main-tab-btn.active {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: rgba(242, 201, 76, 0.15);
+}
+
 .admin-form-row input,
 .admin-form-row select {
   background: var(--color-bg);

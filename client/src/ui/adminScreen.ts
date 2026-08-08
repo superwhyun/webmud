@@ -52,8 +52,15 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
         <span class="admin-title">어드민</span>
         <button type="button" id="admin-back">게임으로 돌아가기</button>
       </div>
+      <div class="admin-main-tabs" id="admin-main-tabs">
+        <button type="button" class="admin-main-tab-btn" data-admin-tab="accounts">유저 권한 관리</button>
+        <button type="button" class="admin-main-tab-btn" data-admin-tab="sessions">온라인 유저</button>
+        <button type="button" class="admin-main-tab-btn" data-admin-tab="announce">공지 보내기</button>
+        <button type="button" class="admin-main-tab-btn" data-admin-tab="items">아이템</button>
+        <button type="button" class="admin-main-tab-btn" data-admin-tab="mobs">몹</button>
+      </div>
       <div class="admin-body">
-        <section class="admin-section">
+        <section class="admin-section" data-admin-tab-panel="accounts">
           <h3>유저 권한 관리</h3>
           <table class="admin-table">
             <thead><tr><th>아이디</th><th>빌더</th><th>어드민</th></tr></thead>
@@ -62,13 +69,13 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
           <p class="admin-error" id="admin-accounts-error"></p>
         </section>
 
-        <section class="admin-section">
+        <section class="admin-section" data-admin-tab-panel="sessions">
           <h3>온라인 유저</h3>
           <div id="admin-sessions-list"></div>
           <p class="admin-error" id="admin-sessions-error"></p>
         </section>
 
-        <section class="admin-section">
+        <section class="admin-section" data-admin-tab-panel="announce">
           <h3>공지 보내기</h3>
           <div class="admin-form-row">
             <input id="admin-announce-input" type="text" maxlength="500" placeholder="공지 내용" />
@@ -77,7 +84,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
           <p class="admin-error" id="admin-announce-error"></p>
         </section>
 
-        <section class="admin-section">
+        <section class="admin-section" data-admin-tab-panel="items">
           <h3>아이템</h3>
           <div class="admin-tabs" id="admin-item-grade-tabs"></div>
           <ul class="admin-list" id="admin-item-templates"></ul>
@@ -156,7 +163,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
           <p class="admin-panel-empty">아이템 배치는 맵 빌더에서 할 수 있습니다.</p>
         </section>
 
-        <section class="admin-section">
+        <section class="admin-section" data-admin-tab-panel="mobs">
           <h3>몹</h3>
           <ul class="admin-list" id="admin-mob-templates"></ul>
           <div class="admin-form-row">
@@ -574,11 +581,14 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
       return;
     }
 
+    const mobTemplate = mobTemplates.find((mob) => mob.id === mobTemplateId);
+    const eligibleItems = itemTemplates.filter((item) => !mobTemplate || item.level < mobTemplate.level);
+
     const { items: poolItems } = await fetchMobLootPool(token, mobTemplateId);
     const poolWeights = new Map<number, number>(poolItems.map((item) => [item.id, item.weight]));
 
     mobLootItemsList.innerHTML =
-      itemTemplates
+      eligibleItems
         .map((item) => {
           const inPool = poolWeights.has(item.id);
           const weight = poolWeights.get(item.id) ?? ITEM_GRADE_DROP_WEIGHT[item.grade];
@@ -600,7 +610,8 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
             </li>
           `;
         })
-        .join('') || '<li class="admin-panel-empty">생성된 아이템이 없습니다.</li>';
+        .join('') ||
+      `<li class="admin-panel-empty">${itemTemplates.length === 0 ? '생성된 아이템이 없습니다.' : `${mobTemplate?.level ?? 1}레벨보다 낮은 아이템이 없습니다.`}</li>`;
 
     mobLootItemsList.querySelectorAll<HTMLInputElement>('.admin-mob-loot-toggle').forEach((checkbox) => {
       const weightInput = mobLootItemsList.querySelector<HTMLInputElement>(
@@ -730,6 +741,22 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
   });
 
   container.querySelector<HTMLButtonElement>('#admin-back')!.addEventListener('click', onBack);
+
+  const adminMainTabButtons = container.querySelectorAll<HTMLButtonElement>('.admin-main-tab-btn');
+  const adminTabPanels = container.querySelectorAll<HTMLElement>('[data-admin-tab-panel]');
+
+  function selectAdminTab(tab: string): void {
+    adminMainTabButtons.forEach((btn) => btn.classList.toggle('active', btn.dataset.adminTab === tab));
+    adminTabPanels.forEach((panel) => {
+      panel.hidden = panel.dataset.adminTabPanel !== tab;
+    });
+  }
+
+  adminMainTabButtons.forEach((btn) => {
+    btn.addEventListener('click', () => selectAdminTab(btn.dataset.adminTab!));
+  });
+
+  selectAdminTab('accounts');
 
   void (async () => {
     await refreshRooms();
