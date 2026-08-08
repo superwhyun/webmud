@@ -209,6 +209,7 @@ export function renderGameScreen(
           </span>
         `,
         ).join('')}
+        <span>공격력 ${character.attackPower}</span>
         <span>물리방어 ${character.physicalDefense}</span>
         <span>마법방어 ${character.magicDefense}</span>
       </div>

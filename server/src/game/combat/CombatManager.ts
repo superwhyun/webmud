@@ -25,6 +25,7 @@ const ELEMENT_DISADVANTAGE_MULTIPLIER = 0.7;
 export interface CombatantStats {
   strength: number;
   dexterity: number;
+  attackPower: number;
   physicalDefense: number;
   magicDefense: number;
   element: ElementType;
@@ -73,7 +74,7 @@ export function resolveAttack(
   }
 
   const defense = damageType === 'magic' ? defender.magicDefense : defender.physicalDefense;
-  const damage = computeDamage(attacker.strength, defense, attacker.element, defender.element, 1);
+  const damage = computeDamage(attacker.strength + attacker.attackPower, defense, attacker.element, defender.element, 1);
 
   return { damage, evaded: false };
 }
@@ -82,6 +83,7 @@ export function mobCombatantStats(mob: MobInstance): CombatantStats {
   return {
     strength: mob.strength,
     dexterity: mob.dexterity,
+    attackPower: 0,
     physicalDefense: mob.physicalDefense,
     magicDefense: mob.magicDefense,
     element: mob.element,
@@ -273,7 +275,8 @@ export function handleCast(ctx: CommandContext, rest: string): void {
     const mob = combat.mobs[0];
 
     const playerStats = getEffectiveStats(character);
-    const attackStat = skill.damageType === 'magic' ? playerStats.intelligence : playerStats.strength;
+    const attackStat =
+      skill.damageType === 'magic' ? playerStats.intelligence : playerStats.strength + playerStats.attackPower;
     const defense = skill.damageType === 'magic' ? mob.magicDefense : mob.physicalDefense;
     const damage = computeDamage(attackStat, defense, playerStats.element, mob.element, skill.power);
 

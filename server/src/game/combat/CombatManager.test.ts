@@ -6,6 +6,7 @@ function stats(overrides: Partial<CombatantStats> = {}): CombatantStats {
   return {
     strength: 10,
     dexterity: 5,
+    attackPower: 0,
     physicalDefense: 2,
     magicDefense: 2,
     element: 'wood',

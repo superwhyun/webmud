@@ -29,6 +29,7 @@ export interface ItemTemplateDto {
   grade: ItemGrade;
   strengthBonus: number;
   dexterityBonus: number;
+  attackPowerBonus: number;
   physicalDefenseBonus: number;
   magicDefenseBonus: number;
   healAmount: number;

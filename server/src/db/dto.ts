@@ -11,6 +11,7 @@ export function toItemDto(row: ItemRow) {
     grade: row.grade,
     strengthBonus: row.strength_bonus,
     dexterityBonus: row.dexterity_bonus,
+    attackPowerBonus: row.attack_power_bonus,
     physicalDefenseBonus: row.physical_defense_bonus,
     magicDefenseBonus: row.magic_defense_bonus,
     healAmount: row.heal_amount,

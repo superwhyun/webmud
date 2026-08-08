@@ -126,6 +126,10 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
               <input id="admin-item-dex" type="number" placeholder="민첩" value="0" />
             </div>
             <div class="admin-field">
+              <label for="admin-item-attack">공격력 보너스 (무기)</label>
+              <input id="admin-item-attack" type="number" placeholder="공격력" value="0" />
+            </div>
+            <div class="admin-field">
               <label for="admin-item-pdef">물리방어 보너스</label>
               <input id="admin-item-pdef" type="number" placeholder="물리방어" value="0" />
             </div>
@@ -375,6 +379,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
     container.querySelector<HTMLSelectElement>('#admin-item-grade')!.value = item.grade;
     container.querySelector<HTMLInputElement>('#admin-item-str')!.value = String(item.strengthBonus);
     container.querySelector<HTMLInputElement>('#admin-item-dex')!.value = String(item.dexterityBonus);
+    container.querySelector<HTMLInputElement>('#admin-item-attack')!.value = String(item.attackPowerBonus);
     container.querySelector<HTMLInputElement>('#admin-item-pdef')!.value = String(item.physicalDefenseBonus);
     container.querySelector<HTMLInputElement>('#admin-item-mdef')!.value = String(item.magicDefenseBonus);
     container.querySelector<HTMLInputElement>('#admin-item-heal')!.value = String(item.healAmount);
@@ -391,10 +396,22 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
     container.querySelector<HTMLInputElement>('#admin-item-level')!.value = '1';
     container.querySelector<HTMLInputElement>('#admin-item-str')!.value = '0';
     container.querySelector<HTMLInputElement>('#admin-item-dex')!.value = '0';
+    container.querySelector<HTMLInputElement>('#admin-item-attack')!.value = '0';
     container.querySelector<HTMLInputElement>('#admin-item-pdef')!.value = '0';
     container.querySelector<HTMLInputElement>('#admin-item-mdef')!.value = '0';
     container.querySelector<HTMLInputElement>('#admin-item-heal')!.value = '0';
     container.querySelector<HTMLInputElement>('#admin-item-value')!.value = '0';
+  }
+
+  function itemStatSummary(item: ItemTemplateDto): string {
+    const stats: string[] = [];
+    if (item.attackPowerBonus) stats.push(`공격력 +${item.attackPowerBonus}`);
+    if (item.strengthBonus) stats.push(`힘 +${item.strengthBonus}`);
+    if (item.dexterityBonus) stats.push(`민첩 +${item.dexterityBonus}`);
+    if (item.physicalDefenseBonus) stats.push(`물리방어 +${item.physicalDefenseBonus}`);
+    if (item.magicDefenseBonus) stats.push(`마법방어 +${item.magicDefenseBonus}`);
+    if (item.healAmount) stats.push(`회복 +${item.healAmount}`);
+    return stats.length ? `, ${stats.join(', ')}` : '';
   }
 
   function renderItemList(): void {
@@ -405,7 +422,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
         .map(
           (item) => `
             <li>
-              <span><span class="item-grade-${item.grade}">${escapeHtml(item.name)}</span> (${ITEM_TYPE_LABELS[item.type] ?? item.type}${item.slot ? `, ${EQUIPMENT_SLOT_LABELS[item.slot]}` : ''}, Lv.${item.level}, ${ITEM_GRADE_LABELS[item.grade]}, 가치 ${item.value})</span>
+              <span><span class="item-grade-${item.grade}">${escapeHtml(item.name)}</span> (${ITEM_TYPE_LABELS[item.type] ?? item.type}${item.slot ? `, ${EQUIPMENT_SLOT_LABELS[item.slot]}` : ''}, Lv.${item.level}, ${ITEM_GRADE_LABELS[item.grade]}, 가치 ${item.value}${itemStatSummary(item)})</span>
               <span class="admin-row-actions">
                 <button type="button" class="admin-edit-btn" data-item-id="${item.id}">수정</button>
                 <button type="button" class="admin-delete-btn" data-item-id="${item.id}">삭제</button>
@@ -644,6 +661,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
       grade,
       strengthBonus: Number(container.querySelector<HTMLInputElement>('#admin-item-str')!.value),
       dexterityBonus: Number(container.querySelector<HTMLInputElement>('#admin-item-dex')!.value),
+      attackPowerBonus: Number(container.querySelector<HTMLInputElement>('#admin-item-attack')!.value),
       physicalDefenseBonus: Number(container.querySelector<HTMLInputElement>('#admin-item-pdef')!.value),
       magicDefenseBonus: Number(container.querySelector<HTMLInputElement>('#admin-item-mdef')!.value),
       healAmount: Number(container.querySelector<HTMLInputElement>('#admin-item-heal')!.value),

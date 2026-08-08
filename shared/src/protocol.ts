@@ -19,6 +19,7 @@ export interface CharacterState {
   vitality: number;
   wisdom: number;
   luck: number;
+  attackPower: number;
   physicalDefense: number;
   magicDefense: number;
   element: ElementType;

@@ -30,6 +30,7 @@ export function toCharacterState(row: CharacterWithRoomRow, effective: Effective
     vitality: effective.vitality,
     wisdom: effective.wisdom,
     luck: effective.luck,
+    attackPower: effective.attackPower,
     physicalDefense: effective.physicalDefense,
     magicDefense: effective.magicDefense,
     element: effective.element,

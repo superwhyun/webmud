@@ -167,6 +167,7 @@ const itemSchema = z.object({
   grade: z.enum(ITEM_GRADE_VALUES as [string, ...string[]], { message: '올바른 등급이 아닙니다.' }),
   strengthBonus: z.number().int().default(0),
   dexterityBonus: z.number().int().default(0),
+  attackPowerBonus: z.number().int().default(0),
   physicalDefenseBonus: z.number().int().default(0),
   magicDefenseBonus: z.number().int().default(0),
   healAmount: z.number().int().min(0).default(0),
@@ -183,8 +184,8 @@ adminRouter.post('/items', (req, res) => {
   const d = parsed.data;
   const info = db
     .prepare(
-      `INSERT INTO items (name, description, type, slot, level, grade, strength_bonus, dexterity_bonus, physical_defense_bonus, magic_defense_bonus, heal_amount, value)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO items (name, description, type, slot, level, grade, strength_bonus, dexterity_bonus, attack_power_bonus, physical_defense_bonus, magic_defense_bonus, heal_amount, value)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       d.name,
@@ -195,6 +196,7 @@ adminRouter.post('/items', (req, res) => {
       d.grade,
       d.strengthBonus,
       d.dexterityBonus,
+      d.attackPowerBonus,
       d.physicalDefenseBonus,
       d.magicDefenseBonus,
       d.healAmount,

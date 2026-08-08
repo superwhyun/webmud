@@ -9,6 +9,7 @@ export interface EffectiveStats {
   vitality: number;
   wisdom: number;
   luck: number;
+  attackPower: number;
   physicalDefense: number;
   magicDefense: number;
   element: ElementType;
@@ -17,6 +18,7 @@ export interface EffectiveStats {
 interface BonusRow {
   strength_bonus: number;
   dexterity_bonus: number;
+  attack_power_bonus: number;
   physical_defense_bonus: number;
   magic_defense_bonus: number;
 }
@@ -26,6 +28,7 @@ export function getEffectiveStats(character: CharacterRow): EffectiveStats {
     .prepare(
       `SELECT COALESCE(SUM(i.strength_bonus), 0) as strength_bonus,
               COALESCE(SUM(i.dexterity_bonus), 0) as dexterity_bonus,
+              COALESCE(SUM(i.attack_power_bonus), 0) as attack_power_bonus,
               COALESCE(SUM(i.physical_defense_bonus), 0) as physical_defense_bonus,
               COALESCE(SUM(i.magic_defense_bonus), 0) as magic_defense_bonus
        FROM inventory_items inv
@@ -41,6 +44,7 @@ export function getEffectiveStats(character: CharacterRow): EffectiveStats {
     vitality: character.vitality,
     wisdom: character.wisdom,
     luck: character.luck,
+    attackPower: bonuses.attack_power_bonus,
     physicalDefense: character.physical_defense + bonuses.physical_defense_bonus,
     magicDefense: character.magic_defense + bonuses.magic_defense_bonus,
     element: character.element,
