@@ -7,6 +7,7 @@ import {
   JOB_LABELS,
   JOB_VALUES,
   MAX_INVENTORY_SLOTS,
+  NPC_TYPE_LABELS,
   SKILLS,
   SKILLS_BY_JOB,
   type CharacterState,
@@ -69,6 +70,9 @@ const COMMAND_VERBS = [
   'skill',
   'cast',
   '마법',
+  'shop',
+  'buy',
+  'sell',
   'north',
   'south',
   'east',
@@ -531,6 +535,10 @@ export function renderGameScreen(
             .map((item) => `<span class="item-grade-${item.grade}">${escapeHtml(item.name)}</span> x${item.quantity}`)
             .join(', ')
         : '-';
+    const npcsText =
+      room.npcs.length > 0
+        ? room.npcs.map((npc) => `${escapeHtml(npc.name)} (${NPC_TYPE_LABELS[npc.type]})`).join(', ')
+        : '-';
     const playersText = room.players.length > 0 ? room.players.join(', ') : '-';
 
     roomPanel.innerHTML = `
@@ -540,6 +548,7 @@ export function renderGameScreen(
         <span><strong>출구</strong>${exitsText}</span>
         <span><strong>몬스터</strong>${mobsText}</span>
         <span><strong>아이템</strong>${itemsText}</span>
+        <span><strong>NPC</strong>${npcsText}</span>
         <span><strong>유저</strong>${playersText}</span>
       </div>
       ${room.village ? renderVillageSection(room.village) : ''}

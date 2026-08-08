@@ -1,4 +1,4 @@
-import type { ElementType, ItemGrade } from '@mud/shared';
+import type { ElementType, ItemGrade, NpcDealType, NpcType } from '@mud/shared';
 import { apiRequest, authHeader } from './api';
 
 export interface BuilderExitDto {
@@ -65,6 +65,23 @@ export interface MobSpawnDto {
   mobTemplateId: number;
   mobName: string;
   respawnSeconds: number;
+}
+
+export interface NpcTemplateDto {
+  id: number;
+  name: string;
+  description: string;
+  type: NpcType;
+  level: number;
+  dealType: NpcDealType;
+}
+
+export interface NpcSpawnDto {
+  id: number;
+  roomId: number;
+  roomName: string;
+  npcTemplateId: number;
+  npcName: string;
 }
 
 export function fetchBuilderRooms(token: string): Promise<{ rooms: BuilderRoomDto[] }> {
@@ -161,4 +178,24 @@ export function placeBuilderMobSpawn(
 
 export function removeBuilderMobSpawn(token: string, spawnId: number): Promise<void> {
   return apiRequest(`/builder/mob-spawns/${spawnId}`, { method: 'DELETE', headers: authHeader(token) });
+}
+
+export function fetchBuilderNpcTemplates(token: string): Promise<{ npcTemplates: NpcTemplateDto[] }> {
+  return apiRequest('/builder/npc-templates', { headers: authHeader(token) });
+}
+
+export function fetchBuilderNpcSpawns(token: string): Promise<{ npcSpawns: NpcSpawnDto[] }> {
+  return apiRequest('/builder/npc-spawns', { headers: authHeader(token) });
+}
+
+export function placeBuilderNpcSpawn(token: string, roomId: number, npcTemplateId: number): Promise<{ spawnId: number }> {
+  return apiRequest('/builder/npc-spawns', {
+    method: 'POST',
+    headers: authHeader(token),
+    body: JSON.stringify({ roomId, npcTemplateId }),
+  });
+}
+
+export function removeBuilderNpcSpawn(token: string, spawnId: number): Promise<void> {
+  return apiRequest(`/builder/npc-spawns/${spawnId}`, { method: 'DELETE', headers: authHeader(token) });
 }

@@ -160,4 +160,19 @@ CREATE TABLE IF NOT EXISTS village_garrison (
   village_id INTEGER NOT NULL REFERENCES villages(id),
   mob_template_id INTEGER NOT NULL REFERENCES mob_templates(id)
 );
+
+CREATE TABLE IF NOT EXISTS npc_templates (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'merchant',
+  level INTEGER NOT NULL DEFAULT 1,
+  deal_type TEXT NOT NULL DEFAULT 'all'
+);
+
+CREATE TABLE IF NOT EXISTS npc_spawns (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  room_id INTEGER NOT NULL REFERENCES rooms(id),
+  npc_template_id INTEGER NOT NULL REFERENCES npc_templates(id)
+);
 `;

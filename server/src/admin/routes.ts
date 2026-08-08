@@ -1,9 +1,17 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { ELEMENT_VALUES, EQUIPMENT_SLOTS, ITEM_GRADE_DROP_WEIGHT, ITEM_GRADE_VALUES, type ItemGrade } from '@mud/shared';
+import {
+  ELEMENT_VALUES,
+  EQUIPMENT_SLOTS,
+  ITEM_GRADE_DROP_WEIGHT,
+  ITEM_GRADE_VALUES,
+  NPC_DEAL_TYPE_VALUES,
+  NPC_TYPE_VALUES,
+  type ItemGrade,
+} from '@mud/shared';
 import { db } from '../db/client.js';
-import { toItemDto, toMobTemplateDto } from '../db/dto.js';
-import type { ItemRow, MobLootPoolRow, MobTemplateRow } from '../db/types.js';
+import { toItemDto, toMobTemplateDto, toNpcTemplateDto } from '../db/dto.js';
+import type { ItemRow, MobLootPoolRow, MobTemplateRow, NpcTemplateRow } from '../db/types.js';
 import { requireAdmin, requireAuth } from '../auth/middleware.js';
 import { getAllSessions, getSessionByCharacterName } from '../game/sessionRegistry.js';
 import { getRoom } from '../game/World.js';
@@ -539,4 +547,79 @@ adminRouter.post('/content-import', (req, res) => {
   importTx();
 
   res.json({ itemCount: d.items.length, mobTemplateCount: d.mobTemplates.length, lootEntryCount: d.mobLootPool.length });
+});
+
+adminRouter.get('/npc-templates', (_req, res) => {
+  const rows = db.prepare('SELECT * FROM npc_templates ORDER BY id').all() as NpcTemplateRow[];
+  res.json({ npcTemplates: rows.map(toNpcTemplateDto) });
+});
+
+const npcTemplateSchema = z.object({
+  name: z.string().min(1, '이름을 입력하세요.').max(30, '이름은 30자 이하여야 합니다.'),
+  description: z.string().min(1, '설명을 입력하세요.').max(200, '설명은 200자 이하여야 합니다.'),
+  type: z.enum(NPC_TYPE_VALUES as [string, ...string[]], { message: '올바른 종류가 아닙니다.' }),
+  level: z.number().int().min(1, '레벨은 1 이상이어야 합니다.').default(1),
+  dealType: z.enum(NPC_DEAL_TYPE_VALUES as [string, ...string[]], { message: '올바른 취급 품목이 아닙니다.' }),
+});
+
+adminRouter.post('/npc-templates', (req, res) => {
+  const parsed = npcTemplateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
+    return;
+  }
+
+  const d = parsed.data;
+  const info = db
+    .prepare('INSERT INTO npc_templates (name, description, type, level, deal_type) VALUES (?, ?, ?, ?, ?)')
+    .run(d.name, d.description, d.type, d.level, d.dealType);
+
+  const row = db.prepare('SELECT * FROM npc_templates WHERE id = ?').get(Number(info.lastInsertRowid)) as NpcTemplateRow;
+  res.status(201).json({ npcTemplate: toNpcTemplateDto(row) });
+});
+
+adminRouter.patch('/npc-templates/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!db.prepare('SELECT id FROM npc_templates WHERE id = ?').get(id)) {
+    res.status(404).json({ error: 'NPC를 찾을 수 없습니다.' });
+    return;
+  }
+
+  const parsed = npcTemplateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
+    return;
+  }
+
+  const d = parsed.data;
+  db.prepare('UPDATE npc_templates SET name = ?, description = ?, type = ?, level = ?, deal_type = ? WHERE id = ?').run(
+    d.name,
+    d.description,
+    d.type,
+    d.level,
+    d.dealType,
+    id,
+  );
+
+  const row = db.prepare('SELECT * FROM npc_templates WHERE id = ?').get(id) as NpcTemplateRow;
+  res.json({ npcTemplate: toNpcTemplateDto(row) });
+});
+
+adminRouter.delete('/npc-templates/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!db.prepare('SELECT id FROM npc_templates WHERE id = ?').get(id)) {
+    res.status(404).json({ error: 'NPC를 찾을 수 없습니다.' });
+    return;
+  }
+
+  const inUse = db.prepare('SELECT COUNT(*) as count FROM npc_spawns WHERE npc_template_id = ?').get(id) as {
+    count: number;
+  };
+  if (inUse.count > 0) {
+    res.status(409).json({ error: '맵에 배치된 NPC는 삭제할 수 없습니다. 먼저 배치를 제거하세요.' });
+    return;
+  }
+
+  db.prepare('DELETE FROM npc_templates WHERE id = ?').run(id);
+  res.status(204).send();
 });

@@ -5,17 +5,23 @@ import {
   type ItemTemplateDto,
   type MobSpawnDto,
   type MobTemplateDto,
+  type NpcSpawnDto,
+  type NpcTemplateDto,
   type RoomItemDto,
   createBuilderRoom,
   deleteBuilderRoom,
   fetchBuilderItemTemplates,
   fetchBuilderMobSpawns,
   fetchBuilderMobTemplates,
+  fetchBuilderNpcSpawns,
+  fetchBuilderNpcTemplates,
   fetchBuilderRoomItems,
   fetchBuilderRooms,
   placeBuilderMobSpawn,
+  placeBuilderNpcSpawn,
   placeBuilderRoomItem,
   removeBuilderMobSpawn,
+  removeBuilderNpcSpawn,
   removeBuilderRoomItem,
   setExitBlocked,
   updateBuilderRoom,
@@ -90,6 +96,8 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
   let mobTemplates: MobTemplateDto[] = [];
   let roomItems: RoomItemDto[] = [];
   let mobSpawns: MobSpawnDto[] = [];
+  let npcTemplates: NpcTemplateDto[] = [];
+  let npcSpawns: NpcSpawnDto[] = [];
 
   const livePositions = new Map<number, Point>();
   const nodeElements = new Map<number, SVGGElement>();
@@ -145,16 +153,21 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
   }
 
   async function refreshPalette(): Promise<void> {
-    const [itemsResult, mobTemplatesResult, roomItemsResult, mobSpawnsResult] = await Promise.all([
-      fetchBuilderItemTemplates(token),
-      fetchBuilderMobTemplates(token),
-      fetchBuilderRoomItems(token),
-      fetchBuilderMobSpawns(token),
-    ]);
+    const [itemsResult, mobTemplatesResult, roomItemsResult, mobSpawnsResult, npcTemplatesResult, npcSpawnsResult] =
+      await Promise.all([
+        fetchBuilderItemTemplates(token),
+        fetchBuilderMobTemplates(token),
+        fetchBuilderRoomItems(token),
+        fetchBuilderMobSpawns(token),
+        fetchBuilderNpcTemplates(token),
+        fetchBuilderNpcSpawns(token),
+      ]);
     itemTemplates = itemsResult.items;
     mobTemplates = mobTemplatesResult.mobTemplates;
     roomItems = roomItemsResult.roomItems;
     mobSpawns = mobSpawnsResult.mobSpawns;
+    npcTemplates = npcTemplatesResult.npcTemplates;
+    npcSpawns = npcSpawnsResult.npcSpawns;
     renderPalette();
   }
 
@@ -162,6 +175,7 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
     const room = selectedRoomId !== null ? findRoom(selectedRoomId) : undefined;
     const placedItems = room ? roomItems.filter((row) => row.roomId === room.id) : [];
     const placedMobs = room ? mobSpawns.filter((row) => row.roomId === room.id) : [];
+    const placedNpcs = room ? npcSpawns.filter((row) => row.roomId === room.id) : [];
 
     const roomHint = room
       ? `<p class="builder-panel-hint">"${escapeHtml(room.name)}"에 배치합니다.</p>`
@@ -242,6 +256,42 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
             : '<li class="builder-panel-empty">방을 선택하세요.</li>'
         }
       </ul>
+
+      <h3>보유 NPC</h3>
+      <ul class="builder-palette-list">
+        ${
+          npcTemplates
+            .map(
+              (npc) => `
+                <li>
+                  <span class="builder-palette-name">${escapeHtml(npc.name)} <span class="builder-palette-qty">x${PLACEHOLDER_OWNED_QTY}</span></span>
+                  <div class="builder-palette-actions">
+                    <button type="button" data-place-npc="${npc.id}" ${room ? '' : 'disabled'}>배치</button>
+                  </div>
+                </li>
+              `,
+            )
+            .join('') || '<li class="builder-panel-empty">등록된 NPC가 없습니다.</li>'
+        }
+      </ul>
+
+      <h4>이 방에 배치된 NPC</h4>
+      <ul class="builder-palette-list">
+        ${
+          room
+            ? placedNpcs
+                .map(
+                  (row) => `
+                    <li>
+                      <span>${escapeHtml(row.npcName)}</span>
+                      <button type="button" class="builder-exit-delete" data-remove-npc="${row.id}">제거</button>
+                    </li>
+                  `,
+                )
+                .join('') || '<li class="builder-panel-empty">배치된 NPC가 없습니다.</li>'
+            : '<li class="builder-panel-empty">방을 선택하세요.</li>'
+        }
+      </ul>
     `;
 
     palette.querySelectorAll<HTMLButtonElement>('[data-place-item]').forEach((button) => {
@@ -285,6 +335,28 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
     palette.querySelectorAll<HTMLButtonElement>('[data-remove-mob]').forEach((button) => {
       button.addEventListener('click', () => {
         removeBuilderMobSpawn(token, Number(button.dataset.removeMob))
+          .then(() => refreshPalette())
+          .catch((error: unknown) => {
+            showToolbarError(error instanceof Error ? error.message : '제거에 실패했습니다.');
+          });
+      });
+    });
+
+    palette.querySelectorAll<HTMLButtonElement>('[data-place-npc]').forEach((button) => {
+      button.addEventListener('click', () => {
+        if (!room) return;
+        const npcTemplateId = Number(button.dataset.placeNpc);
+        placeBuilderNpcSpawn(token, room.id, npcTemplateId)
+          .then(() => refreshPalette())
+          .catch((error: unknown) => {
+            showToolbarError(error instanceof Error ? error.message : '배치에 실패했습니다.');
+          });
+      });
+    });
+
+    palette.querySelectorAll<HTMLButtonElement>('[data-remove-npc]').forEach((button) => {
+      button.addEventListener('click', () => {
+        removeBuilderNpcSpawn(token, Number(button.dataset.removeNpc))
           .then(() => refreshPalette())
           .catch((error: unknown) => {
             showToolbarError(error instanceof Error ? error.message : '제거에 실패했습니다.');

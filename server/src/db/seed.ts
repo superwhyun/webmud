@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3';
 import bcrypt from 'bcryptjs';
-import type { ElementType, EquipmentSlot, ItemGrade } from '@mud/shared';
+import type { ElementType, EquipmentSlot, ItemGrade, NpcDealType, NpcType } from '@mud/shared';
 
 export const STARTING_ROOM_ID = 1;
 
@@ -70,6 +70,20 @@ interface MobSpawnSeed {
   roomId: number;
   mobTemplateId: number;
   respawnSeconds: number;
+}
+
+interface NpcTemplateSeed {
+  id: number;
+  name: string;
+  description: string;
+  type: NpcType;
+  level: number;
+  dealType: NpcDealType;
+}
+
+interface NpcSpawnSeed {
+  roomId: number;
+  npcTemplateId: number;
 }
 
 const ROOMS: RoomSeed[] = [
@@ -2185,6 +2199,30 @@ const MOB_SPAWNS: MobSpawnSeed[] = [
   { roomId: 9, mobTemplateId: 1, respawnSeconds: 20 },
 ];
 
+const NPC_TEMPLATES: NpcTemplateSeed[] = [
+  {
+    id: 1,
+    name: '잡화상 마리아',
+    description: '온갖 잡화를 취급하는 상인이다. 낮은 레벨의 아이템이라면 무엇이든 사고판다.',
+    type: 'merchant',
+    level: 10,
+    dealType: 'all',
+  },
+  {
+    id: 2,
+    name: '무기 상인 브루노',
+    description: '대장간에서 직접 벼려낸 무기만 취급하는 상인이다.',
+    type: 'merchant',
+    level: 20,
+    dealType: 'weapon',
+  },
+];
+
+const NPC_SPAWNS: NpcSpawnSeed[] = [
+  { roomId: 4, npcTemplateId: 1 },
+  { roomId: 3, npcTemplateId: 2 },
+];
+
 export function seed(db: Database.Database): void {
   const existing = db.prepare('SELECT id FROM rooms WHERE id = ?').get(STARTING_ROOM_ID);
   if (existing) return;
@@ -2207,6 +2245,10 @@ export function seed(db: Database.Database): void {
   const insertMobSpawn = db.prepare(
     'INSERT INTO mob_spawns (room_id, mob_template_id, respawn_seconds) VALUES (?, ?, ?)',
   );
+  const insertNpcTemplate = db.prepare(
+    'INSERT INTO npc_templates (id, name, description, type, level, deal_type) VALUES (?, ?, ?, ?, ?, ?)',
+  );
+  const insertNpcSpawn = db.prepare('INSERT INTO npc_spawns (room_id, npc_template_id) VALUES (?, ?)');
   const insertAdminAccount = db.prepare(
     'INSERT INTO accounts (username, password_hash, is_builder, is_admin) VALUES (?, ?, 1, 1)',
   );
@@ -2256,6 +2298,12 @@ export function seed(db: Database.Database): void {
     }
     for (const spawn of MOB_SPAWNS) {
       insertMobSpawn.run(spawn.roomId, spawn.mobTemplateId, spawn.respawnSeconds);
+    }
+    for (const template of NPC_TEMPLATES) {
+      insertNpcTemplate.run(template.id, template.name, template.description, template.type, template.level, template.dealType);
+    }
+    for (const spawn of NPC_SPAWNS) {
+      insertNpcSpawn.run(spawn.roomId, spawn.npcTemplateId);
     }
   });
   seedTx();

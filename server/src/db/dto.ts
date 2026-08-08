@@ -1,4 +1,4 @@
-import type { ItemRow, MobTemplateRow } from './types.js';
+import type { ItemRow, MobTemplateRow, NpcTemplateRow } from './types.js';
 
 export function toItemDto(row: ItemRow) {
   return {
@@ -36,5 +36,16 @@ export function toMobTemplateDto(row: MobTemplateRow) {
     goldReward: row.gold_reward,
     level: row.level,
     hostile: Boolean(row.hostile),
+  };
+}
+
+export function toNpcTemplateDto(row: NpcTemplateRow) {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    type: row.type,
+    level: row.level,
+    dealType: row.deal_type,
   };
 }

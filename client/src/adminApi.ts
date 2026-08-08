@@ -1,4 +1,4 @@
-import type { ElementType, EquipmentSlot, ItemGrade } from '@mud/shared';
+import type { ElementType, EquipmentSlot, ItemGrade, NpcDealType, NpcType } from '@mud/shared';
 import { apiRequest, authHeader } from './api';
 
 export interface AccountDto {
@@ -52,6 +52,15 @@ export interface MobTemplateDto {
   goldReward: number;
   level: number;
   hostile: boolean;
+}
+
+export interface NpcTemplateDto {
+  id: number;
+  name: string;
+  description: string;
+  type: NpcType;
+  level: number;
+  dealType: NpcDealType;
 }
 
 export function fetchAccounts(token: string): Promise<{ accounts: AccountDto[] }> {
@@ -206,3 +215,33 @@ export function importContent(
   });
 }
 
+export function fetchNpcTemplates(token: string): Promise<{ npcTemplates: NpcTemplateDto[] }> {
+  return apiRequest('/admin/npc-templates', { headers: authHeader(token) });
+}
+
+export function createNpcTemplate(
+  token: string,
+  data: Omit<NpcTemplateDto, 'id'>,
+): Promise<{ npcTemplate: NpcTemplateDto }> {
+  return apiRequest('/admin/npc-templates', {
+    method: 'POST',
+    headers: authHeader(token),
+    body: JSON.stringify(data),
+  });
+}
+
+export function updateNpcTemplate(
+  token: string,
+  id: number,
+  data: Omit<NpcTemplateDto, 'id'>,
+): Promise<{ npcTemplate: NpcTemplateDto }> {
+  return apiRequest(`/admin/npc-templates/${id}`, {
+    method: 'PATCH',
+    headers: authHeader(token),
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteNpcTemplate(token: string, id: number): Promise<void> {
+  return apiRequest(`/admin/npc-templates/${id}`, { method: 'DELETE', headers: authHeader(token) });
+}

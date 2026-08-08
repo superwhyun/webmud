@@ -6,21 +6,30 @@ import {
   ITEM_GRADE_DROP_WEIGHT,
   ITEM_GRADE_LABELS,
   ITEM_GRADE_VALUES,
+  NPC_DEAL_TYPE_LABELS,
+  NPC_DEAL_TYPE_VALUES,
+  NPC_TYPE_LABELS,
+  NPC_TYPE_VALUES,
   type ElementType,
   type ItemGrade,
+  type NpcDealType,
+  type NpcType,
 } from '@mud/shared';
 import {
   addMobLootPoolItem,
   createItemTemplate,
   createMobTemplate,
+  createNpcTemplate,
   deleteItemTemplate,
   deleteMobTemplate,
+  deleteNpcTemplate,
   exportContent,
   fetchAccounts,
   fetchAdminRooms,
   fetchItemTemplates,
   fetchMobLootPool,
   fetchMobTemplates,
+  fetchNpcTemplates,
   fetchSessions,
   importContent,
   moderationKick,
@@ -30,9 +39,11 @@ import {
   updateAccount,
   updateItemTemplate,
   updateMobTemplate,
+  updateNpcTemplate,
   type ContentExportDto,
   type ItemTemplateDto,
   type MobTemplateDto,
+  type NpcTemplateDto,
   type RoomOptionDto,
 } from '../adminApi';
 import { escapeHtml } from '../domUtils';
@@ -61,6 +72,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
         <button type="button" class="admin-main-tab-btn" data-admin-tab="announce">공지 보내기</button>
         <button type="button" class="admin-main-tab-btn" data-admin-tab="items">아이템</button>
         <button type="button" class="admin-main-tab-btn" data-admin-tab="mobs">몹</button>
+        <button type="button" class="admin-main-tab-btn" data-admin-tab="npcs">NPC</button>
         <button type="button" class="admin-main-tab-btn" data-admin-tab="backup">백업</button>
       </div>
       <div class="admin-body">
@@ -268,6 +280,48 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
           <p class="admin-error" id="admin-mob-loot-error"></p>
         </section>
 
+        <section class="admin-section" data-admin-tab-panel="npcs">
+          <h3>NPC</h3>
+          <ul class="admin-list" id="admin-npc-templates"></ul>
+          <div class="admin-form-row">
+            <div class="admin-field">
+              <label for="admin-npc-name">이름</label>
+              <input id="admin-npc-name" placeholder="이름" maxlength="30" />
+            </div>
+            <div class="admin-field">
+              <label for="admin-npc-desc">설명</label>
+              <input id="admin-npc-desc" placeholder="설명" maxlength="200" />
+            </div>
+            <div class="admin-field">
+              <label for="admin-npc-type">종류</label>
+              <select id="admin-npc-type">
+                ${NPC_TYPE_VALUES.map((type) => `<option value="${type}">${NPC_TYPE_LABELS[type]}</option>`).join('')}
+              </select>
+            </div>
+            <div class="admin-field">
+              <label for="admin-npc-level">레벨</label>
+              <input
+                id="admin-npc-level"
+                type="number"
+                placeholder="레벨"
+                value="1"
+                min="1"
+                title="이 레벨 이하의 아이템만 취급합니다 (상인일 경우)."
+              />
+            </div>
+            <div class="admin-field">
+              <label for="admin-npc-deal-type">취급 품목</label>
+              <select id="admin-npc-deal-type" title="상인일 경우 이 종류의 아이템만 사고팝니다.">
+                ${NPC_DEAL_TYPE_VALUES.map((type) => `<option value="${type}">${NPC_DEAL_TYPE_LABELS[type]}</option>`).join('')}
+              </select>
+            </div>
+            <button type="button" id="admin-npc-create">NPC 생성</button>
+            <button type="button" id="admin-npc-cancel" hidden>취소</button>
+          </div>
+          <p class="admin-error" id="admin-npc-error"></p>
+          <p class="admin-panel-empty">NPC 배치는 맵 빌더에서 할 수 있습니다. 상인 종류만 실제로 거래(buy/sell) 기능이 동작합니다.</p>
+        </section>
+
         <section class="admin-section" data-admin-tab-panel="backup">
           <h3>백업</h3>
           <p class="admin-panel-empty">
@@ -315,6 +369,14 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
 
   let mobTemplates: MobTemplateDto[] = [];
   let editingMobId: number | null = null;
+
+  const npcTemplatesList = container.querySelector<HTMLUListElement>('#admin-npc-templates')!;
+  const npcError = container.querySelector<HTMLParagraphElement>('#admin-npc-error')!;
+  const npcCreateBtn = container.querySelector<HTMLButtonElement>('#admin-npc-create')!;
+  const npcCancelBtn = container.querySelector<HTMLButtonElement>('#admin-npc-cancel')!;
+
+  let npcTemplates: NpcTemplateDto[] = [];
+  let editingNpcId: number | null = null;
 
   mobElementSelect.innerHTML = ELEMENT_VALUES.map(
     (value) => `<option value="${value}">${ELEMENT_LABELS[value]}</option>`,
@@ -671,6 +733,72 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
     });
   }
 
+  function fillNpcForm(npc: NpcTemplateDto): void {
+    container.querySelector<HTMLInputElement>('#admin-npc-name')!.value = npc.name;
+    container.querySelector<HTMLInputElement>('#admin-npc-desc')!.value = npc.description;
+    container.querySelector<HTMLSelectElement>('#admin-npc-type')!.value = npc.type;
+    container.querySelector<HTMLInputElement>('#admin-npc-level')!.value = String(npc.level);
+    container.querySelector<HTMLSelectElement>('#admin-npc-deal-type')!.value = npc.dealType;
+  }
+
+  function resetNpcForm(): void {
+    editingNpcId = null;
+    npcCreateBtn.textContent = 'NPC 생성';
+    npcCancelBtn.hidden = true;
+    npcError.textContent = '';
+    container.querySelector<HTMLInputElement>('#admin-npc-name')!.value = '';
+    container.querySelector<HTMLInputElement>('#admin-npc-desc')!.value = '';
+    container.querySelector<HTMLInputElement>('#admin-npc-level')!.value = '1';
+  }
+
+  async function refreshNpcs(): Promise<void> {
+    const { npcTemplates: fetched } = await fetchNpcTemplates(token);
+    npcTemplates = fetched;
+
+    npcTemplatesList.innerHTML =
+      npcTemplates
+        .map(
+          (npc) => `
+            <li>
+              <span>${escapeHtml(npc.name)} (${NPC_TYPE_LABELS[npc.type]}, Lv.${npc.level}, ${NPC_DEAL_TYPE_LABELS[npc.dealType]})</span>
+              <span class="admin-row-actions">
+                <button type="button" class="admin-edit-btn" data-npc-id="${npc.id}">수정</button>
+                <button type="button" class="admin-delete-btn" data-npc-id="${npc.id}">삭제</button>
+              </span>
+            </li>
+          `,
+        )
+        .join('') || '<li class="admin-panel-empty">없음</li>';
+
+    npcTemplatesList.querySelectorAll<HTMLButtonElement>('.admin-edit-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const npc = npcTemplates.find((entry) => entry.id === Number(btn.dataset.npcId));
+        if (!npc) return;
+        editingNpcId = npc.id;
+        fillNpcForm(npc);
+        npcCreateBtn.textContent = '저장';
+        npcCancelBtn.hidden = false;
+        npcError.textContent = '';
+      });
+    });
+
+    npcTemplatesList.querySelectorAll<HTMLButtonElement>('.admin-delete-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const npc = npcTemplates.find((entry) => entry.id === Number(btn.dataset.npcId));
+        if (!npc) return;
+        if (!confirm(`"${npc.name}" NPC를 삭제할까요?`)) return;
+        deleteNpcTemplate(token, npc.id)
+          .then(() => {
+            if (editingNpcId === npc.id) resetNpcForm();
+            return refreshNpcs();
+          })
+          .catch((error: unknown) => {
+            npcError.textContent = error instanceof Error ? error.message : 'NPC 삭제에 실패했습니다.';
+          });
+      });
+    });
+  }
+
   container.querySelector<HTMLButtonElement>('#admin-announce-send')!.addEventListener('click', () => {
     const message = announceInput.value.trim();
     announceError.textContent = '';
@@ -817,6 +945,34 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
       });
   });
 
+  npcCreateBtn.addEventListener('click', () => {
+    const name = container.querySelector<HTMLInputElement>('#admin-npc-name')!.value.trim();
+    const description = container.querySelector<HTMLInputElement>('#admin-npc-desc')!.value.trim();
+    npcError.textContent = '';
+    if (!name || !description) {
+      npcError.textContent = '이름과 설명을 입력하세요.';
+      return;
+    }
+    const data = {
+      name,
+      description,
+      type: container.querySelector<HTMLSelectElement>('#admin-npc-type')!.value as NpcType,
+      level: Number(container.querySelector<HTMLInputElement>('#admin-npc-level')!.value),
+      dealType: container.querySelector<HTMLSelectElement>('#admin-npc-deal-type')!.value as NpcDealType,
+    };
+    const request = editingNpcId ? updateNpcTemplate(token, editingNpcId, data) : createNpcTemplate(token, data);
+    request
+      .then(() => {
+        resetNpcForm();
+        return refreshNpcs();
+      })
+      .catch((error: unknown) => {
+        npcError.textContent = error instanceof Error ? error.message : 'NPC 저장에 실패했습니다.';
+      });
+  });
+
+  npcCancelBtn.addEventListener('click', () => resetNpcForm());
+
   container.querySelector<HTMLButtonElement>('#admin-back')!.addEventListener('click', onBack);
 
   const adminMainTabButtons = container.querySelectorAll<HTMLButtonElement>('.admin-main-tab-btn');
@@ -838,7 +994,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
   void (async () => {
     await refreshRooms();
     await refreshItems();
-    await Promise.all([refreshAccounts(), refreshSessions(), refreshMobs()]);
+    await Promise.all([refreshAccounts(), refreshSessions(), refreshMobs(), refreshNpcs()]);
   })().catch((error: unknown) => {
     accountsError.textContent = error instanceof Error ? error.message : '데이터를 불러오지 못했습니다.';
   });

@@ -2,6 +2,7 @@ import type { ElementType } from './elements.js';
 import type { EquipmentSlot } from './equipment.js';
 import type { ItemGrade } from './itemGrades.js';
 import type { JobType } from './jobs.js';
+import type { NpcType } from './npc.js';
 
 export interface CharacterState {
   name: string;
@@ -47,6 +48,11 @@ export interface RoomMobInfo {
   level: number;
 }
 
+export interface RoomNpcInfo {
+  name: string;
+  type: NpcType;
+}
+
 export interface CombatMobInfo {
   spawnId: number;
   name: string;
@@ -80,6 +86,7 @@ export interface RoomSnapshot {
   exits: RoomExitInfo[];
   items: RoomItemInfo[];
   mobs: RoomMobInfo[];
+  npcs: RoomNpcInfo[];
   players: string[];
   village?: VillageInfo;
 }

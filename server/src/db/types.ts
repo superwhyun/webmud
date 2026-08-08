@@ -1,4 +1,4 @@
-import type { ElementType, ItemGrade, JobType } from '@mud/shared';
+import type { ElementType, ItemGrade, JobType, NpcDealType, NpcType } from '@mud/shared';
 
 export interface CharacterRow {
   id: number;
@@ -118,4 +118,13 @@ export interface VillageGarrisonRow {
   id: number;
   village_id: number;
   mob_template_id: number;
+}
+
+export interface NpcTemplateRow {
+  id: number;
+  name: string;
+  description: string;
+  type: NpcType;
+  level: number;
+  deal_type: NpcDealType;
 }
