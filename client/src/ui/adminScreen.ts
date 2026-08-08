@@ -563,8 +563,9 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
     });
 
     mobLootSelect.innerHTML =
-      mobTemplates.map((mob) => `<option value="${mob.id}">${escapeHtml(mob.name)}</option>`).join('') ||
-      '<option value="">몬스터 없음</option>';
+      mobTemplates
+        .map((mob) => `<option value="${mob.id}">${escapeHtml(mob.name)} (Lv.${mob.level})</option>`)
+        .join('') || '<option value="">몬스터 없음</option>';
 
     if (mobTemplates.some((mob) => String(mob.id) === previousLootSelection)) {
       mobLootSelect.value = previousLootSelection;
@@ -582,7 +583,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
     }
 
     const mobTemplate = mobTemplates.find((mob) => mob.id === mobTemplateId);
-    const eligibleItems = itemTemplates.filter((item) => !mobTemplate || item.level < mobTemplate.level);
+    const eligibleItems = itemTemplates.filter((item) => !mobTemplate || item.level <= mobTemplate.level);
 
     const { items: poolItems } = await fetchMobLootPool(token, mobTemplateId);
     const poolWeights = new Map<number, number>(poolItems.map((item) => [item.id, item.weight]));
@@ -611,7 +612,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
           `;
         })
         .join('') ||
-      `<li class="admin-panel-empty">${itemTemplates.length === 0 ? '생성된 아이템이 없습니다.' : `${mobTemplate?.level ?? 1}레벨보다 낮은 아이템이 없습니다.`}</li>`;
+      `<li class="admin-panel-empty">${itemTemplates.length === 0 ? '생성된 아이템이 없습니다.' : `${mobTemplate?.level ?? 1}레벨 이하 아이템이 없습니다.`}</li>`;
 
     mobLootItemsList.querySelectorAll<HTMLInputElement>('.admin-mob-loot-toggle').forEach((checkbox) => {
       const weightInput = mobLootItemsList.querySelector<HTMLInputElement>(
