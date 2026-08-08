@@ -448,6 +448,42 @@ body::after {
   color: var(--color-text-dim);
 }
 
+.macro-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px dashed var(--color-border);
+}
+
+.macro-row:last-child {
+  border-bottom: none;
+}
+
+.macro-row-key {
+  flex-shrink: 0;
+  width: 1.5rem;
+  text-align: center;
+  font-weight: bold;
+  color: var(--color-accent);
+}
+
+.macro-row-input {
+  flex: 1;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 4px;
+}
+
+.macro-row-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
 .skill-learn-btn {
   flex-shrink: 0;
   background: var(--color-bg);

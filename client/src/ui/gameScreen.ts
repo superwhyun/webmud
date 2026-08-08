@@ -22,6 +22,7 @@ import {
 import { renderAdminScreen } from './adminScreen';
 import { renderBuilderScreen } from './builderScreen';
 import { escapeHtml } from '../domUtils';
+import { loadMacros, saveMacro, MACRO_SLOTS, type MacroMap, type MacroSlot } from '../macros';
 
 const CARDINAL_ALIASES: Record<string, 'north' | 'south' | 'east' | 'west'> = {
   n: 'north',
@@ -112,6 +113,7 @@ export function renderGameScreen(
         <div class="equipment-panel" id="equipment-panel"></div>
         <button type="button" id="equip-swap-button" class="equip-swap-btn">장비 교체</button>
         <button type="button" id="skill-button" class="skill-btn">스킬</button>
+        <button type="button" id="macro-button" class="skill-btn">매크로</button>
         <button type="button" id="logout-button" class="logout-btn">로그아웃</button>
       </aside>
       ${
@@ -170,6 +172,15 @@ export function renderGameScreen(
         <div class="modal-body" id="skill-modal-body"></div>
       </div>
     </div>
+    <div class="modal-overlay" id="macro-modal" hidden>
+      <div class="modal-content">
+        <div class="modal-header">
+          <span>매크로</span>
+          <button type="button" id="macro-modal-close" class="modal-close-btn" aria-label="닫기">✕</button>
+        </div>
+        <div class="modal-body" id="macro-modal-body"></div>
+      </div>
+    </div>
   `;
 
   const roomPanel = container.querySelector<HTMLDivElement>('#room-panel')!;
@@ -187,6 +198,8 @@ export function renderGameScreen(
   const jobModalBody = container.querySelector<HTMLDivElement>('#job-modal-body')!;
   const skillModal = container.querySelector<HTMLDivElement>('#skill-modal')!;
   const skillModalBody = container.querySelector<HTMLDivElement>('#skill-modal-body')!;
+  const macroModal = container.querySelector<HTMLDivElement>('#macro-modal')!;
+  const macroModalBody = container.querySelector<HTMLDivElement>('#macro-modal-body')!;
 
   function appendItemMentions(target: HTMLElement, text: string): void {
     ITEM_MENTION_PATTERN.lastIndex = 0;
@@ -318,6 +331,38 @@ export function renderGameScreen(
 
   function closeSkillModal(): void {
     skillModal.hidden = true;
+  }
+
+  let macros: MacroMap = loadMacros();
+
+  function renderMacroModal(): void {
+    macroModalBody.innerHTML = `
+      <p>숫자키 1~9를 입력창에 치고 <strong>Tab</strong>을 누르면 등록한 문구가 채워집니다.</p>
+      ${MACRO_SLOTS.map(
+        (slot) => `
+          <div class="macro-row">
+            <span class="macro-row-key">${slot}</span>
+            <input type="text" class="macro-row-input" data-macro-slot="${slot}" value="${escapeHtml(macros[slot])}" placeholder="예: 마법 파이어볼 " />
+          </div>
+        `,
+      ).join('')}
+    `;
+
+    macroModalBody.querySelectorAll<HTMLInputElement>('.macro-row-input').forEach((input) => {
+      input.addEventListener('change', () => {
+        const slot = input.dataset.macroSlot as MacroSlot;
+        macros = saveMacro(macros, slot, input.value);
+      });
+    });
+  }
+
+  function openMacroModal(): void {
+    renderMacroModal();
+    macroModal.hidden = false;
+  }
+
+  function closeMacroModal(): void {
+    macroModal.hidden = true;
   }
 
   let equipmentState: EquipmentSnapshot = {};
@@ -689,6 +734,14 @@ export function renderGameScreen(
    */
   function handleTabComplete(): void {
     const value = commandInput.value;
+
+    if (MACRO_SLOTS.includes(value as MacroSlot) && macros[value as MacroSlot]) {
+      commandInput.value = macros[value as MacroSlot];
+      commandInput.setSelectionRange(commandInput.value.length, commandInput.value.length);
+      tabCompletion = null;
+      return;
+    }
+
     const tokens = value.split(' ');
     const tokenIndex = tokens.length - 1;
     const typed = tokens[tokenIndex];
@@ -786,5 +839,15 @@ export function renderGameScreen(
 
   skillModal.addEventListener('click', (event) => {
     if (event.target === skillModal) closeSkillModal();
+  });
+
+  const macroButton = container.querySelector<HTMLButtonElement>('#macro-button')!;
+  macroButton.addEventListener('click', () => openMacroModal());
+
+  const macroModalCloseButton = container.querySelector<HTMLButtonElement>('#macro-modal-close')!;
+  macroModalCloseButton.addEventListener('click', () => closeMacroModal());
+
+  macroModal.addEventListener('click', (event) => {
+    if (event.target === macroModal) closeMacroModal();
   });
 }
