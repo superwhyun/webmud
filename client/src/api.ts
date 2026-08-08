@@ -42,12 +42,16 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
     ...options,
     headers: { 'Content-Type': 'application/json', ...options.headers },
   });
-  if (response.status === 204) {
+  const text = await response.text();
+  if (!text) {
+    if (!response.ok) {
+      throw new Error(`요청에 실패했습니다. (상태 코드: ${response.status})`);
+    }
     return undefined as T;
   }
   let body: T & ErrorResponse;
   try {
-    body = (await response.json()) as T & ErrorResponse;
+    body = JSON.parse(text) as T & ErrorResponse;
   } catch {
     if (!response.ok) {
       throw new Error(`서버와 통신할 수 없습니다. (상태 코드: ${response.status})`);
