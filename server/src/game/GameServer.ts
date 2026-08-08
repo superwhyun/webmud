@@ -7,9 +7,34 @@ import { cleanupCombatForSession } from './combat/CombatManager.js';
 import { getEffectiveStats } from './combatStats.js';
 import { dispatchCommand } from './commands/index.js';
 import { handleEquipItemMessage, handleUnequipItemMessage, sendEquipmentAndInventory } from './commands/equipment.js';
+import { sendSkills } from './commands/skills.js';
+import { assignJobToLegacyCharacter, isValidJob } from './jobSelection.js';
 import { broadcastRoomSnapshot, sendRoomSnapshot } from './roomSnapshot.js';
 import { addSession, getSession, removeSession, type Session } from './sessionRegistry.js';
 import { send } from './wsUtil.js';
+
+interface PendingJobSelection {
+  accountId: number;
+  characterId: number;
+  characterName: string;
+  roomId: number;
+}
+
+const pendingJobSelections = new Map<WebSocket, PendingJobSelection>();
+
+function enterWorld(ws: WebSocket, session: Session): void {
+  addSession(session);
+
+  const character = loadCharacter(session.characterId);
+  if (!character) return;
+
+  send(ws, { type: 'text', text: `다시 오신 것을 환영합니다, ${character.name}님.` });
+  send(ws, { type: 'state', character: toCharacterState(character, getEffectiveStats(character)) });
+  sendRoomSnapshot({ session, send: (message) => send(ws, message) });
+  sendEquipmentAndInventory({ session, send: (message) => send(ws, message) });
+  sendSkills({ session, send: (message) => send(ws, message) });
+  broadcastRoomSnapshot(session.roomId);
+}
 
 function handleAuth(ws: WebSocket, token: string): void {
   const payload = verifyToken(token);
@@ -20,12 +45,23 @@ function handleAuth(ws: WebSocket, token: string): void {
   }
 
   const characterRow = db
-    .prepare('SELECT id, room_id, name FROM characters WHERE account_id = ?')
-    .get(payload.accountId) as { id: number; room_id: number; name: string } | undefined;
+    .prepare('SELECT id, room_id, name, job FROM characters WHERE account_id = ?')
+    .get(payload.accountId) as { id: number; room_id: number; name: string; job: string | null } | undefined;
 
   if (!characterRow) {
     send(ws, { type: 'error', text: '캐릭터가 없습니다. 먼저 캐릭터를 생성하세요.' });
     ws.close();
+    return;
+  }
+
+  if (!characterRow.job) {
+    pendingJobSelections.set(ws, {
+      accountId: payload.accountId,
+      characterId: characterRow.id,
+      characterName: characterRow.name,
+      roomId: characterRow.room_id,
+    });
+    send(ws, { type: 'needsJob' });
     return;
   }
 
@@ -36,22 +72,40 @@ function handleAuth(ws: WebSocket, token: string): void {
     characterName: characterRow.name,
     roomId: characterRow.room_id,
   };
-  addSession(session);
+  enterWorld(ws, session);
+}
 
-  const character = loadCharacter(characterRow.id);
-  if (!character) return;
+function handleChooseJob(ws: WebSocket, job: string): void {
+  const pending = pendingJobSelections.get(ws);
+  if (!pending) {
+    send(ws, { type: 'error', text: '직업 선택이 필요한 상태가 아닙니다.' });
+    return;
+  }
+  if (!isValidJob(job)) {
+    send(ws, { type: 'error', text: '올바르지 않은 직업입니다.' });
+    return;
+  }
 
-  send(ws, { type: 'text', text: `다시 오신 것을 환영합니다, ${character.name}님.` });
-  send(ws, { type: 'state', character: toCharacterState(character, getEffectiveStats(character)) });
-  sendRoomSnapshot({ session, send: (message) => send(ws, message) });
-  sendEquipmentAndInventory({ session, send: (message) => send(ws, message) });
-  broadcastRoomSnapshot(session.roomId);
+  assignJobToLegacyCharacter(pending.characterId, job);
+  pendingJobSelections.delete(ws);
+
+  const session: Session = {
+    ws,
+    accountId: pending.accountId,
+    characterId: pending.characterId,
+    characterName: pending.characterName,
+    roomId: pending.roomId,
+  };
+  enterWorld(ws, session);
 }
 
 function handleCommand(ws: WebSocket, text: string): void {
   const session = getSession(ws);
   if (!session) {
-    send(ws, { type: 'error', text: '인증이 필요합니다.' });
+    send(ws, {
+      type: 'error',
+      text: pendingJobSelections.has(ws) ? '먼저 직업을 선택하세요.' : '인증이 필요합니다.',
+    });
     return;
   }
   dispatchCommand({ session, send: (message) => send(ws, message) }, text);
@@ -85,11 +139,14 @@ export function handleConnection(ws: WebSocket): void {
     } else if (message.type === 'unequipItem') {
       const session = requireSession(ws);
       if (session) handleUnequipItemMessage({ session, send: (m) => send(ws, m) }, message.slot);
+    } else if (message.type === 'chooseJob') {
+      handleChooseJob(ws, message.job);
     }
   });
 
   ws.on('close', () => {
     const session = getSession(ws);
+    pendingJobSelections.delete(ws);
     cleanupCombatForSession(ws);
     removeSession(ws);
     if (session) broadcastRoomSnapshot(session.roomId);

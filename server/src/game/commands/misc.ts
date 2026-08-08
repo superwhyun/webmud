@@ -38,6 +38,10 @@ export function showHelp(ctx: CommandContext): void {
       'travel <마을이름> - (미개척지) 마을로 이동합니다. (레벨 3 미만은 마을원만)',
       'leave - 마을에서 미개척지로 돌아갑니다.',
       'raid <마을이름> - (영주) 레벨 3+ 마을을 습격합니다.',
+      'stat <str|dex|int|vit|wis|luk> <수치> - 미분배 스탯 포인트를 분배합니다.',
+      'skill list - 직업 스킬 목록과 습득 현황을 봅니다.',
+      'skill learn <스킬 ID> - 스킬 포인트로 스킬을 배웁니다.',
+      'cast <스킬 ID> - 배운 스킬을 사용합니다. (전투 중: 공격기 / 평시에도 가능: 회복기)',
       'help - 이 도움말을 봅니다.',
     ].join('\n'),
   });

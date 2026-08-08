@@ -5,6 +5,10 @@ import type { CharacterRow } from '../db/types.js';
 export interface EffectiveStats {
   strength: number;
   dexterity: number;
+  intelligence: number;
+  vitality: number;
+  wisdom: number;
+  luck: number;
   physicalDefense: number;
   magicDefense: number;
   element: ElementType;
@@ -33,6 +37,10 @@ export function getEffectiveStats(character: CharacterRow): EffectiveStats {
   return {
     strength: character.strength + bonuses.strength_bonus,
     dexterity: character.dexterity + bonuses.dexterity_bonus,
+    intelligence: character.intelligence,
+    vitality: character.vitality,
+    wisdom: character.wisdom,
+    luck: character.luck,
     physicalDefense: character.physical_defense + bonuses.physical_defense_bonus,
     magicDefense: character.magic_defense + bonuses.magic_defense_bonus,
     element: character.element,

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { ELEMENT_VALUES } from '@mud/shared';
+import { ELEMENT_VALUES, JOB_BASE_STATS, JOB_VALUES } from '@mud/shared';
 import { STARTING_ROOM_ID } from '../db/seed.js';
 import { db } from '../db/client.js';
 import type { CharacterWithRoomRow } from '../db/types.js';
@@ -10,9 +10,6 @@ import { hashPassword, verifyPassword } from './password.js';
 
 export const authRouter = Router();
 
-const START_HP = 20;
-const START_STRENGTH = 5;
-const START_DEXTERITY = 3;
 const START_PHYSICAL_DEFENSE = 2;
 const START_MAGIC_DEFENSE = 2;
 
@@ -33,6 +30,9 @@ const characterSchema = z.object({
     .regex(/^[a-zA-Z0-9_가-힣]+$/, '캐릭터 이름에 허용되지 않는 문자가 있습니다.'),
   element: z.enum(ELEMENT_VALUES as [string, ...string[]], {
     message: '속성을 선택해주세요.',
+  }),
+  job: z.enum(JOB_VALUES as [string, ...string[]], {
+    message: '직업을 선택해주세요.',
   }),
 });
 
@@ -122,17 +122,31 @@ authRouter.post('/character', requireAuth, (req: AuthedRequest, res) => {
     return;
   }
 
+  const job = parsed.data.job as keyof typeof JOB_BASE_STATS;
+  const baseStats = JOB_BASE_STATS[job];
+
   db.prepare(
-    `INSERT INTO characters (account_id, name, room_id, hp, max_hp, strength, dexterity, physical_defense, magic_defense, element)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO characters (
+       account_id, name, room_id, hp, max_hp, mp, max_mp, job,
+       strength, dexterity, intelligence, vitality, wisdom, luck,
+       physical_defense, magic_defense, element
+     )
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     req.accountId,
     parsed.data.name,
     STARTING_ROOM_ID,
-    START_HP,
-    START_HP,
-    START_STRENGTH,
-    START_DEXTERITY,
+    baseStats.hp,
+    baseStats.hp,
+    baseStats.mp,
+    baseStats.mp,
+    job,
+    baseStats.strength,
+    baseStats.dexterity,
+    baseStats.intelligence,
+    baseStats.vitality,
+    baseStats.wisdom,
+    baseStats.luck,
     START_PHYSICAL_DEFENSE,
     START_MAGIC_DEFENSE,
     parsed.data.element,

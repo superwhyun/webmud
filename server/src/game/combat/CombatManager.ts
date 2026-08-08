@@ -5,9 +5,11 @@ import { STARTING_ROOM_ID } from '../../db/seed.js';
 import { getEffectiveStats } from '../combatStats.js';
 import { loadCharacter, loadCharacterState } from '../characterState.js';
 import type { CommandContext } from '../commands/context.js';
+import { applyLevelUps } from '../leveling.js';
 import { killMob, type DamageType, type MobInstance } from '../MobManager.js';
 import { broadcastRoomSnapshot } from '../roomSnapshot.js';
 import { broadcastToRoom } from '../sessionRegistry.js';
+import { hasLearnedSkill, resolveSkillArg } from '../skillProgress.js';
 import { applyGoldEarnings } from '../village/VillageService.js';
 import { getRoom } from '../World.js';
 
@@ -39,6 +41,19 @@ function getElementMultiplier(attackerElement: ElementType, defenderElement: Ele
   return 1;
 }
 
+function computeDamage(
+  attackStat: number,
+  defense: number,
+  attackerElement: ElementType,
+  defenderElement: ElementType,
+  powerMultiplier: number,
+): number {
+  const elementMultiplier = getElementMultiplier(attackerElement, defenderElement);
+  const variance = Math.floor(Math.random() * (DAMAGE_VARIANCE * 2 + 1)) - DAMAGE_VARIANCE;
+  const rawDamage = Math.round((attackStat * powerMultiplier - defense) * elementMultiplier) + variance;
+  return Math.max(MIN_DAMAGE, rawDamage);
+}
+
 export function resolveAttack(
   attacker: CombatantStats,
   defender: CombatantStats,
@@ -53,11 +68,9 @@ export function resolveAttack(
   }
 
   const defense = damageType === 'magic' ? defender.magicDefense : defender.physicalDefense;
-  const elementMultiplier = getElementMultiplier(attacker.element, defender.element);
-  const variance = Math.floor(Math.random() * (DAMAGE_VARIANCE * 2 + 1)) - DAMAGE_VARIANCE;
-  const rawDamage = Math.round((attacker.strength - defense) * elementMultiplier) + variance;
+  const damage = computeDamage(attacker.strength, defense, attacker.element, defender.element, 1);
 
-  return { damage: Math.max(MIN_DAMAGE, rawDamage), evaded: false };
+  return { damage, evaded: false };
 }
 
 export function mobCombatantStats(mob: MobInstance): CombatantStats {
@@ -119,6 +132,105 @@ export function handleFlee(ctx: CommandContext): void {
   cleanupCombatForSession(ctx.session.ws);
   ctx.send({ type: 'text', text: `${combat.mob.name}에게서 도망쳤습니다.` });
   sendCombatEnd(ctx);
+}
+
+/** characterId -> skillId -> 재사용 가능 시각(ms). */
+const skillCooldowns = new Map<number, Map<string, number>>();
+
+function remainingCooldownMs(characterId: number, skillId: string): number {
+  const readyAt = skillCooldowns.get(characterId)?.get(skillId) ?? 0;
+  return Math.max(0, readyAt - Date.now());
+}
+
+function startCooldown(characterId: number, skillId: string, cooldownMs: number): void {
+  const characterCooldowns = skillCooldowns.get(characterId) ?? new Map<string, number>();
+  characterCooldowns.set(skillId, Date.now() + cooldownMs);
+  skillCooldowns.set(characterId, characterCooldowns);
+}
+
+/**
+ * 스킬 시전은 2초 전투 틱과 별개의 즉시 행동으로 처리한다(몬스터 반격을 유발하지 않음).
+ * 몬스터 반격은 기존 자동 공격 틱에서만 발생한다.
+ */
+export function handleCast(ctx: CommandContext, rest: string): void {
+  const skill = resolveSkillArg(rest);
+  if (!skill) {
+    ctx.send({ type: 'text', text: '사용법: cast <스킬 ID>' });
+    return;
+  }
+
+  const character = loadCharacter(ctx.session.characterId);
+  if (!character) return;
+
+  if (!hasLearnedSkill(character.id, skill.id)) {
+    ctx.send({ type: 'text', text: `아직 배우지 않은 스킬입니다: ${skill.name}` });
+    return;
+  }
+
+  if (skill.kind === 'passive') {
+    ctx.send({ type: 'text', text: `${skill.name}은(는) 습득 즉시 적용되는 패시브 스킬입니다.` });
+    return;
+  }
+
+  const remainingMs = remainingCooldownMs(character.id, skill.id);
+  if (remainingMs > 0) {
+    ctx.send({ type: 'text', text: `${skill.name}은(는) 재사용 대기 중입니다. (${Math.ceil(remainingMs / 1000)}초 남음)` });
+    return;
+  }
+
+  if (character.mp < skill.mpCost) {
+    ctx.send({ type: 'text', text: `MP가 부족합니다. (필요 MP ${skill.mpCost}, 보유 MP ${character.mp})` });
+    return;
+  }
+
+  if (skill.kind === 'damage') {
+    const combat = activeCombats.get(ctx.session.ws);
+    if (!combat) {
+      ctx.send({ type: 'text', text: '전투 중에만 사용할 수 있는 스킬입니다.' });
+      return;
+    }
+    const mob = combat.mob;
+
+    const playerStats = getEffectiveStats(character);
+    const attackStat = skill.damageType === 'magic' ? playerStats.intelligence : playerStats.strength;
+    const defense = skill.damageType === 'magic' ? mob.magicDefense : mob.physicalDefense;
+    const damage = computeDamage(attackStat, defense, playerStats.element, mob.element, skill.power);
+
+    db.prepare('UPDATE characters SET mp = mp - ? WHERE id = ?').run(skill.mpCost, character.id);
+    startCooldown(character.id, skill.id, skill.cooldownMs ?? 0);
+    mob.hp = Math.max(0, mob.hp - damage);
+
+    ctx.send({
+      type: 'text',
+      text: `${skill.name}! ${mob.name}에게 ${damage}의 피해를 입혔습니다. (${mob.hp}/${mob.maxHp})`,
+    });
+
+    if (mob.hp <= 0) {
+      handleMobDefeat(ctx, mob, character.id);
+      cleanupCombatForSession(ctx.session.ws);
+      sendCombatEnd(ctx);
+      return;
+    }
+
+    sendCombatStatus(ctx, mob);
+    const state = loadCharacterState(character.id);
+    if (state) ctx.send({ type: 'state', character: state });
+    return;
+  }
+
+  // kind === 'heal'
+  const previousHp = character.hp;
+  const healedHp = Math.min(character.max_hp, character.hp + skill.power);
+  db.prepare('UPDATE characters SET hp = ?, mp = mp - ? WHERE id = ?').run(healedHp, skill.mpCost, character.id);
+  startCooldown(character.id, skill.id, skill.cooldownMs ?? 0);
+
+  ctx.send({
+    type: 'text',
+    text: `${skill.name}! HP를 ${healedHp - previousHp} 회복했습니다. (${healedHp}/${character.max_hp})`,
+  });
+
+  const state = loadCharacterState(character.id);
+  if (state) ctx.send({ type: 'state', character: state });
 }
 
 function performRound(ctx: CommandContext, mob: MobInstance): void {
@@ -211,6 +323,14 @@ function handleMobDefeat(ctx: CommandContext, mob: MobInstance, characterId: num
 
   killMob(mob);
   broadcastRoomSnapshot(ctx.session.roomId);
+
+  const levelUp = applyLevelUps(characterId);
+  if (levelUp) {
+    ctx.send({
+      type: 'text',
+      text: `레벨업! Lv.${levelUp.newLevel}이(가) 되었습니다. (스탯 포인트 +${levelUp.statPointsGained}, 스킬 포인트 +${levelUp.skillPointsGained})`,
+    });
+  }
 
   const state = loadCharacterState(characterId);
   if (state) ctx.send({ type: 'state', character: state });

@@ -3,6 +3,10 @@ import {
   EQUIPMENT_SLOTS,
   EQUIPMENT_SLOT_LABELS,
   ITEM_MENTION_PATTERN,
+  JOB_DESCRIPTIONS,
+  JOB_LABELS,
+  JOB_VALUES,
+  SKILLS_BY_JOB,
   type CharacterState,
   type ClientMessage,
   type EquipmentSlot,
@@ -38,6 +42,15 @@ const MINIMAP_COL_RADIUS = 2; // 5 columns wide
 const MINIMAP_ROW_START = -4;
 const MINIMAP_ROW_END = 5; // 10 rows tall
 
+const STAT_ALLOC_ENTRIES: { key: string; label: string; pick: (c: CharacterState) => number }[] = [
+  { key: 'str', label: '힘', pick: (c) => c.strength },
+  { key: 'dex', label: '민첩', pick: (c) => c.dexterity },
+  { key: 'int', label: '지능', pick: (c) => c.intelligence },
+  { key: 'vit', label: '체력', pick: (c) => c.vitality },
+  { key: 'wis', label: '지혜', pick: (c) => c.wisdom },
+  { key: 'luk', label: '행운', pick: (c) => c.luck },
+];
+
 export function renderGameScreen(
   container: HTMLElement,
   token: string,
@@ -58,6 +71,7 @@ export function renderGameScreen(
         <div class="sidebar-stats" id="sidebar-stats"></div>
         <div class="equipment-panel" id="equipment-panel"></div>
         <button type="button" id="equip-swap-button" class="equip-swap-btn">장비 교체</button>
+        <button type="button" id="skill-button" class="skill-btn">스킬</button>
         <button type="button" id="logout-button" class="logout-btn">로그아웃</button>
       </aside>
       ${
@@ -97,6 +111,23 @@ export function renderGameScreen(
         <div class="modal-body" id="equip-modal-body"></div>
       </div>
     </div>
+    <div class="modal-overlay" id="job-modal" hidden>
+      <div class="modal-content">
+        <div class="modal-header">
+          <span>직업 선택</span>
+        </div>
+        <div class="modal-body" id="job-modal-body"></div>
+      </div>
+    </div>
+    <div class="modal-overlay" id="skill-modal" hidden>
+      <div class="modal-content">
+        <div class="modal-header">
+          <span>스킬</span>
+          <button type="button" id="skill-modal-close" class="modal-close-btn" aria-label="닫기">✕</button>
+        </div>
+        <div class="modal-body" id="skill-modal-body"></div>
+      </div>
+    </div>
   `;
 
   const roomPanel = container.querySelector<HTMLDivElement>('#room-panel')!;
@@ -108,6 +139,10 @@ export function renderGameScreen(
   const commandInput = container.querySelector<HTMLInputElement>('#command')!;
   const equipModal = container.querySelector<HTMLDivElement>('#equip-modal')!;
   const equipModalBody = container.querySelector<HTMLDivElement>('#equip-modal-body')!;
+  const jobModal = container.querySelector<HTMLDivElement>('#job-modal')!;
+  const jobModalBody = container.querySelector<HTMLDivElement>('#job-modal-body')!;
+  const skillModal = container.querySelector<HTMLDivElement>('#skill-modal')!;
+  const skillModalBody = container.querySelector<HTMLDivElement>('#skill-modal-body')!;
 
   function appendItemMentions(target: HTMLElement, text: string): void {
     ITEM_MENTION_PATTERN.lastIndex = 0;
@@ -143,25 +178,100 @@ export function renderGameScreen(
     return 'normal';
   }
 
+  let currentCharacterState: CharacterState | undefined;
+  let learnedSkillIds: string[] = [];
+
   function renderState(character: CharacterState): void {
-    const ratio = character.maxHp > 0 ? character.hp / character.maxHp : 0;
-    const level = hpLevel(ratio);
+    currentCharacterState = character;
+    const hpRatio = character.maxHp > 0 ? character.hp / character.maxHp : 0;
+    const mpRatio = character.maxMp > 0 ? character.mp / character.maxMp : 0;
+    const level = hpLevel(hpRatio);
+    const jobLabel = character.job ? JOB_LABELS[character.job] : '미정';
+    const canAllocate = character.unallocatedStatPoints > 0;
     sidebarStats.innerHTML = `
       <div class="stat stat-name">${character.name}</div>
       <div class="stat">HP ${character.hp}/${character.maxHp}</div>
       <div class="hp-bar" role="progressbar" aria-valuenow="${character.hp}" aria-valuemin="0" aria-valuemax="${character.maxHp}">
-        <div class="hp-bar-fill" data-level="${level}" style="width: ${Math.max(0, ratio * 100)}%"></div>
+        <div class="hp-bar-fill" data-level="${level}" style="width: ${Math.max(0, hpRatio * 100)}%"></div>
       </div>
-      <div class="stat">Lv.${character.level} (EXP ${character.exp}) · gold ${character.gold}</div>
+      <div class="stat">MP ${character.mp}/${character.maxMp}</div>
+      <div class="mp-bar" role="progressbar" aria-valuenow="${character.mp}" aria-valuemin="0" aria-valuemax="${character.maxMp}">
+        <div class="mp-bar-fill" style="width: ${Math.max(0, mpRatio * 100)}%"></div>
+      </div>
+      <div class="stat">Lv.${character.level} ${jobLabel} (EXP ${character.exp}) · gold ${character.gold}</div>
       <div class="stat-grid">
-        <span>힘 ${character.strength}</span>
-        <span>민첩 ${character.dexterity}</span>
+        ${STAT_ALLOC_ENTRIES.map(
+          (entry) => `
+          <span class="stat-grid-entry">
+            ${entry.label} ${entry.pick(character)}
+            ${canAllocate ? `<button type="button" class="stat-alloc-btn" data-stat-key="${entry.key}">+</button>` : ''}
+          </span>
+        `,
+        ).join('')}
         <span>물리방어 ${character.physicalDefense}</span>
         <span>마법방어 ${character.magicDefense}</span>
       </div>
+      ${canAllocate ? `<div class="stat stat-highlight">분배 가능 스탯 포인트: ${character.unallocatedStatPoints}</div>` : ''}
+      ${character.unallocatedSkillPoints > 0 ? `<div class="stat stat-highlight">사용 가능 스킬 포인트: ${character.unallocatedSkillPoints}</div>` : ''}
       <div class="stat">속성 ${ELEMENT_LABELS[character.element]}</div>
       <div class="stat stat-room">${character.roomName}</div>
     `;
+
+    sidebarStats.querySelectorAll<HTMLButtonElement>('.stat-alloc-btn').forEach((button) => {
+      button.addEventListener('click', () => {
+        const message: ClientMessage = { type: 'command', text: `stat ${button.dataset.statKey} 1` };
+        socket.send(JSON.stringify(message));
+      });
+    });
+
+    if (!skillModal.hidden) renderSkillModal();
+  }
+
+  function renderSkillModal(): void {
+    const character = currentCharacterState;
+    const job = character?.job;
+    if (!character || !job) {
+      skillModalBody.innerHTML = '<p>아직 직업이 없어 스킬을 배울 수 없습니다.</p>';
+      return;
+    }
+    const skills = SKILLS_BY_JOB[job];
+
+    skillModalBody.innerHTML = `
+      <p>사용 가능 스킬 포인트: ${character.unallocatedSkillPoints}</p>
+      ${skills
+        .map((skill) => {
+          const learned = learnedSkillIds.includes(skill.id);
+          const locked = character.level < skill.requiredLevel;
+          const canLearn = !learned && !locked && character.unallocatedSkillPoints > 0;
+          const status = learned ? '[습득]' : locked ? `[Lv.${skill.requiredLevel} 필요]` : '[습득 가능]';
+          return `
+            <div class="skill-row">
+              <div class="skill-row-info">
+                <span class="skill-row-name">${skill.name} <span class="skill-row-status">${status}</span></span>
+                <span class="skill-row-desc">${skill.description} (MP ${skill.mpCost})</span>
+              </div>
+              ${canLearn ? `<button type="button" class="skill-learn-btn" data-skill-id="${skill.id}">배우기</button>` : ''}
+            </div>
+          `;
+        })
+        .join('')}
+    `;
+
+    skillModalBody.querySelectorAll<HTMLButtonElement>('.skill-learn-btn').forEach((button) => {
+      button.addEventListener('click', () => {
+        const message: ClientMessage = { type: 'command', text: `skill learn ${button.dataset.skillId}` };
+        socket.send(JSON.stringify(message));
+      });
+    });
+  }
+
+  function openSkillModal(): void {
+    renderSkillModal();
+    skillModal.hidden = false;
+  }
+
+  function closeSkillModal(): void {
+    skillModal.hidden = true;
   }
 
   let equipmentState: EquipmentSnapshot = {};
@@ -360,6 +470,29 @@ export function renderGameScreen(
     combatPanel.innerHTML = '';
   }
 
+  function showJobModal(onChoose: (job: (typeof JOB_VALUES)[number]) => void): void {
+    jobModalBody.innerHTML = `
+      <p>이 캐릭터는 아직 직업이 없습니다. 직업을 선택해주세요.</p>
+      <div class="job-choice-list">
+        ${JOB_VALUES.map(
+          (job) => `
+          <button type="button" class="job-choice-btn" data-job="${job}">
+            <span class="job-choice-name">${JOB_LABELS[job]}</span>
+            <span class="job-choice-desc">${JOB_DESCRIPTIONS[job]}</span>
+          </button>
+        `,
+        ).join('')}
+      </div>
+    `;
+    jobModal.hidden = false;
+    jobModalBody.querySelectorAll<HTMLButtonElement>('.job-choice-btn').forEach((button) => {
+      button.addEventListener('click', () => {
+        jobModal.hidden = true;
+        onChoose(button.dataset.job as (typeof JOB_VALUES)[number]);
+      });
+    });
+  }
+
   const wsUrl = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`;
   const socket = new WebSocket(wsUrl);
 
@@ -393,6 +526,14 @@ export function renderGameScreen(
     } else if (message.type === 'inventory') {
       inventoryState = message.items;
       if (!equipModal.hidden) renderEquipModal();
+    } else if (message.type === 'skills') {
+      learnedSkillIds = message.learnedSkillIds;
+      if (!skillModal.hidden) renderSkillModal();
+    } else if (message.type === 'needsJob') {
+      showJobModal((job) => {
+        const chooseJobMessage: ClientMessage = { type: 'chooseJob', job };
+        socket.send(JSON.stringify(chooseJobMessage));
+      });
     }
   });
 
@@ -480,5 +621,15 @@ export function renderGameScreen(
 
   equipModal.addEventListener('click', (event) => {
     if (event.target === equipModal) closeEquipModal();
+  });
+
+  const skillButton = container.querySelector<HTMLButtonElement>('#skill-button')!;
+  skillButton.addEventListener('click', () => openSkillModal());
+
+  const skillModalCloseButton = container.querySelector<HTMLButtonElement>('#skill-modal-close')!;
+  skillModalCloseButton.addEventListener('click', () => closeSkillModal());
+
+  skillModal.addEventListener('click', (event) => {
+    if (event.target === skillModal) closeSkillModal();
   });
 }

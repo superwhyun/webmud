@@ -1,4 +1,4 @@
-import type { ElementType, ItemGrade } from '@mud/shared';
+import type { ElementType, ItemGrade, JobType } from '@mud/shared';
 
 export interface CharacterRow {
   id: number;
@@ -7,19 +7,35 @@ export interface CharacterRow {
   room_id: number;
   hp: number;
   max_hp: number;
+  mp: number;
+  max_mp: number;
   level: number;
   exp: number;
+  job: JobType | null;
   strength: number;
   dexterity: number;
+  intelligence: number;
+  vitality: number;
+  wisdom: number;
+  luck: number;
   physical_defense: number;
   magic_defense: number;
   element: ElementType;
   gold: number;
+  unallocated_stat_points: number;
+  unallocated_skill_points: number;
   created_at: string;
 }
 
 export interface CharacterWithRoomRow extends CharacterRow {
   room_name: string;
+}
+
+export interface CharacterSkillRow {
+  id: number;
+  character_id: number;
+  skill_id: string;
+  learned_at: string;
 }
 
 export interface ItemRow {

@@ -49,8 +49,8 @@ function showLogin(): void {
 
 function showCharacterCreate(token: string): void {
   renderCharacterCreateScreen(app, {
-    onCreate: async (name, element) => {
-      await createCharacter(token, name, element);
+    onCreate: async (name, element, job) => {
+      await createCharacter(token, name, element, job);
       await start();
     },
   });

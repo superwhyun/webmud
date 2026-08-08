@@ -1,4 +1,4 @@
-import { handleFlee as fleeCombat, startCombat } from '../combat/CombatManager.js';
+import { handleCast as castSkill, handleFlee as fleeCombat, startCombat } from '../combat/CombatManager.js';
 import { findMobInRoomByName } from '../MobManager.js';
 import type { CommandContext } from './context.js';
 
@@ -19,3 +19,4 @@ export function handleAttack(ctx: CommandContext, targetName: string): void {
 }
 
 export const handleFlee = fleeCombat;
+export const handleCast = castSkill;

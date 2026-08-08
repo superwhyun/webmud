@@ -1,4 +1,4 @@
-import type { ElementType } from '@mud/shared';
+import type { ElementType, JobType } from '@mud/shared';
 
 export interface CharacterDto {
   id: number;
@@ -7,14 +7,23 @@ export interface CharacterDto {
   room_name: string;
   hp: number;
   max_hp: number;
+  mp: number;
+  max_mp: number;
   level: number;
   exp: number;
+  job: JobType | null;
   strength: number;
   dexterity: number;
+  intelligence: number;
+  vitality: number;
+  wisdom: number;
+  luck: number;
   physical_defense: number;
   magic_defense: number;
   element: ElementType;
   gold: number;
+  unallocated_stat_points: number;
+  unallocated_skill_points: number;
 }
 
 export interface MeResponse {
@@ -63,10 +72,11 @@ export function createCharacter(
   token: string,
   name: string,
   element: ElementType,
+  job: JobType,
 ): Promise<{ character: CharacterDto }> {
   return apiRequest('/character', {
     method: 'POST',
     headers: authHeader(token),
-    body: JSON.stringify({ name, element }),
+    body: JSON.stringify({ name, element, job }),
   });
 }

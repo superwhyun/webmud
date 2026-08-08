@@ -1,20 +1,30 @@
 import type { ElementType } from './elements.js';
 import type { EquipmentSlot } from './equipment.js';
 import type { ItemGrade } from './itemGrades.js';
+import type { JobType } from './jobs.js';
 
 export interface CharacterState {
   name: string;
   hp: number;
   maxHp: number;
+  mp: number;
+  maxMp: number;
   level: number;
   exp: number;
   roomName: string;
+  job: JobType | null;
   strength: number;
   dexterity: number;
+  intelligence: number;
+  vitality: number;
+  wisdom: number;
+  luck: number;
   physicalDefense: number;
   magicDefense: number;
   element: ElementType;
   gold: number;
+  unallocatedStatPoints: number;
+  unallocatedSkillPoints: number;
 }
 
 export interface RoomExitInfo {
@@ -80,7 +90,8 @@ export type ClientMessage =
   | { type: 'auth'; token: string }
   | { type: 'command'; text: string }
   | { type: 'equipItem'; inventoryId: number }
-  | { type: 'unequipItem'; slot: EquipmentSlot };
+  | { type: 'unequipItem'; slot: EquipmentSlot }
+  | { type: 'chooseJob'; job: JobType };
 
 export type ChatChannel = 'say' | 'shout' | 'admin';
 
@@ -92,4 +103,6 @@ export type ServerMessage =
   | { type: 'combat'; mobName: string; mobHp: number; mobMaxHp: number }
   | { type: 'combatEnd' }
   | { type: 'equipment'; slots: EquipmentSnapshot }
-  | { type: 'inventory'; items: InventoryItemInfo[] };
+  | { type: 'inventory'; items: InventoryItemInfo[] }
+  | { type: 'needsJob' }
+  | { type: 'skills'; learnedSkillIds: string[] };

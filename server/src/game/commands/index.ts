@@ -1,10 +1,12 @@
 import { handleSay, handleShout, handleWho } from './chat.js';
-import { handleAttack, handleFlee } from './combat.js';
+import { handleAttack, handleCast, handleFlee } from './combat.js';
 import type { CommandContext } from './context.js';
 import { handleDrop, handleEquip, handleGet, handleInventory, handleUse } from './items.js';
 import { describeRoom, showHelp } from './misc.js';
 import { handleMove, resolveDirection } from './movement.js';
 import { handleRaid } from './raid.js';
+import { handleSkill } from './skills.js';
+import { handleStat } from './stats.js';
 import { handleLeave, handleTravel, handleVillage } from './village.js';
 
 function splitVerb(text: string): { verb: string; rest: string } {
@@ -97,6 +99,21 @@ export function dispatchCommand(ctx: CommandContext, rawText: string): void {
 
   if (lowerVerb === 'raid') {
     handleRaid(ctx, rest);
+    return;
+  }
+
+  if (lowerVerb === 'stat') {
+    handleStat(ctx, rest);
+    return;
+  }
+
+  if (lowerVerb === 'skill') {
+    handleSkill(ctx, rest);
+    return;
+  }
+
+  if (lowerVerb === 'cast') {
+    handleCast(ctx, rest);
     return;
   }
 

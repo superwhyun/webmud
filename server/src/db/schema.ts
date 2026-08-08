@@ -31,14 +31,23 @@ CREATE TABLE IF NOT EXISTS characters (
   room_id INTEGER NOT NULL REFERENCES rooms(id),
   hp INTEGER NOT NULL,
   max_hp INTEGER NOT NULL,
+  mp INTEGER NOT NULL DEFAULT 0,
+  max_mp INTEGER NOT NULL DEFAULT 0,
   level INTEGER NOT NULL DEFAULT 1,
   exp INTEGER NOT NULL DEFAULT 0,
+  job TEXT,
   strength INTEGER NOT NULL,
   dexterity INTEGER NOT NULL,
+  intelligence INTEGER NOT NULL DEFAULT 0,
+  vitality INTEGER NOT NULL DEFAULT 0,
+  wisdom INTEGER NOT NULL DEFAULT 0,
+  luck INTEGER NOT NULL DEFAULT 0,
   physical_defense INTEGER NOT NULL,
   magic_defense INTEGER NOT NULL,
   element TEXT NOT NULL,
   gold INTEGER NOT NULL DEFAULT 0,
+  unallocated_stat_points INTEGER NOT NULL DEFAULT 0,
+  unallocated_skill_points INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -56,6 +65,14 @@ CREATE TABLE IF NOT EXISTS items (
   magic_defense_bonus INTEGER NOT NULL DEFAULT 0,
   heal_amount INTEGER NOT NULL DEFAULT 0,
   value INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS character_skills (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  character_id INTEGER NOT NULL REFERENCES characters(id),
+  skill_id TEXT NOT NULL,
+  learned_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(character_id, skill_id)
 );
 
 CREATE TABLE IF NOT EXISTS inventory_items (

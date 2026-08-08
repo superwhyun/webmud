@@ -7,6 +7,7 @@
   --color-border: #234023;
   --color-danger: #ff6b6b;
   --color-warning: #f2c94c;
+  --color-mana: #4d9dff;
 
   --grade-low: #9aa8a2;
   --grade-mid: #58d68d;
@@ -303,6 +304,26 @@ body::after {
   background: var(--color-danger);
 }
 
+.mp-bar {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--color-border);
+  overflow: hidden;
+}
+
+.mp-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: var(--color-mana);
+  transition: width var(--transition-fast);
+}
+
+.stat-highlight {
+  color: var(--color-warning);
+  font-weight: bold;
+}
+
 .sidebar-stats {
   display: flex;
   flex-direction: column;
@@ -341,7 +362,8 @@ body::after {
   white-space: nowrap;
 }
 
-.equip-swap-btn {
+.equip-swap-btn,
+.skill-btn {
   background: var(--color-surface);
   border: 1px solid var(--color-accent);
   color: var(--color-accent);
@@ -353,7 +375,82 @@ body::after {
   transition: box-shadow var(--transition-fast);
 }
 
-.equip-swap-btn:hover {
+.equip-swap-btn:hover,
+.skill-btn:hover {
+  box-shadow: var(--glow-accent);
+}
+
+.stat-grid-entry {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.stat-alloc-btn {
+  background: transparent;
+  border: 1px solid var(--color-warning);
+  color: var(--color-warning);
+  border-radius: 3px;
+  width: 1.2rem;
+  height: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: box-shadow var(--transition-fast);
+}
+
+.stat-alloc-btn:hover {
+  box-shadow: 0 0 6px var(--color-warning);
+}
+
+.skill-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px dashed var(--color-border);
+}
+
+.skill-row:last-child {
+  border-bottom: none;
+}
+
+.skill-row-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.skill-row-name {
+  font-weight: bold;
+  color: var(--color-accent);
+}
+
+.skill-row-status {
+  font-weight: normal;
+  color: var(--color-text-dim);
+  font-size: 0.8rem;
+}
+
+.skill-row-desc {
+  font-size: 0.85rem;
+  color: var(--color-text-dim);
+}
+
+.skill-learn-btn {
+  flex-shrink: 0;
+  background: var(--color-bg);
+  border: 1px solid var(--color-accent);
+  color: var(--color-accent);
+  padding: 0.35rem 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  transition: box-shadow var(--transition-fast);
+}
+
+.skill-learn-btn:hover {
   box-shadow: var(--glow-accent);
 }
 
@@ -1184,6 +1281,42 @@ body::after {
   border-bottom: none;
 }
 
+.job-choice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.job-choice-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.job-choice-btn:hover {
+  border-color: var(--color-accent);
+  background: var(--color-surface);
+}
+
+.job-choice-name {
+  font-weight: bold;
+  color: var(--color-accent);
+}
+
+.job-choice-desc {
+  font-size: 0.85rem;
+  color: var(--color-text-dim);
+}
+
 .equip-modal-slot-label {
   color: var(--color-text-dim);
   font-size: 0.85rem;
@@ -1291,7 +1424,8 @@ body::after {
     width: 100%;
   }
 
-  .hp-bar {
+  .hp-bar,
+  .mp-bar {
     width: 120px;
   }
 }
