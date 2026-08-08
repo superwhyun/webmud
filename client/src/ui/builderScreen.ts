@@ -76,12 +76,14 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
         <aside class="builder-panel" id="builder-panel">
           <p class="builder-panel-empty">방을 선택하세요.</p>
         </aside>
+        <aside class="builder-palette" id="builder-palette"></aside>
       </div>
     </div>
   `;
 
   const svg = container.querySelector<SVGSVGElement>('#builder-canvas')!;
   const panel = container.querySelector<HTMLDivElement>('#builder-panel')!;
+  const palette = container.querySelector<HTMLDivElement>('#builder-palette')!;
   const addRoomButton = container.querySelector<HTMLButtonElement>('#builder-add-room')!;
   const backButton = container.querySelector<HTMLButtonElement>('#builder-back')!;
   const toolbarError = container.querySelector<HTMLSpanElement>('#builder-toolbar-error')!;
@@ -170,17 +172,15 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
   }
 
   function renderPalette(): void {
-    const placement = panel.querySelector<HTMLDivElement>('#builder-panel-placement');
-    if (!placement) return;
-
     const room = selectedRoomId !== null ? findRoom(selectedRoomId) : undefined;
-    if (!room) return;
-    const placedItems = roomItems.filter((row) => row.roomId === room.id);
-    const placedMobs = mobSpawns.filter((row) => row.roomId === room.id);
-    const placedNpcs = npcSpawns.filter((row) => row.roomId === room.id);
 
-    placement.innerHTML = `
-      <h4>보유 아이템</h4>
+    const roomHint = room
+      ? `<p class="builder-panel-hint">"${escapeHtml(room.name)}"에 배치합니다.</p>`
+      : '<p class="builder-panel-hint">방을 선택하면 아이템과 몹을 배치할 수 있습니다.</p>';
+
+    palette.innerHTML = `
+      <h3>보유 아이템</h3>
+      ${roomHint}
       <ul class="builder-palette-list">
         ${
           itemTemplates
@@ -190,7 +190,7 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
                   <span class="builder-palette-name"><span class="item-grade-${item.grade}">${escapeHtml(item.name)}</span> <span class="builder-palette-qty">x${PLACEHOLDER_OWNED_QTY}</span></span>
                   <div class="builder-palette-actions">
                     <input type="number" class="builder-palette-num-input" data-item-qty="${item.id}" value="1" min="1" />
-                    <button type="button" data-place-item="${item.id}">배치</button>
+                    <button type="button" data-place-item="${item.id}" ${room ? '' : 'disabled'}>배치</button>
                   </div>
                 </li>
               `,
@@ -199,6 +199,97 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
         }
       </ul>
 
+      <h3>보유 몹 / NPC</h3>
+      <p class="builder-panel-hint">몹 목록에서 "적대적" 옵션을 끈 몹은 상점 주인 같은 비전투 NPC로 동작합니다.</p>
+      <ul class="builder-palette-list">
+        ${
+          mobTemplates
+            .map(
+              (mob) => `
+                <li>
+                  <span class="builder-palette-name">${escapeHtml(mob.name)} <span class="builder-palette-qty">x${PLACEHOLDER_OWNED_QTY}</span></span>
+                  <div class="builder-palette-actions">
+                    <input type="number" class="builder-palette-num-input" data-mob-respawn="${mob.id}" value="20" min="5" />
+                    <button type="button" data-place-mob="${mob.id}" ${room ? '' : 'disabled'}>배치</button>
+                  </div>
+                </li>
+              `,
+            )
+            .join('') || '<li class="builder-panel-empty">등록된 몹이 없습니다.</li>'
+        }
+      </ul>
+
+      <h3>보유 NPC</h3>
+      <ul class="builder-palette-list">
+        ${
+          npcTemplates
+            .map(
+              (npc) => `
+                <li>
+                  <span class="builder-palette-name">${escapeHtml(npc.name)} <span class="builder-palette-qty">x${PLACEHOLDER_OWNED_QTY}</span></span>
+                  <div class="builder-palette-actions">
+                    <button type="button" data-place-npc="${npc.id}" ${room ? '' : 'disabled'}>배치</button>
+                  </div>
+                </li>
+              `,
+            )
+            .join('') || '<li class="builder-panel-empty">등록된 NPC가 없습니다.</li>'
+        }
+      </ul>
+    `;
+
+    palette.querySelectorAll<HTMLButtonElement>('[data-place-item]').forEach((button) => {
+      button.addEventListener('click', () => {
+        if (!room) return;
+        const itemId = Number(button.dataset.placeItem);
+        const qtyInput = palette.querySelector<HTMLInputElement>(`[data-item-qty="${itemId}"]`)!;
+        const quantity = Number(qtyInput.value) || 1;
+        placeBuilderRoomItem(token, room.id, itemId, quantity)
+          .then(() => refreshPalette())
+          .catch((error: unknown) => {
+            showToolbarError(error instanceof Error ? error.message : '배치에 실패했습니다.');
+          });
+      });
+    });
+
+    palette.querySelectorAll<HTMLButtonElement>('[data-place-mob]').forEach((button) => {
+      button.addEventListener('click', () => {
+        if (!room) return;
+        const mobTemplateId = Number(button.dataset.placeMob);
+        const respawnInput = palette.querySelector<HTMLInputElement>(`[data-mob-respawn="${mobTemplateId}"]`)!;
+        const respawnSeconds = Number(respawnInput.value) || 20;
+        placeBuilderMobSpawn(token, room.id, mobTemplateId, respawnSeconds)
+          .then(() => refreshPalette())
+          .catch((error: unknown) => {
+            showToolbarError(error instanceof Error ? error.message : '배치에 실패했습니다.');
+          });
+      });
+    });
+
+    palette.querySelectorAll<HTMLButtonElement>('[data-place-npc]').forEach((button) => {
+      button.addEventListener('click', () => {
+        if (!room) return;
+        const npcTemplateId = Number(button.dataset.placeNpc);
+        placeBuilderNpcSpawn(token, room.id, npcTemplateId)
+          .then(() => refreshPalette())
+          .catch((error: unknown) => {
+            showToolbarError(error instanceof Error ? error.message : '배치에 실패했습니다.');
+          });
+      });
+    });
+
+    renderPlacedInRoom(room);
+  }
+
+  function renderPlacedInRoom(room: BuilderRoomDto | undefined): void {
+    const placement = panel.querySelector<HTMLDivElement>('#builder-panel-placement');
+    if (!placement || !room) return;
+
+    const placedItems = roomItems.filter((row) => row.roomId === room.id);
+    const placedMobs = mobSpawns.filter((row) => row.roomId === room.id);
+    const placedNpcs = npcSpawns.filter((row) => row.roomId === room.id);
+
+    placement.innerHTML = `
       <h4>이 방에 배치된 아이템</h4>
       <ul class="builder-palette-list">
         ${
@@ -215,25 +306,6 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
         }
       </ul>
 
-      <h4>보유 몹</h4>
-      <ul class="builder-palette-list">
-        ${
-          mobTemplates
-            .map(
-              (mob) => `
-                <li>
-                  <span class="builder-palette-name">${escapeHtml(mob.name)} <span class="builder-palette-qty">x${PLACEHOLDER_OWNED_QTY}</span></span>
-                  <div class="builder-palette-actions">
-                    <input type="number" class="builder-palette-num-input" data-mob-respawn="${mob.id}" value="20" min="5" />
-                    <button type="button" data-place-mob="${mob.id}">배치</button>
-                  </div>
-                </li>
-              `,
-            )
-            .join('') || '<li class="builder-panel-empty">등록된 몹이 없습니다.</li>'
-        }
-      </ul>
-
       <h4>이 방에 배치된 몹</h4>
       <ul class="builder-palette-list">
         ${
@@ -247,24 +319,6 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
                   `,
             )
             .join('') || '<li class="builder-panel-empty">배치된 몹이 없습니다.</li>'
-        }
-      </ul>
-
-      <h3>보유 NPC</h3>
-      <ul class="builder-palette-list">
-        ${
-          npcTemplates
-            .map(
-              (npc) => `
-                <li>
-                  <span class="builder-palette-name">${escapeHtml(npc.name)} <span class="builder-palette-qty">x${PLACEHOLDER_OWNED_QTY}</span></span>
-                  <div class="builder-palette-actions">
-                    <button type="button" data-place-npc="${npc.id}">배치</button>
-                  </div>
-                </li>
-              `,
-            )
-            .join('') || '<li class="builder-panel-empty">등록된 NPC가 없습니다.</li>'
         }
       </ul>
 
@@ -285,19 +339,6 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
       </ul>
     `;
 
-    placement.querySelectorAll<HTMLButtonElement>('[data-place-item]').forEach((button) => {
-      button.addEventListener('click', () => {
-        const itemId = Number(button.dataset.placeItem);
-        const qtyInput = placement.querySelector<HTMLInputElement>(`[data-item-qty="${itemId}"]`)!;
-        const quantity = Number(qtyInput.value) || 1;
-        placeBuilderRoomItem(token, room.id, itemId, quantity)
-          .then(() => refreshPalette())
-          .catch((error: unknown) => {
-            showToolbarError(error instanceof Error ? error.message : '배치에 실패했습니다.');
-          });
-      });
-    });
-
     placement.querySelectorAll<HTMLButtonElement>('[data-remove-item]').forEach((button) => {
       button.addEventListener('click', () => {
         removeBuilderRoomItem(token, Number(button.dataset.removeItem))
@@ -308,37 +349,12 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
       });
     });
 
-    placement.querySelectorAll<HTMLButtonElement>('[data-place-mob]').forEach((button) => {
-      button.addEventListener('click', () => {
-        const mobTemplateId = Number(button.dataset.placeMob);
-        const respawnInput = placement.querySelector<HTMLInputElement>(`[data-mob-respawn="${mobTemplateId}"]`)!;
-        const respawnSeconds = Number(respawnInput.value) || 20;
-        placeBuilderMobSpawn(token, room.id, mobTemplateId, respawnSeconds)
-          .then(() => refreshPalette())
-          .catch((error: unknown) => {
-            showToolbarError(error instanceof Error ? error.message : '배치에 실패했습니다.');
-          });
-      });
-    });
-
     placement.querySelectorAll<HTMLButtonElement>('[data-remove-mob]').forEach((button) => {
       button.addEventListener('click', () => {
         removeBuilderMobSpawn(token, Number(button.dataset.removeMob))
           .then(() => refreshPalette())
           .catch((error: unknown) => {
             showToolbarError(error instanceof Error ? error.message : '제거에 실패했습니다.');
-          });
-      });
-    });
-
-    placement.querySelectorAll<HTMLButtonElement>('[data-place-npc]').forEach((button) => {
-      button.addEventListener('click', () => {
-        if (!room) return;
-        const npcTemplateId = Number(button.dataset.placeNpc);
-        placeBuilderNpcSpawn(token, room.id, npcTemplateId)
-          .then(() => refreshPalette())
-          .catch((error: unknown) => {
-            showToolbarError(error instanceof Error ? error.message : '배치에 실패했습니다.');
           });
       });
     });
