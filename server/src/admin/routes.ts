@@ -223,6 +223,8 @@ const mobTemplateSchema = z.object({
   damageType: z.enum(DAMAGE_TYPES, { message: '올바른 피해 유형이 아닙니다.' }),
   expReward: z.number().int().min(0),
   goldReward: z.number().int().min(0),
+  level: z.number().int().min(1, '레벨은 1 이상이어야 합니다.').default(1),
+  hostile: z.boolean().default(true),
 });
 
 adminRouter.post('/mob-templates', (req, res) => {
@@ -235,11 +237,76 @@ adminRouter.post('/mob-templates', (req, res) => {
   const d = parsed.data;
   const info = db
     .prepare(
-      `INSERT INTO mob_templates (name, hp, strength, dexterity, physical_defense, magic_defense, element, damage_type, exp_reward, gold_reward)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO mob_templates (name, hp, strength, dexterity, physical_defense, magic_defense, element, damage_type, exp_reward, gold_reward, level, hostile)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .run(d.name, d.hp, d.strength, d.dexterity, d.physicalDefense, d.magicDefense, d.element, d.damageType, d.expReward, d.goldReward);
+    .run(
+      d.name,
+      d.hp,
+      d.strength,
+      d.dexterity,
+      d.physicalDefense,
+      d.magicDefense,
+      d.element,
+      d.damageType,
+      d.expReward,
+      d.goldReward,
+      d.level,
+      d.hostile ? 1 : 0,
+    );
 
   const row = db.prepare('SELECT * FROM mob_templates WHERE id = ?').get(Number(info.lastInsertRowid)) as MobTemplateRow;
   res.status(201).json({ mobTemplate: toMobTemplateDto(row) });
+});
+
+adminRouter.get('/mob-templates/:id/loot-pool', (req, res) => {
+  const mobTemplateId = Number(req.params.id);
+  const rows = db
+    .prepare(
+      `SELECT i.* FROM mob_loot_pool mlp JOIN items i ON i.id = mlp.item_id WHERE mlp.mob_template_id = ? ORDER BY i.id`,
+    )
+    .all(mobTemplateId) as ItemRow[];
+  res.json({ items: rows.map(toItemDto) });
+});
+
+const lootPoolSchema = z.object({
+  itemId: z.number().int(),
+});
+
+adminRouter.post('/mob-templates/:id/loot-pool', (req, res) => {
+  const mobTemplateId = Number(req.params.id);
+  if (!db.prepare('SELECT id FROM mob_templates WHERE id = ?').get(mobTemplateId)) {
+    res.status(404).json({ error: '몬스터를 찾을 수 없습니다.' });
+    return;
+  }
+
+  const parsed = lootPoolSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
+    return;
+  }
+
+  if (!db.prepare('SELECT id FROM items WHERE id = ?').get(parsed.data.itemId)) {
+    res.status(404).json({ error: '아이템을 찾을 수 없습니다.' });
+    return;
+  }
+
+  db.prepare('INSERT OR IGNORE INTO mob_loot_pool (mob_template_id, item_id) VALUES (?, ?)').run(
+    mobTemplateId,
+    parsed.data.itemId,
+  );
+
+  const rows = db
+    .prepare(
+      `SELECT i.* FROM mob_loot_pool mlp JOIN items i ON i.id = mlp.item_id WHERE mlp.mob_template_id = ? ORDER BY i.id`,
+    )
+    .all(mobTemplateId) as ItemRow[];
+  res.status(201).json({ items: rows.map(toItemDto) });
+});
+
+adminRouter.delete('/mob-templates/:id/loot-pool/:itemId', (req, res) => {
+  const mobTemplateId = Number(req.params.id);
+  const itemId = Number(req.params.itemId);
+  db.prepare('DELETE FROM mob_loot_pool WHERE mob_template_id = ? AND item_id = ?').run(mobTemplateId, itemId);
+  res.status(204).send();
 });

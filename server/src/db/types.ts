@@ -68,6 +68,14 @@ export interface MobTemplateRow {
   damage_type: 'physical' | 'magic';
   exp_reward: number;
   gold_reward: number;
+  level: number;
+  hostile: number;
+}
+
+export interface MobLootPoolRow {
+  id: number;
+  mob_template_id: number;
+  item_id: number;
 }
 
 export interface VillageRow {

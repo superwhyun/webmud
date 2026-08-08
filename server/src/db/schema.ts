@@ -101,7 +101,9 @@ CREATE TABLE IF NOT EXISTS mob_templates (
   element TEXT NOT NULL,
   damage_type TEXT NOT NULL DEFAULT 'physical',
   exp_reward INTEGER NOT NULL,
-  gold_reward INTEGER NOT NULL
+  gold_reward INTEGER NOT NULL,
+  level INTEGER NOT NULL DEFAULT 1,
+  hostile INTEGER NOT NULL DEFAULT 1
 );
 
 CREATE TABLE IF NOT EXISTS mob_spawns (
@@ -109,6 +111,13 @@ CREATE TABLE IF NOT EXISTS mob_spawns (
   room_id INTEGER NOT NULL REFERENCES rooms(id),
   mob_template_id INTEGER NOT NULL REFERENCES mob_templates(id),
   respawn_seconds INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS mob_loot_pool (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  mob_template_id INTEGER NOT NULL REFERENCES mob_templates(id),
+  item_id INTEGER NOT NULL REFERENCES items(id),
+  UNIQUE(mob_template_id, item_id)
 );
 
 CREATE TABLE IF NOT EXISTS villages (

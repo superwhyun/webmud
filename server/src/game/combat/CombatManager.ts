@@ -1,12 +1,12 @@
 import type { WebSocket } from 'ws';
-import { ELEMENT_ADVANTAGE, type ElementType } from '@mud/shared';
+import { ELEMENT_ADVANTAGE, formatItemMention, type ElementType, type ItemGrade } from '@mud/shared';
 import { db } from '../../db/client.js';
 import { STARTING_ROOM_ID } from '../../db/seed.js';
 import { getEffectiveStats } from '../combatStats.js';
 import { loadCharacter, loadCharacterState } from '../characterState.js';
 import type { CommandContext } from '../commands/context.js';
 import { applyLevelUps } from '../leveling.js';
-import { killMob, type DamageType, type MobInstance } from '../MobManager.js';
+import { getMobsInRoom, killMob, type DamageType, type MobInstance } from '../MobManager.js';
 import { broadcastRoomSnapshot } from '../roomSnapshot.js';
 import { broadcastToRoom } from '../sessionRegistry.js';
 import { hasLearnedSkill, resolveSkillArg } from '../skillProgress.js';
@@ -35,9 +35,14 @@ export interface AttackResult {
   evaded: boolean;
 }
 
+/** attackerElement가 defenderElement에 상성 우위(오행 상극)를 가지는지. */
+export function hasElementAdvantage(attackerElement: ElementType, defenderElement: ElementType): boolean {
+  return ELEMENT_ADVANTAGE[attackerElement] === defenderElement;
+}
+
 function getElementMultiplier(attackerElement: ElementType, defenderElement: ElementType): number {
-  if (ELEMENT_ADVANTAGE[attackerElement] === defenderElement) return ELEMENT_ADVANTAGE_MULTIPLIER;
-  if (ELEMENT_ADVANTAGE[defenderElement] === attackerElement) return ELEMENT_DISADVANTAGE_MULTIPLIER;
+  if (hasElementAdvantage(attackerElement, defenderElement)) return ELEMENT_ADVANTAGE_MULTIPLIER;
+  if (hasElementAdvantage(defenderElement, attackerElement)) return ELEMENT_DISADVANTAGE_MULTIPLIER;
   return 1;
 }
 
@@ -85,7 +90,7 @@ export function mobCombatantStats(mob: MobInstance): CombatantStats {
 
 interface Combat {
   ctx: CommandContext;
-  mob: MobInstance;
+  mobs: MobInstance[];
   intervalId: NodeJS.Timeout;
 }
 
@@ -95,8 +100,11 @@ export function isInCombat(ws: WebSocket): boolean {
   return activeCombats.has(ws);
 }
 
-function sendCombatStatus(ctx: CommandContext, mob: MobInstance): void {
-  ctx.send({ type: 'combat', mobName: mob.name, mobHp: mob.hp, mobMaxHp: mob.maxHp });
+function sendCombatStatus(ctx: CommandContext, combat: Combat): void {
+  ctx.send({
+    type: 'combat',
+    mobs: combat.mobs.map((mob) => ({ spawnId: mob.spawnId, name: mob.name, hp: mob.hp, maxHp: mob.maxHp })),
+  });
 }
 
 function sendCombatEnd(ctx: CommandContext): void {
@@ -110,17 +118,89 @@ export function cleanupCombatForSession(ws: WebSocket): void {
   activeCombats.delete(ws);
 }
 
+/** 몹이 죽었을 때 들고 있던 아이템을 현재 방에 떨어뜨린다. */
+function dropMobLoot(ctx: CommandContext, mob: MobInstance): void {
+  if (mob.carriedItemIds.length === 0) return;
+
+  const placeholders = mob.carriedItemIds.map(() => '?').join(',');
+  const rows = db
+    .prepare(`SELECT id, name, grade FROM items WHERE id IN (${placeholders})`)
+    .all(...mob.carriedItemIds) as { id: number; name: string; grade: ItemGrade }[];
+  if (rows.length === 0) return;
+
+  const dropTx = db.transaction(() => {
+    for (const item of rows) {
+      const existing = db
+        .prepare('SELECT id FROM room_items WHERE room_id = ? AND item_id = ?')
+        .get(ctx.session.roomId, item.id) as { id: number } | undefined;
+      if (existing) {
+        db.prepare('UPDATE room_items SET quantity = quantity + 1 WHERE id = ?').run(existing.id);
+      } else {
+        db.prepare('INSERT INTO room_items (room_id, item_id, quantity) VALUES (?, ?, 1)').run(
+          ctx.session.roomId,
+          item.id,
+        );
+      }
+    }
+  });
+  dropTx();
+
+  const mentions = rows.map((item) => formatItemMention(item.name, item.grade)).join(', ');
+  const text = `${mob.name}이(가) ${mentions}을(를) 떨어뜨렸습니다.`;
+  ctx.send({ type: 'text', text });
+  broadcastToRoom(ctx.session.roomId, { type: 'text', text }, ctx.session.ws);
+}
+
+function startCombatInterval(ctx: CommandContext, mobs: MobInstance[]): Combat {
+  const intervalId = setInterval(() => performRound(ctx), COMBAT_TICK_MS);
+  const combat: Combat = { ctx, mobs, intervalId };
+  activeCombats.set(ctx.session.ws, combat);
+  return combat;
+}
+
 export function startCombat(ctx: CommandContext, mob: MobInstance): void {
-  if (activeCombats.has(ctx.session.ws)) {
-    ctx.send({ type: 'text', text: '이미 전투 중입니다.' });
+  const existing = activeCombats.get(ctx.session.ws);
+  if (existing) {
+    if (existing.mobs.some((m) => m.spawnId === mob.spawnId)) {
+      ctx.send({ type: 'text', text: '이미 전투 중입니다.' });
+      return;
+    }
+    existing.mobs.push(mob);
+    ctx.send({ type: 'text', text: `${mob.name}에게도 싸움을 겁니다!` });
+    sendCombatStatus(ctx, existing);
     return;
   }
 
   ctx.send({ type: 'text', text: `${mob.name}에게 싸움을 겁니다!` });
-  sendCombatStatus(ctx, mob);
-  const intervalId = setInterval(() => performRound(ctx, mob), COMBAT_TICK_MS);
-  activeCombats.set(ctx.session.ws, { ctx, mob, intervalId });
-  performRound(ctx, mob);
+  const combat = startCombatInterval(ctx, [mob]);
+  sendCombatStatus(ctx, combat);
+  performRound(ctx);
+}
+
+/**
+ * 방에 입장했을 때, 적대적이며 플레이어의 속성에 상성 우위를 가진 몹들이 자동으로 달려들게 한다.
+ * 이미 싸우고 있는 몹은 중복으로 추가하지 않는다.
+ */
+export function triggerAggro(ctx: CommandContext): void {
+  const character = loadCharacter(ctx.session.characterId);
+  if (!character) return;
+
+  const advantaged = getMobsInRoom(ctx.session.roomId).filter(
+    (mob) => mob.hostile && hasElementAdvantage(mob.element, character.element),
+  );
+  if (advantaged.length === 0) return;
+
+  const existing = activeCombats.get(ctx.session.ws);
+  const newMobs = advantaged.filter((mob) => !existing?.mobs.some((m) => m.spawnId === mob.spawnId));
+  if (newMobs.length === 0) return;
+
+  const combat = existing ?? startCombatInterval(ctx, []);
+  combat.mobs.push(...newMobs);
+
+  const names = newMobs.map((mob) => mob.name).join(', ');
+  ctx.send({ type: 'text', text: `${names}이(가) 상성 우위를 노리고 달려듭니다!` });
+  sendCombatStatus(ctx, combat);
+  performRound(ctx);
 }
 
 export function handleFlee(ctx: CommandContext): void {
@@ -130,7 +210,8 @@ export function handleFlee(ctx: CommandContext): void {
     return;
   }
   cleanupCombatForSession(ctx.session.ws);
-  ctx.send({ type: 'text', text: `${combat.mob.name}에게서 도망쳤습니다.` });
+  const names = combat.mobs.map((mob) => mob.name).join(', ');
+  ctx.send({ type: 'text', text: `${names}에게서 도망쳤습니다.` });
   sendCombatEnd(ctx);
 }
 
@@ -185,11 +266,11 @@ export function handleCast(ctx: CommandContext, rest: string): void {
 
   if (skill.kind === 'damage') {
     const combat = activeCombats.get(ctx.session.ws);
-    if (!combat) {
+    if (!combat || combat.mobs.length === 0) {
       ctx.send({ type: 'text', text: '전투 중에만 사용할 수 있는 스킬입니다.' });
       return;
     }
-    const mob = combat.mob;
+    const mob = combat.mobs[0];
 
     const playerStats = getEffectiveStats(character);
     const attackStat = skill.damageType === 'magic' ? playerStats.intelligence : playerStats.strength;
@@ -207,12 +288,16 @@ export function handleCast(ctx: CommandContext, rest: string): void {
 
     if (mob.hp <= 0) {
       handleMobDefeat(ctx, mob, character.id);
+      combat.mobs = combat.mobs.filter((m) => m.spawnId !== mob.spawnId);
+    }
+
+    if (combat.mobs.length === 0) {
       cleanupCombatForSession(ctx.session.ws);
       sendCombatEnd(ctx);
       return;
     }
 
-    sendCombatStatus(ctx, mob);
+    sendCombatStatus(ctx, combat);
     const state = loadCharacterState(character.id);
     if (state) ctx.send({ type: 'state', character: state });
     return;
@@ -233,10 +318,12 @@ export function handleCast(ctx: CommandContext, rest: string): void {
   if (state) ctx.send({ type: 'state', character: state });
 }
 
-function performRound(ctx: CommandContext, mob: MobInstance): void {
-  if (!activeCombats.has(ctx.session.ws)) return;
+function performRound(ctx: CommandContext): void {
+  const combat = activeCombats.get(ctx.session.ws);
+  if (!combat) return;
 
-  if (!mob.alive) {
+  combat.mobs = combat.mobs.filter((mob) => mob.alive);
+  if (combat.mobs.length === 0) {
     cleanupCombatForSession(ctx.session.ws);
     sendCombatEnd(ctx);
     return;
@@ -250,45 +337,55 @@ function performRound(ctx: CommandContext, mob: MobInstance): void {
   }
 
   const playerStats = getEffectiveStats(character);
-  const mobStats = mobCombatantStats(mob);
+  const target = combat.mobs[0];
+  const targetStats = mobCombatantStats(target);
 
-  const playerAttack = resolveAttack(playerStats, mobStats, 'physical');
+  const playerAttack = resolveAttack(playerStats, targetStats, 'physical');
   if (playerAttack.evaded) {
-    ctx.send({ type: 'text', text: `${mob.name}가 당신의 공격을 회피했습니다!` });
+    ctx.send({ type: 'text', text: `${target.name}가 당신의 공격을 회피했습니다!` });
   } else {
-    mob.hp = Math.max(0, mob.hp - playerAttack.damage);
+    target.hp = Math.max(0, target.hp - playerAttack.damage);
     ctx.send({
       type: 'text',
-      text: `당신이 ${mob.name}에게 ${playerAttack.damage}의 피해를 입혔습니다. (${mob.hp}/${mob.maxHp})`,
+      text: `당신이 ${target.name}에게 ${playerAttack.damage}의 피해를 입혔습니다. (${target.hp}/${target.maxHp})`,
     });
   }
 
-  if (mob.hp <= 0) {
-    handleMobDefeat(ctx, mob, character.id);
+  if (target.hp <= 0) {
+    handleMobDefeat(ctx, target, character.id);
+    combat.mobs = combat.mobs.filter((mob) => mob.spawnId !== target.spawnId);
+  }
+
+  if (combat.mobs.length === 0) {
     cleanupCombatForSession(ctx.session.ws);
     sendCombatEnd(ctx);
     return;
   }
 
-  sendCombatStatus(ctx, mob);
+  sendCombatStatus(ctx, combat);
 
-  const mobAttack = resolveAttack(mobStats, playerStats, mob.damageType);
-  if (mobAttack.evaded) {
-    ctx.send({ type: 'text', text: `당신이 ${mob.name}의 공격을 회피했습니다!` });
-    return;
+  // 전투 중인 모든 몹이(상성 우위로 가세한 몹 포함) 매 라운드 동시에 반격한다.
+  let hp = character.hp;
+  const attackMessages: string[] = [];
+  for (const attacker of combat.mobs) {
+    if (hp <= 0) break;
+    const attackerStats = mobCombatantStats(attacker);
+    const mobAttack = resolveAttack(attackerStats, playerStats, attacker.damageType);
+    if (mobAttack.evaded) {
+      attackMessages.push(`당신이 ${attacker.name}의 공격을 회피했습니다!`);
+      continue;
+    }
+    hp = Math.max(0, hp - mobAttack.damage);
+    attackMessages.push(`${attacker.name}가 당신에게 ${mobAttack.damage}의 피해를 입혔습니다. (${hp}/${character.max_hp})`);
   }
 
-  const newHp = Math.max(0, character.hp - mobAttack.damage);
-  db.prepare('UPDATE characters SET hp = ? WHERE id = ?').run(newHp, character.id);
-  ctx.send({
-    type: 'text',
-    text: `${mob.name}가 당신에게 ${mobAttack.damage}의 피해를 입혔습니다. (${newHp}/${character.max_hp})`,
-  });
+  db.prepare('UPDATE characters SET hp = ? WHERE id = ?').run(hp, character.id);
+  for (const message of attackMessages) ctx.send({ type: 'text', text: message });
 
   const state = loadCharacterState(character.id);
   if (state) ctx.send({ type: 'state', character: state });
 
-  if (newHp <= 0) {
+  if (hp <= 0) {
     defeatCharacter(ctx);
     cleanupCombatForSession(ctx.session.ws);
     sendCombatEnd(ctx);
@@ -321,6 +418,7 @@ function handleMobDefeat(ctx: CommandContext, mob: MobInstance, characterId: num
     broadcastRoomSnapshot(earnings.village.room_id);
   }
 
+  dropMobLoot(ctx, mob);
   killMob(mob);
   broadcastRoomSnapshot(ctx.session.roomId);
 

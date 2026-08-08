@@ -11,6 +11,16 @@ export const ITEM_GRADE_LABELS: Record<ItemGrade, string> = {
   epic: '에픽',
 };
 
+/** 몹이 아이템을 보유할 상대 확률(가중치). 등급이 높을수록 값이 작아 더 희귀하게 나온다. */
+export const ITEM_GRADE_DROP_WEIGHT: Record<ItemGrade, number> = {
+  low: 100,
+  mid: 50,
+  high: 20,
+  rare: 8,
+  legend: 3,
+  epic: 1,
+};
+
 // 화면에 나타나지 않는 제어 문자로 감싸서, 자유 형식 텍스트 메시지 안에서도
 // 클라이언트가 아이템 이름을 등급별 색상으로 구분해 렌더링할 수 있게 한다.
 const MENTION_OPEN = String.fromCharCode(2);

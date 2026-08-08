@@ -9,6 +9,7 @@ import {
   SKILLS_BY_JOB,
   type CharacterState,
   type ClientMessage,
+  type CombatMobInfo,
   type EquipmentSlot,
   type EquipmentSnapshot,
   type InventoryItemInfo,
@@ -381,7 +382,9 @@ export function renderGameScreen(
         ? room.exits.map((exit) => (exit.blocked ? `${exit.label} [막힘]` : exit.label)).join(', ')
         : '없음';
     const mobsText =
-      room.mobs.length > 0 ? room.mobs.map((mob) => `${mob.name} (${mob.hp}/${mob.maxHp})`).join(', ') : '-';
+      room.mobs.length > 0
+        ? room.mobs.map((mob) => `${mob.name} Lv.${mob.level} (${mob.hp}/${mob.maxHp})`).join(', ')
+        : '-';
     const itemsText =
       room.items.length > 0
         ? room.items
@@ -453,16 +456,24 @@ export function renderGameScreen(
     }
   }
 
-  function renderCombat(mobName: string, hp: number, maxHp: number): void {
-    const ratio = maxHp > 0 ? hp / maxHp : 0;
+  function renderCombat(mobs: CombatMobInfo[]): void {
     combatPanel.hidden = false;
-    combatPanel.innerHTML = `
-      <div class="combat-mob-name"></div>
-      <div class="hp-bar" role="progressbar" aria-valuenow="${hp}" aria-valuemin="0" aria-valuemax="${maxHp}">
-        <div class="hp-bar-fill" data-level="${hpLevel(ratio)}" style="width: ${Math.max(0, ratio * 100)}%"></div>
-      </div>
-    `;
-    combatPanel.querySelector<HTMLDivElement>('.combat-mob-name')!.textContent = mobName;
+    combatPanel.innerHTML = mobs
+      .map((mob) => {
+        const ratio = mob.maxHp > 0 ? mob.hp / mob.maxHp : 0;
+        return `
+          <div class="combat-mob-row">
+            <div class="combat-mob-name"></div>
+            <div class="hp-bar" role="progressbar" aria-valuenow="${mob.hp}" aria-valuemin="0" aria-valuemax="${mob.maxHp}">
+              <div class="hp-bar-fill" data-level="${hpLevel(ratio)}" style="width: ${Math.max(0, ratio * 100)}%"></div>
+            </div>
+          </div>
+        `;
+      })
+      .join('');
+    combatPanel.querySelectorAll<HTMLDivElement>('.combat-mob-name').forEach((el, index) => {
+      el.textContent = mobs[index].name;
+    });
   }
 
   function hideCombat(): void {
@@ -516,7 +527,7 @@ export function renderGameScreen(
       renderRoom(message.room);
       renderMinimap();
     } else if (message.type === 'combat') {
-      renderCombat(message.mobName, message.mobHp, message.mobMaxHp);
+      renderCombat(message.mobs);
     } else if (message.type === 'combatEnd') {
       hideCombat();
     } else if (message.type === 'equipment') {

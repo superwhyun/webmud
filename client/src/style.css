@@ -146,6 +146,12 @@ body::after {
   display: none;
 }
 
+.combat-mob-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
 .combat-mob-name {
   color: var(--color-danger);
   font-weight: bold;
@@ -874,6 +880,15 @@ body::after {
 
 .admin-form-row button:hover {
   border-color: var(--color-accent);
+}
+
+.admin-checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--color-text);
+  font-size: 0.85rem;
+  cursor: pointer;
 }
 
 .admin-remove-btn {

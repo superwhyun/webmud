@@ -9,18 +9,22 @@ import {
   type ItemGrade,
 } from '@mud/shared';
 import {
+  addMobLootPoolItem,
   createItemTemplate,
   createMobTemplate,
   fetchAccounts,
   fetchAdminRooms,
   fetchItemTemplates,
+  fetchMobLootPool,
   fetchMobTemplates,
   fetchSessions,
   moderationKick,
   moderationMove,
+  removeMobLootPoolItem,
   sendAnnouncement,
   updateAccount,
   type ItemTemplateDto,
+  type MobTemplateDto,
   type RoomOptionDto,
 } from '../adminApi';
 import { escapeHtml } from '../domUtils';
@@ -142,25 +146,96 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
           <h3>몹</h3>
           <ul class="admin-list" id="admin-mob-templates"></ul>
           <div class="admin-form-row">
-            <input id="admin-mob-name" placeholder="이름" maxlength="30" />
-            <input id="admin-mob-hp" type="number" placeholder="HP" value="10" min="1" />
-            <select id="admin-mob-element"></select>
-            <select id="admin-mob-damage-type">
+            <input id="admin-mob-name" placeholder="이름" maxlength="30" title="몬스터 이름" />
+            <input
+              id="admin-mob-hp"
+              type="number"
+              placeholder="HP"
+              value="10"
+              min="1"
+              title="최대 체력. 0이 되면 몬스터가 처치됩니다."
+            />
+            <select id="admin-mob-element" title="속성. 오행 상성(목→토→수→화→금→목 순으로 상극)에 따라 전투 시 데미지 배율이 달라집니다."></select>
+            <select id="admin-mob-damage-type" title="공격 시 물리방어/마법방어 중 어느 방어력으로 피해를 계산할지 결정합니다.">
               <option value="physical">물리</option>
               <option value="magic">마법</option>
             </select>
+            <input
+              id="admin-mob-level"
+              type="number"
+              placeholder="레벨"
+              value="1"
+              min="1"
+              title="몬스터 레벨. 몹이 들 수 있는 아이템 풀을 설계할 때 난이도 기준으로 참고합니다."
+            />
+            <label class="admin-checkbox-label" title="켜두면 상성 우위를 가진 플레이어가 방에 들어올 때 이 몹이 자동으로 공격합니다. 끄면 상점 주인처럼 절대 먼저 공격하지 않는 비전투 NPC로 동작합니다.">
+              <input id="admin-mob-hostile" type="checkbox" checked />
+              적대적(자동 공격)
+            </label>
           </div>
           <div class="admin-form-row">
-            <input id="admin-mob-str" type="number" placeholder="힘" value="1" min="0" />
-            <input id="admin-mob-dex" type="number" placeholder="민첩" value="1" min="0" />
-            <input id="admin-mob-pdef" type="number" placeholder="물리방어" value="0" min="0" />
-            <input id="admin-mob-mdef" type="number" placeholder="마법방어" value="0" min="0" />
-            <input id="admin-mob-exp" type="number" placeholder="경험치" value="5" min="0" />
-            <input id="admin-mob-gold" type="number" placeholder="골드" value="1" min="0" />
+            <input
+              id="admin-mob-str"
+              type="number"
+              placeholder="힘"
+              value="1"
+              min="0"
+              title="힘. 물리 공격력(가한 피해량)의 기준치입니다."
+            />
+            <input
+              id="admin-mob-dex"
+              type="number"
+              placeholder="민첩"
+              value="1"
+              min="0"
+              title="민첩. 공격 명중률/회피율에 영향을 줍니다."
+            />
+            <input
+              id="admin-mob-pdef"
+              type="number"
+              placeholder="물리방어"
+              value="0"
+              min="0"
+              title="물리방어. 상대의 물리 공격으로 받는 피해를 줄입니다."
+            />
+            <input
+              id="admin-mob-mdef"
+              type="number"
+              placeholder="마법방어"
+              value="0"
+              min="0"
+              title="마법방어. 상대의 마법 공격으로 받는 피해를 줄입니다."
+            />
+            <input
+              id="admin-mob-exp"
+              type="number"
+              placeholder="경험치"
+              value="5"
+              min="0"
+              title="처치 시 플레이어가 얻는 경험치량입니다."
+            />
+            <input
+              id="admin-mob-gold"
+              type="number"
+              placeholder="골드"
+              value="1"
+              min="0"
+              title="처치 시 플레이어가 얻는 골드량입니다."
+            />
             <button type="button" id="admin-mob-create">몬스터 생성</button>
           </div>
           <p class="admin-error" id="admin-mob-error"></p>
           <p class="admin-panel-empty">몬스터 배치는 맵 빌더에서 할 수 있습니다.</p>
+
+          <h4>보유 가능 아이템 (죽었을 때 드랍)</h4>
+          <div class="admin-form-row">
+            <select id="admin-mob-loot-select" title="아이템 풀을 설정할 몬스터를 선택하세요."></select>
+          </div>
+          <ul class="admin-list" id="admin-mob-loot-items"></ul>
+          <p class="admin-panel-empty">
+            체크한 아이템 중 몹이 무작위로 최대 2개를 들고 스폰되며, 처치되면 그 아이템을 떨어뜨립니다. 등급이 높을수록 보유 확률이 낮습니다.
+          </p>
+          <p class="admin-error" id="admin-mob-loot-error"></p>
         </section>
       </div>
     </div>
@@ -182,6 +257,11 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
   const mobTemplatesList = container.querySelector<HTMLUListElement>('#admin-mob-templates')!;
   const mobError = container.querySelector<HTMLParagraphElement>('#admin-mob-error')!;
   const mobElementSelect = container.querySelector<HTMLSelectElement>('#admin-mob-element')!;
+  const mobLootSelect = container.querySelector<HTMLSelectElement>('#admin-mob-loot-select')!;
+  const mobLootItemsList = container.querySelector<HTMLUListElement>('#admin-mob-loot-items')!;
+  const mobLootError = container.querySelector<HTMLParagraphElement>('#admin-mob-loot-error')!;
+
+  let mobTemplates: MobTemplateDto[] = [];
 
   mobElementSelect.innerHTML = ELEMENT_VALUES.map(
     (value) => `<option value="${value}">${ELEMENT_LABELS[value]}</option>`,
@@ -293,15 +373,66 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
   }
 
   async function refreshMobs(): Promise<void> {
-    const { mobTemplates } = await fetchMobTemplates(token);
+    const previousLootSelection = mobLootSelect.value;
+    const { mobTemplates: fetched } = await fetchMobTemplates(token);
+    mobTemplates = fetched;
 
     mobTemplatesList.innerHTML =
       mobTemplates
         .map(
           (mob) =>
-            `<li>${escapeHtml(mob.name)} (HP ${mob.hp}, ${ELEMENT_LABELS[mob.element]}, ${DAMAGE_TYPE_LABELS[mob.damageType]})</li>`,
+            `<li>${escapeHtml(mob.name)} (Lv.${mob.level}, HP ${mob.hp}, ${ELEMENT_LABELS[mob.element]}, ${DAMAGE_TYPE_LABELS[mob.damageType]}${mob.hostile ? '' : ', 비전투'})</li>`,
         )
         .join('') || '<li class="admin-panel-empty">없음</li>';
+
+    mobLootSelect.innerHTML =
+      mobTemplates.map((mob) => `<option value="${mob.id}">${escapeHtml(mob.name)}</option>`).join('') ||
+      '<option value="">몬스터 없음</option>';
+
+    if (mobTemplates.some((mob) => String(mob.id) === previousLootSelection)) {
+      mobLootSelect.value = previousLootSelection;
+    }
+
+    await refreshMobLootPool();
+  }
+
+  async function refreshMobLootPool(): Promise<void> {
+    mobLootError.textContent = '';
+    const mobTemplateId = Number(mobLootSelect.value);
+    if (!mobTemplateId) {
+      mobLootItemsList.innerHTML = '<li class="admin-panel-empty">몬스터를 먼저 생성하세요.</li>';
+      return;
+    }
+
+    const { items: poolItems } = await fetchMobLootPool(token, mobTemplateId);
+    const poolItemIds = new Set(poolItems.map((item) => item.id));
+
+    mobLootItemsList.innerHTML =
+      itemTemplates
+        .map(
+          (item) => `
+            <li>
+              <label class="admin-checkbox-label">
+                <input type="checkbox" class="admin-mob-loot-toggle" data-item-id="${item.id}" ${poolItemIds.has(item.id) ? 'checked' : ''} />
+                <span class="item-grade-${item.grade}">${escapeHtml(item.name)}</span> (${ITEM_GRADE_LABELS[item.grade]})
+              </label>
+            </li>
+          `,
+        )
+        .join('') || '<li class="admin-panel-empty">생성된 아이템이 없습니다.</li>';
+
+    mobLootItemsList.querySelectorAll<HTMLInputElement>('.admin-mob-loot-toggle').forEach((checkbox) => {
+      checkbox.addEventListener('change', () => {
+        const itemId = Number(checkbox.dataset.itemId);
+        const action = checkbox.checked
+          ? addMobLootPoolItem(token, mobTemplateId, itemId)
+          : removeMobLootPoolItem(token, mobTemplateId, itemId);
+        action.catch((error: unknown) => {
+          mobLootError.textContent = error instanceof Error ? error.message : '아이템 풀 변경에 실패했습니다.';
+          checkbox.checked = !checkbox.checked;
+        });
+      });
+    });
   }
 
   container.querySelector<HTMLButtonElement>('#admin-announce-send')!.addEventListener('click', () => {
@@ -363,7 +494,6 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
       return;
     }
     createMobTemplate(token, {
-      name,
       hp: Number(container.querySelector<HTMLInputElement>('#admin-mob-hp')!.value),
       strength: Number(container.querySelector<HTMLInputElement>('#admin-mob-str')!.value),
       dexterity: Number(container.querySelector<HTMLInputElement>('#admin-mob-dex')!.value),
@@ -373,6 +503,9 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
       damageType: container.querySelector<HTMLSelectElement>('#admin-mob-damage-type')!.value as 'physical' | 'magic',
       expReward: Number(container.querySelector<HTMLInputElement>('#admin-mob-exp')!.value),
       goldReward: Number(container.querySelector<HTMLInputElement>('#admin-mob-gold')!.value),
+      level: Number(container.querySelector<HTMLInputElement>('#admin-mob-level')!.value),
+      hostile: container.querySelector<HTMLInputElement>('#admin-mob-hostile')!.checked,
+      name,
     })
       .then(() => refreshMobs())
       .catch((error: unknown) => {
@@ -380,11 +513,18 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
       });
   });
 
+  mobLootSelect.addEventListener('change', () => {
+    refreshMobLootPool().catch((error: unknown) => {
+      mobLootError.textContent = error instanceof Error ? error.message : '아이템 풀을 불러오지 못했습니다.';
+    });
+  });
+
   container.querySelector<HTMLButtonElement>('#admin-back')!.addEventListener('click', onBack);
 
   void (async () => {
     await refreshRooms();
-    await Promise.all([refreshAccounts(), refreshSessions(), refreshItems(), refreshMobs()]);
+    await refreshItems();
+    await Promise.all([refreshAccounts(), refreshSessions(), refreshMobs()]);
   })().catch((error: unknown) => {
     accountsError.textContent = error instanceof Error ? error.message : '데이터를 불러오지 못했습니다.';
   });

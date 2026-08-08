@@ -43,6 +43,14 @@ export interface RoomMobInfo {
   name: string;
   hp: number;
   maxHp: number;
+  level: number;
+}
+
+export interface CombatMobInfo {
+  spawnId: number;
+  name: string;
+  hp: number;
+  maxHp: number;
 }
 
 export interface VillagePlotInfo {
@@ -100,7 +108,7 @@ export type ServerMessage =
   | { type: 'state'; character: CharacterState }
   | { type: 'room'; room: RoomSnapshot }
   | { type: 'error'; text: string }
-  | { type: 'combat'; mobName: string; mobHp: number; mobMaxHp: number }
+  | { type: 'combat'; mobs: CombatMobInfo[] }
   | { type: 'combatEnd' }
   | { type: 'equipment'; slots: EquipmentSnapshot }
   | { type: 'inventory'; items: InventoryItemInfo[] }

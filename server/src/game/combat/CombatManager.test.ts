@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CombatantStats } from './CombatManager.js';
-import { resolveAttack } from './CombatManager.js';
+import { hasElementAdvantage, resolveAttack } from './CombatManager.js';
 
 function stats(overrides: Partial<CombatantStats> = {}): CombatantStats {
   return {
@@ -80,5 +80,23 @@ describe('resolveAttack', () => {
     };
 
     expect(sample(disadvantaged)).toBeLessThan(sample(neutral));
+  });
+});
+
+describe('hasElementAdvantage', () => {
+  it('follows the fire > metal > wood > earth > water > fire cycle', () => {
+    expect(hasElementAdvantage('fire', 'metal')).toBe(true);
+    expect(hasElementAdvantage('metal', 'wood')).toBe(true);
+    expect(hasElementAdvantage('wood', 'earth')).toBe(true);
+    expect(hasElementAdvantage('earth', 'water')).toBe(true);
+    expect(hasElementAdvantage('water', 'fire')).toBe(true);
+  });
+
+  it('is false in the reverse direction', () => {
+    expect(hasElementAdvantage('metal', 'fire')).toBe(false);
+  });
+
+  it('is false for identical elements', () => {
+    expect(hasElementAdvantage('fire', 'fire')).toBe(false);
   });
 });

@@ -58,7 +58,7 @@ export function buildRoomSnapshot(roomId: number, viewerWs?: WebSocket): RoomSna
     )
     .all(roomId) as RoomItemQueryRow[];
 
-  const mobs = getMobsInRoom(roomId).map((mob) => ({ name: mob.name, hp: mob.hp, maxHp: mob.maxHp }));
+  const mobs = getMobsInRoom(roomId).map((mob) => ({ name: mob.name, hp: mob.hp, maxHp: mob.maxHp, level: mob.level }));
 
   const players = getSessionsInRoom(roomId)
     .filter((session) => session.ws !== viewerWs)

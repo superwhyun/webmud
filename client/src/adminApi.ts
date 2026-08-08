@@ -47,6 +47,8 @@ export interface MobTemplateDto {
   damageType: 'physical' | 'magic';
   expReward: number;
   goldReward: number;
+  level: number;
+  hostile: boolean;
 }
 
 export function fetchAccounts(token: string): Promise<{ accounts: AccountDto[] }> {
@@ -120,6 +122,29 @@ export function createMobTemplate(
     method: 'POST',
     headers: authHeader(token),
     body: JSON.stringify(data),
+  });
+}
+
+export function fetchMobLootPool(token: string, mobTemplateId: number): Promise<{ items: ItemTemplateDto[] }> {
+  return apiRequest(`/admin/mob-templates/${mobTemplateId}/loot-pool`, { headers: authHeader(token) });
+}
+
+export function addMobLootPoolItem(
+  token: string,
+  mobTemplateId: number,
+  itemId: number,
+): Promise<{ items: ItemTemplateDto[] }> {
+  return apiRequest(`/admin/mob-templates/${mobTemplateId}/loot-pool`, {
+    method: 'POST',
+    headers: authHeader(token),
+    body: JSON.stringify({ itemId }),
+  });
+}
+
+export function removeMobLootPoolItem(token: string, mobTemplateId: number, itemId: number): Promise<void> {
+  return apiRequest(`/admin/mob-templates/${mobTemplateId}/loot-pool/${itemId}`, {
+    method: 'DELETE',
+    headers: authHeader(token),
   });
 }
 

@@ -31,5 +31,7 @@ export function toMobTemplateDto(row: MobTemplateRow) {
     damageType: row.damage_type,
     expReward: row.exp_reward,
     goldReward: row.gold_reward,
+    level: row.level,
+    hostile: Boolean(row.hostile),
   };
 }
