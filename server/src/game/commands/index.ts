@@ -112,7 +112,7 @@ export function dispatchCommand(ctx: CommandContext, rawText: string): void {
     return;
   }
 
-  if (lowerVerb === 'cast') {
+  if (lowerVerb === 'cast' || lowerVerb === '마법') {
     handleCast(ctx, rest);
     return;
   }

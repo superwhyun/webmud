@@ -7,6 +7,7 @@ import {
   JOB_LABELS,
   JOB_VALUES,
   MAX_INVENTORY_SLOTS,
+  SKILLS,
   SKILLS_BY_JOB,
   type CharacterState,
   type ClientMessage,
@@ -66,6 +67,7 @@ const COMMAND_VERBS = [
   'stat',
   'skill',
   'cast',
+  '마법',
   'north',
   'south',
   'east',
@@ -222,6 +224,7 @@ export function renderGameScreen(
 
   let currentCharacterState: CharacterState | undefined;
   let learnedSkillIds: string[] = [];
+  let latestCombatMobs: CombatMobInfo[] = [];
 
   function renderState(character: CharacterState): void {
     currentCharacterState = character;
@@ -586,8 +589,10 @@ export function renderGameScreen(
       renderRoom(message.room);
       renderMinimap();
     } else if (message.type === 'combat') {
+      latestCombatMobs = message.mobs;
       renderCombat(message.mobs);
     } else if (message.type === 'combatEnd') {
+      latestCombatMobs = [];
       hideCombat();
     } else if (message.type === 'equipment') {
       equipmentState = message.slots;
@@ -659,22 +664,51 @@ export function renderGameScreen(
     return [...names];
   }
 
+  function learnedSkillNameCandidates(): string[] {
+    const names = new Set<string>();
+    for (const skill of SKILLS) {
+      if (learnedSkillIds.includes(skill.id)) names.add(skill.name);
+    }
+    return [...names];
+  }
+
+  function combatTargetCandidates(): string[] {
+    return latestCombatMobs.length > 0
+      ? [...new Set(latestCombatMobs.map((mob) => mob.name))]
+      : nameCompletionCandidates();
+  }
+
   /**
    * 두 번째 탭부터는 새로 후보를 계산하지 않고 이전 후보 목록을 순환한다.
    * 동일 접두사에 여러 후보(예: "가죽"으로 시작하는 아이템 여러 개)가 있을 때
    * 탭을 반복해서 눌러 하나씩 넘겨보게 하기 위함이다.
+   *
+   * "마법"/"cast"는 두 번째 토큰이 스킬 이름, 세 번째 토큰이 대상이라서
+   * 토큰 위치에 따라 후보 풀이 달라진다. 그 외 명령어는 기존처럼
+   * 첫 토큰이면 명령어 목록, 아니면 방/인벤토리 이름 목록을 쓴다.
    */
   function handleTabComplete(): void {
     const value = commandInput.value;
-    const spaceIndex = value.indexOf(' ');
-    const isFirstToken = spaceIndex === -1;
-    const base = isFirstToken ? '' : value.slice(0, spaceIndex + 1);
-    const typed = isFirstToken ? value : value.slice(spaceIndex + 1);
+    const tokens = value.split(' ');
+    const tokenIndex = tokens.length - 1;
+    const typed = tokens[tokenIndex];
+    const base = tokenIndex === 0 ? '' : `${tokens.slice(0, tokenIndex).join(' ')} `;
+    const verb = tokens[0].toLowerCase();
+    const isCastVerb = verb === 'cast' || verb === '마법';
 
     if (tabCompletion && tabCompletion.base === base) {
       tabCompletion.index = (tabCompletion.index + 1) % tabCompletion.candidates.length;
     } else {
-      const pool = isFirstToken ? COMMAND_VERBS : nameCompletionCandidates();
+      let pool: string[];
+      if (tokenIndex === 0) {
+        pool = COMMAND_VERBS;
+      } else if (isCastVerb && tokenIndex === 1) {
+        pool = learnedSkillNameCandidates();
+      } else if (isCastVerb) {
+        pool = combatTargetCandidates();
+      } else {
+        pool = nameCompletionCandidates();
+      }
       const lowerTyped = typed.toLowerCase();
       const candidates = pool.filter((candidate) => candidate.toLowerCase().startsWith(lowerTyped));
       if (candidates.length === 0) return;

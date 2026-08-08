@@ -1,12 +1,12 @@
 import type { WebSocket } from 'ws';
-import { ELEMENT_ADVANTAGE, formatItemMention, type ElementType, type ItemGrade } from '@mud/shared';
+import { ELEMENT_ADVANTAGE, formatItemMention, SKILLS, type ElementType, type ItemGrade, type SkillDefinition } from '@mud/shared';
 import { db } from '../../db/client.js';
 import { STARTING_ROOM_ID } from '../../db/seed.js';
 import { getEffectiveStats } from '../combatStats.js';
 import { loadCharacter, loadCharacterState } from '../characterState.js';
 import type { CommandContext } from '../commands/context.js';
 import { applyLevelUps } from '../leveling.js';
-import { getMobsInRoom, killMob, type DamageType, type MobInstance } from '../MobManager.js';
+import { findMobInRoomByName, getMobsInRoom, killMob, type DamageType, type MobInstance } from '../MobManager.js';
 import { computeMobExpReward } from '../mobExp.js';
 import { broadcastRoomSnapshot } from '../roomSnapshot.js';
 import { broadcastToRoom } from '../sessionRegistry.js';
@@ -232,16 +232,45 @@ function startCooldown(characterId: number, skillId: string, cooldownMs: number)
   skillCooldowns.set(characterId, characterCooldowns);
 }
 
+interface ResolvedCast {
+  skill: SkillDefinition;
+  targetHint: string;
+}
+
+/**
+ * "마법 <스킬 이름> [군더더기/대상]" 형태의 입력에서 스킬 이름을 접두어로 찾는다.
+ * 이름 뒤에 남는 텍스트는 대상 몹 이름 힌트로 취급하고, "써"/"쥐" 같은 오타 섞인
+ * 군더더기 동사는 어차피 몹 이름과 매치되지 않으므로 자연히 무시된다.
+ */
+function resolveCastInput(rest: string): ResolvedCast | undefined {
+  const trimmed = rest.trim();
+  if (!trimmed) return undefined;
+
+  const exact = resolveSkillArg(trimmed);
+  if (exact) return { skill: exact, targetHint: '' };
+
+  let best: ResolvedCast | undefined;
+  for (const skill of SKILLS) {
+    if (trimmed === skill.name || trimmed.startsWith(`${skill.name} `)) {
+      if (!best || skill.name.length > best.skill.name.length) {
+        best = { skill, targetHint: trimmed.slice(skill.name.length).trim() };
+      }
+    }
+  }
+  return best;
+}
+
 /**
  * 스킬 시전은 2초 전투 틱과 별개의 즉시 행동으로 처리한다(몬스터 반격을 유발하지 않음).
  * 몬스터 반격은 기존 자동 공격 틱에서만 발생한다.
  */
 export function handleCast(ctx: CommandContext, rest: string): void {
-  const skill = resolveSkillArg(rest);
-  if (!skill) {
+  const resolved = resolveCastInput(rest);
+  if (!resolved) {
     ctx.send({ type: 'text', text: '사용법: cast <스킬 ID>' });
     return;
   }
+  const { skill, targetHint } = resolved;
 
   const character = loadCharacter(ctx.session.characterId);
   if (!character) return;
@@ -268,12 +297,21 @@ export function handleCast(ctx: CommandContext, rest: string): void {
   }
 
   if (skill.kind === 'damage') {
-    const combat = activeCombats.get(ctx.session.ws);
+    let combat = activeCombats.get(ctx.session.ws);
     if (!combat || combat.mobs.length === 0) {
-      ctx.send({ type: 'text', text: '전투 중에만 사용할 수 있는 스킬입니다.' });
-      return;
+      if (!targetHint) {
+        ctx.send({ type: 'text', text: `전투 중이 아닙니다. 사용법: 마법 ${skill.name} <대상>` });
+        return;
+      }
+      const targetMob = findMobInRoomByName(ctx.session.roomId, targetHint);
+      if (!targetMob) {
+        ctx.send({ type: 'text', text: '그런 대상이 이곳에 없습니다.' });
+        return;
+      }
+      ctx.send({ type: 'text', text: `${targetMob.name}에게 싸움을 겁니다!` });
+      combat = startCombatInterval(ctx, [targetMob]);
     }
-    const mob = combat.mobs[0];
+    const mob = (targetHint && combat.mobs.find((m) => m.name.includes(targetHint))) || combat.mobs[0];
 
     const playerStats = getEffectiveStats(character);
     const attackStat =
