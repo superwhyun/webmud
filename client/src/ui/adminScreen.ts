@@ -3,6 +3,7 @@ import {
   ELEMENT_VALUES,
   EQUIPMENT_SLOTS,
   EQUIPMENT_SLOT_LABELS,
+  ITEM_GRADE_DROP_WEIGHT,
   ITEM_GRADE_LABELS,
   ITEM_GRADE_VALUES,
   type ElementType,
@@ -12,6 +13,8 @@ import {
   addMobLootPoolItem,
   createItemTemplate,
   createMobTemplate,
+  deleteItemTemplate,
+  deleteMobTemplate,
   fetchAccounts,
   fetchAdminRooms,
   fetchItemTemplates,
@@ -23,6 +26,8 @@ import {
   removeMobLootPoolItem,
   sendAnnouncement,
   updateAccount,
+  updateItemTemplate,
+  updateMobTemplate,
   type ItemTemplateDto,
   type MobTemplateDto,
   type RoomOptionDto,
@@ -137,6 +142,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
               <input id="admin-item-value" type="number" placeholder="가치" value="0" min="0" />
             </div>
             <button type="button" id="admin-item-create">아이템 생성</button>
+            <button type="button" id="admin-item-cancel" hidden>취소</button>
           </div>
           <p class="admin-error" id="admin-item-error"></p>
           <p class="admin-panel-empty">아이템 배치는 맵 빌더에서 할 수 있습니다.</p>
@@ -223,6 +229,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
               title="처치 시 플레이어가 얻는 골드량입니다."
             />
             <button type="button" id="admin-mob-create">몬스터 생성</button>
+            <button type="button" id="admin-mob-cancel" hidden>취소</button>
           </div>
           <p class="admin-error" id="admin-mob-error"></p>
           <p class="admin-panel-empty">몬스터 배치는 맵 빌더에서 할 수 있습니다.</p>
@@ -251,8 +258,11 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
   const itemGradeTabs = container.querySelector<HTMLDivElement>('#admin-item-grade-tabs')!;
   const itemTemplatesList = container.querySelector<HTMLUListElement>('#admin-item-templates')!;
   const itemError = container.querySelector<HTMLParagraphElement>('#admin-item-error')!;
+  const itemCreateBtn = container.querySelector<HTMLButtonElement>('#admin-item-create')!;
+  const itemCancelBtn = container.querySelector<HTMLButtonElement>('#admin-item-cancel')!;
   let itemTemplates: ItemTemplateDto[] = [];
   let selectedItemGrade: ItemGrade = ITEM_GRADE_VALUES[0];
+  let editingItemId: number | null = null;
 
   const mobTemplatesList = container.querySelector<HTMLUListElement>('#admin-mob-templates')!;
   const mobError = container.querySelector<HTMLParagraphElement>('#admin-mob-error')!;
@@ -260,8 +270,11 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
   const mobLootSelect = container.querySelector<HTMLSelectElement>('#admin-mob-loot-select')!;
   const mobLootItemsList = container.querySelector<HTMLUListElement>('#admin-mob-loot-items')!;
   const mobLootError = container.querySelector<HTMLParagraphElement>('#admin-mob-loot-error')!;
+  const mobCreateBtn = container.querySelector<HTMLButtonElement>('#admin-mob-create')!;
+  const mobCancelBtn = container.querySelector<HTMLButtonElement>('#admin-mob-cancel')!;
 
   let mobTemplates: MobTemplateDto[] = [];
+  let editingMobId: number | null = null;
 
   mobElementSelect.innerHTML = ELEMENT_VALUES.map(
     (value) => `<option value="${value}">${ELEMENT_LABELS[value]}</option>`,
@@ -353,16 +366,82 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
     });
   }
 
+  function fillItemForm(item: ItemTemplateDto): void {
+    container.querySelector<HTMLInputElement>('#admin-item-name')!.value = item.name;
+    container.querySelector<HTMLInputElement>('#admin-item-desc')!.value = item.description;
+    container.querySelector<HTMLSelectElement>('#admin-item-type')!.value = item.type;
+    container.querySelector<HTMLSelectElement>('#admin-item-slot')!.value = item.slot ?? '';
+    container.querySelector<HTMLInputElement>('#admin-item-level')!.value = String(item.level);
+    container.querySelector<HTMLSelectElement>('#admin-item-grade')!.value = item.grade;
+    container.querySelector<HTMLInputElement>('#admin-item-str')!.value = String(item.strengthBonus);
+    container.querySelector<HTMLInputElement>('#admin-item-dex')!.value = String(item.dexterityBonus);
+    container.querySelector<HTMLInputElement>('#admin-item-pdef')!.value = String(item.physicalDefenseBonus);
+    container.querySelector<HTMLInputElement>('#admin-item-mdef')!.value = String(item.magicDefenseBonus);
+    container.querySelector<HTMLInputElement>('#admin-item-heal')!.value = String(item.healAmount);
+    container.querySelector<HTMLInputElement>('#admin-item-value')!.value = String(item.value);
+  }
+
+  function resetItemForm(): void {
+    editingItemId = null;
+    itemCreateBtn.textContent = '아이템 생성';
+    itemCancelBtn.hidden = true;
+    itemError.textContent = '';
+    container.querySelector<HTMLInputElement>('#admin-item-name')!.value = '';
+    container.querySelector<HTMLInputElement>('#admin-item-desc')!.value = '';
+    container.querySelector<HTMLInputElement>('#admin-item-level')!.value = '1';
+    container.querySelector<HTMLInputElement>('#admin-item-str')!.value = '0';
+    container.querySelector<HTMLInputElement>('#admin-item-dex')!.value = '0';
+    container.querySelector<HTMLInputElement>('#admin-item-pdef')!.value = '0';
+    container.querySelector<HTMLInputElement>('#admin-item-mdef')!.value = '0';
+    container.querySelector<HTMLInputElement>('#admin-item-heal')!.value = '0';
+    container.querySelector<HTMLInputElement>('#admin-item-value')!.value = '0';
+  }
+
   function renderItemList(): void {
     const items = itemTemplates.filter((item) => item.grade === selectedItemGrade);
 
     itemTemplatesList.innerHTML =
       items
         .map(
-          (item) =>
-            `<li><span class="item-grade-${item.grade}">${escapeHtml(item.name)}</span> (${ITEM_TYPE_LABELS[item.type] ?? item.type}${item.slot ? `, ${EQUIPMENT_SLOT_LABELS[item.slot]}` : ''}, Lv.${item.level}, ${ITEM_GRADE_LABELS[item.grade]}, 가치 ${item.value})</li>`,
+          (item) => `
+            <li>
+              <span><span class="item-grade-${item.grade}">${escapeHtml(item.name)}</span> (${ITEM_TYPE_LABELS[item.type] ?? item.type}${item.slot ? `, ${EQUIPMENT_SLOT_LABELS[item.slot]}` : ''}, Lv.${item.level}, ${ITEM_GRADE_LABELS[item.grade]}, 가치 ${item.value})</span>
+              <span class="admin-row-actions">
+                <button type="button" class="admin-edit-btn" data-item-id="${item.id}">수정</button>
+                <button type="button" class="admin-delete-btn" data-item-id="${item.id}">삭제</button>
+              </span>
+            </li>
+          `,
         )
         .join('') || '<li class="admin-panel-empty">이 등급의 아이템이 없습니다.</li>';
+
+    itemTemplatesList.querySelectorAll<HTMLButtonElement>('.admin-edit-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const item = itemTemplates.find((entry) => entry.id === Number(btn.dataset.itemId));
+        if (!item) return;
+        editingItemId = item.id;
+        fillItemForm(item);
+        itemCreateBtn.textContent = '저장';
+        itemCancelBtn.hidden = false;
+        itemError.textContent = '';
+      });
+    });
+
+    itemTemplatesList.querySelectorAll<HTMLButtonElement>('.admin-delete-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const item = itemTemplates.find((entry) => entry.id === Number(btn.dataset.itemId));
+        if (!item) return;
+        if (!confirm(`"${item.name}" 아이템을 삭제할까요?`)) return;
+        deleteItemTemplate(token, item.id)
+          .then(() => {
+            if (editingItemId === item.id) resetItemForm();
+            return refreshItems();
+          })
+          .catch((error: unknown) => {
+            itemError.textContent = error instanceof Error ? error.message : '아이템 삭제에 실패했습니다.';
+          });
+      });
+    });
   }
 
   async function refreshItems(): Promise<void> {
@@ -370,6 +449,38 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
     itemTemplates = items;
     renderItemGradeTabs();
     renderItemList();
+  }
+
+  function fillMobForm(mob: MobTemplateDto): void {
+    container.querySelector<HTMLInputElement>('#admin-mob-name')!.value = mob.name;
+    container.querySelector<HTMLInputElement>('#admin-mob-hp')!.value = String(mob.hp);
+    mobElementSelect.value = mob.element;
+    container.querySelector<HTMLSelectElement>('#admin-mob-damage-type')!.value = mob.damageType;
+    container.querySelector<HTMLInputElement>('#admin-mob-level')!.value = String(mob.level);
+    container.querySelector<HTMLInputElement>('#admin-mob-hostile')!.checked = mob.hostile;
+    container.querySelector<HTMLInputElement>('#admin-mob-str')!.value = String(mob.strength);
+    container.querySelector<HTMLInputElement>('#admin-mob-dex')!.value = String(mob.dexterity);
+    container.querySelector<HTMLInputElement>('#admin-mob-pdef')!.value = String(mob.physicalDefense);
+    container.querySelector<HTMLInputElement>('#admin-mob-mdef')!.value = String(mob.magicDefense);
+    container.querySelector<HTMLInputElement>('#admin-mob-exp')!.value = String(mob.expReward);
+    container.querySelector<HTMLInputElement>('#admin-mob-gold')!.value = String(mob.goldReward);
+  }
+
+  function resetMobForm(): void {
+    editingMobId = null;
+    mobCreateBtn.textContent = '몬스터 생성';
+    mobCancelBtn.hidden = true;
+    mobError.textContent = '';
+    container.querySelector<HTMLInputElement>('#admin-mob-name')!.value = '';
+    container.querySelector<HTMLInputElement>('#admin-mob-hp')!.value = '10';
+    container.querySelector<HTMLInputElement>('#admin-mob-level')!.value = '1';
+    container.querySelector<HTMLInputElement>('#admin-mob-hostile')!.checked = true;
+    container.querySelector<HTMLInputElement>('#admin-mob-str')!.value = '1';
+    container.querySelector<HTMLInputElement>('#admin-mob-dex')!.value = '1';
+    container.querySelector<HTMLInputElement>('#admin-mob-pdef')!.value = '0';
+    container.querySelector<HTMLInputElement>('#admin-mob-mdef')!.value = '0';
+    container.querySelector<HTMLInputElement>('#admin-mob-exp')!.value = '5';
+    container.querySelector<HTMLInputElement>('#admin-mob-gold')!.value = '1';
   }
 
   async function refreshMobs(): Promise<void> {
@@ -380,10 +491,45 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
     mobTemplatesList.innerHTML =
       mobTemplates
         .map(
-          (mob) =>
-            `<li>${escapeHtml(mob.name)} (Lv.${mob.level}, HP ${mob.hp}, ${ELEMENT_LABELS[mob.element]}, ${DAMAGE_TYPE_LABELS[mob.damageType]}${mob.hostile ? '' : ', 비전투'})</li>`,
+          (mob) => `
+            <li>
+              <span>${escapeHtml(mob.name)} (Lv.${mob.level}, HP ${mob.hp}, ${ELEMENT_LABELS[mob.element]}, ${DAMAGE_TYPE_LABELS[mob.damageType]}${mob.hostile ? '' : ', 비전투'})</span>
+              <span class="admin-row-actions">
+                <button type="button" class="admin-edit-btn" data-mob-id="${mob.id}">수정</button>
+                <button type="button" class="admin-delete-btn" data-mob-id="${mob.id}">삭제</button>
+              </span>
+            </li>
+          `,
         )
         .join('') || '<li class="admin-panel-empty">없음</li>';
+
+    mobTemplatesList.querySelectorAll<HTMLButtonElement>('.admin-edit-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const mob = mobTemplates.find((entry) => entry.id === Number(btn.dataset.mobId));
+        if (!mob) return;
+        editingMobId = mob.id;
+        fillMobForm(mob);
+        mobCreateBtn.textContent = '저장';
+        mobCancelBtn.hidden = false;
+        mobError.textContent = '';
+      });
+    });
+
+    mobTemplatesList.querySelectorAll<HTMLButtonElement>('.admin-delete-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const mob = mobTemplates.find((entry) => entry.id === Number(btn.dataset.mobId));
+        if (!mob) return;
+        if (!confirm(`"${mob.name}" 몬스터를 삭제할까요?`)) return;
+        deleteMobTemplate(token, mob.id)
+          .then(() => {
+            if (editingMobId === mob.id) resetMobForm();
+            return refreshMobs();
+          })
+          .catch((error: unknown) => {
+            mobError.textContent = error instanceof Error ? error.message : '몬스터 삭제에 실패했습니다.';
+          });
+      });
+    });
 
     mobLootSelect.innerHTML =
       mobTemplates.map((mob) => `<option value="${mob.id}">${escapeHtml(mob.name)}</option>`).join('') ||
@@ -405,31 +551,57 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
     }
 
     const { items: poolItems } = await fetchMobLootPool(token, mobTemplateId);
-    const poolItemIds = new Set(poolItems.map((item) => item.id));
+    const poolWeights = new Map<number, number>(poolItems.map((item) => [item.id, item.weight]));
 
     mobLootItemsList.innerHTML =
       itemTemplates
-        .map(
-          (item) => `
+        .map((item) => {
+          const inPool = poolWeights.has(item.id);
+          const weight = poolWeights.get(item.id) ?? ITEM_GRADE_DROP_WEIGHT[item.grade];
+          return `
             <li>
               <label class="admin-checkbox-label">
-                <input type="checkbox" class="admin-mob-loot-toggle" data-item-id="${item.id}" ${poolItemIds.has(item.id) ? 'checked' : ''} />
+                <input type="checkbox" class="admin-mob-loot-toggle" data-item-id="${item.id}" ${inPool ? 'checked' : ''} />
                 <span class="item-grade-${item.grade}">${escapeHtml(item.name)}</span> (${ITEM_GRADE_LABELS[item.grade]})
               </label>
+              <input
+                type="number"
+                class="admin-mob-loot-weight"
+                data-item-id="${item.id}"
+                value="${weight}"
+                min="1"
+                title="드랍 가중치. 값이 클수록 이 몬스터가 이 아이템을 더 자주 보유합니다."
+                ${inPool ? '' : 'disabled'}
+              />
             </li>
-          `,
-        )
+          `;
+        })
         .join('') || '<li class="admin-panel-empty">생성된 아이템이 없습니다.</li>';
 
     mobLootItemsList.querySelectorAll<HTMLInputElement>('.admin-mob-loot-toggle').forEach((checkbox) => {
+      const weightInput = mobLootItemsList.querySelector<HTMLInputElement>(
+        `.admin-mob-loot-weight[data-item-id="${checkbox.dataset.itemId}"]`,
+      )!;
       checkbox.addEventListener('change', () => {
         const itemId = Number(checkbox.dataset.itemId);
+        weightInput.disabled = !checkbox.checked;
         const action = checkbox.checked
-          ? addMobLootPoolItem(token, mobTemplateId, itemId)
+          ? addMobLootPoolItem(token, mobTemplateId, itemId, Number(weightInput.value))
           : removeMobLootPoolItem(token, mobTemplateId, itemId);
         action.catch((error: unknown) => {
           mobLootError.textContent = error instanceof Error ? error.message : '아이템 풀 변경에 실패했습니다.';
           checkbox.checked = !checkbox.checked;
+          weightInput.disabled = !checkbox.checked;
+        });
+      });
+    });
+
+    mobLootItemsList.querySelectorAll<HTMLInputElement>('.admin-mob-loot-weight').forEach((weightInput) => {
+      weightInput.addEventListener('change', () => {
+        const itemId = Number(weightInput.dataset.itemId);
+        const weight = Number(weightInput.value);
+        addMobLootPoolItem(token, mobTemplateId, itemId, weight).catch((error: unknown) => {
+          mobLootError.textContent = error instanceof Error ? error.message : '가중치 변경에 실패했습니다.';
         });
       });
     });
@@ -451,7 +623,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
       });
   });
 
-  container.querySelector<HTMLButtonElement>('#admin-item-create')!.addEventListener('click', () => {
+  itemCreateBtn.addEventListener('click', () => {
     const name = container.querySelector<HTMLInputElement>('#admin-item-name')!.value.trim();
     const description = container.querySelector<HTMLInputElement>('#admin-item-desc')!.value.trim();
     const type = container.querySelector<HTMLSelectElement>('#admin-item-type')!.value;
@@ -463,7 +635,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
       itemError.textContent = '이름과 설명을 입력하세요.';
       return;
     }
-    createItemTemplate(token, {
+    const data = {
       name,
       description,
       type,
@@ -476,24 +648,29 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
       magicDefenseBonus: Number(container.querySelector<HTMLInputElement>('#admin-item-mdef')!.value),
       healAmount: Number(container.querySelector<HTMLInputElement>('#admin-item-heal')!.value),
       value: Number(container.querySelector<HTMLInputElement>('#admin-item-value')!.value),
-    })
+    };
+    const request = editingItemId ? updateItemTemplate(token, editingItemId, data) : createItemTemplate(token, data);
+    request
       .then(() => {
         selectedItemGrade = grade;
+        resetItemForm();
         return refreshItems();
       })
       .catch((error: unknown) => {
-        itemError.textContent = error instanceof Error ? error.message : '아이템 생성에 실패했습니다.';
+        itemError.textContent = error instanceof Error ? error.message : '아이템 저장에 실패했습니다.';
       });
   });
 
-  container.querySelector<HTMLButtonElement>('#admin-mob-create')!.addEventListener('click', () => {
+  itemCancelBtn.addEventListener('click', () => resetItemForm());
+
+  mobCreateBtn.addEventListener('click', () => {
     const name = container.querySelector<HTMLInputElement>('#admin-mob-name')!.value.trim();
     mobError.textContent = '';
     if (!name) {
       mobError.textContent = '이름을 입력하세요.';
       return;
     }
-    createMobTemplate(token, {
+    const data = {
       hp: Number(container.querySelector<HTMLInputElement>('#admin-mob-hp')!.value),
       strength: Number(container.querySelector<HTMLInputElement>('#admin-mob-str')!.value),
       dexterity: Number(container.querySelector<HTMLInputElement>('#admin-mob-dex')!.value),
@@ -506,12 +683,19 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
       level: Number(container.querySelector<HTMLInputElement>('#admin-mob-level')!.value),
       hostile: container.querySelector<HTMLInputElement>('#admin-mob-hostile')!.checked,
       name,
-    })
-      .then(() => refreshMobs())
+    };
+    const request = editingMobId ? updateMobTemplate(token, editingMobId, data) : createMobTemplate(token, data);
+    request
+      .then(() => {
+        resetMobForm();
+        return refreshMobs();
+      })
       .catch((error: unknown) => {
-        mobError.textContent = error instanceof Error ? error.message : '몬스터 생성에 실패했습니다.';
+        mobError.textContent = error instanceof Error ? error.message : '몬스터 저장에 실패했습니다.';
       });
   });
+
+  mobCancelBtn.addEventListener('click', () => resetMobForm());
 
   mobLootSelect.addEventListener('change', () => {
     refreshMobLootPool().catch((error: unknown) => {

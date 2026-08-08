@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { ELEMENT_VALUES, EQUIPMENT_SLOTS, ITEM_GRADE_VALUES } from '@mud/shared';
+import { ELEMENT_VALUES, EQUIPMENT_SLOTS, ITEM_GRADE_DROP_WEIGHT, ITEM_GRADE_VALUES, type ItemGrade } from '@mud/shared';
 import { db } from '../db/client.js';
 import { toItemDto, toMobTemplateDto } from '../db/dto.js';
 import type { ItemRow, MobTemplateRow } from '../db/types.js';
@@ -205,6 +205,69 @@ adminRouter.post('/items', (req, res) => {
   res.status(201).json({ item: toItemDto(row) });
 });
 
+adminRouter.patch('/items/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!db.prepare('SELECT id FROM items WHERE id = ?').get(id)) {
+    res.status(404).json({ error: '아이템을 찾을 수 없습니다.' });
+    return;
+  }
+
+  const parsed = itemSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
+    return;
+  }
+
+  const d = parsed.data;
+  db.prepare(
+    `UPDATE items SET name = ?, description = ?, type = ?, slot = ?, level = ?, grade = ?,
+       strength_bonus = ?, dexterity_bonus = ?, physical_defense_bonus = ?, magic_defense_bonus = ?,
+       heal_amount = ?, value = ?
+     WHERE id = ?`,
+  ).run(
+    d.name,
+    d.description,
+    d.type,
+    d.slot ?? null,
+    d.level,
+    d.grade,
+    d.strengthBonus,
+    d.dexterityBonus,
+    d.physicalDefenseBonus,
+    d.magicDefenseBonus,
+    d.healAmount,
+    d.value,
+    id,
+  );
+
+  const row = db.prepare('SELECT * FROM items WHERE id = ?').get(id) as ItemRow;
+  res.json({ item: toItemDto(row) });
+});
+
+adminRouter.delete('/items/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!db.prepare('SELECT id FROM items WHERE id = ?').get(id)) {
+    res.status(404).json({ error: '아이템을 찾을 수 없습니다.' });
+    return;
+  }
+
+  const inUse = db
+    .prepare(
+      `SELECT
+         (SELECT COUNT(*) FROM inventory_items WHERE item_id = ?) +
+         (SELECT COUNT(*) FROM room_items WHERE item_id = ?) as count`,
+    )
+    .get(id, id) as { count: number };
+  if (inUse.count > 0) {
+    res.status(409).json({ error: '이미 캐릭터가 소지했거나 방에 놓여 있는 아이템은 삭제할 수 없습니다.' });
+    return;
+  }
+
+  db.prepare('DELETE FROM mob_loot_pool WHERE item_id = ?').run(id);
+  db.prepare('DELETE FROM items WHERE id = ?').run(id);
+  res.status(204).send();
+});
+
 adminRouter.get('/mob-templates', (_req, res) => {
   const rows = db.prepare('SELECT * FROM mob_templates ORDER BY id').all() as MobTemplateRow[];
   res.json({ mobTemplates: rows.map(toMobTemplateDto) });
@@ -259,18 +322,87 @@ adminRouter.post('/mob-templates', (req, res) => {
   res.status(201).json({ mobTemplate: toMobTemplateDto(row) });
 });
 
+adminRouter.patch('/mob-templates/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!db.prepare('SELECT id FROM mob_templates WHERE id = ?').get(id)) {
+    res.status(404).json({ error: '몬스터를 찾을 수 없습니다.' });
+    return;
+  }
+
+  const parsed = mobTemplateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
+    return;
+  }
+
+  const d = parsed.data;
+  db.prepare(
+    `UPDATE mob_templates SET name = ?, hp = ?, strength = ?, dexterity = ?, physical_defense = ?, magic_defense = ?,
+       element = ?, damage_type = ?, exp_reward = ?, gold_reward = ?, level = ?, hostile = ?
+     WHERE id = ?`,
+  ).run(
+    d.name,
+    d.hp,
+    d.strength,
+    d.dexterity,
+    d.physicalDefense,
+    d.magicDefense,
+    d.element,
+    d.damageType,
+    d.expReward,
+    d.goldReward,
+    d.level,
+    d.hostile ? 1 : 0,
+    id,
+  );
+
+  const row = db.prepare('SELECT * FROM mob_templates WHERE id = ?').get(id) as MobTemplateRow;
+  res.json({ mobTemplate: toMobTemplateDto(row) });
+});
+
+adminRouter.delete('/mob-templates/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!db.prepare('SELECT id FROM mob_templates WHERE id = ?').get(id)) {
+    res.status(404).json({ error: '몬스터를 찾을 수 없습니다.' });
+    return;
+  }
+
+  const inUse = db
+    .prepare(
+      `SELECT
+         (SELECT COUNT(*) FROM mob_spawns WHERE mob_template_id = ?) +
+         (SELECT COUNT(*) FROM village_garrison WHERE mob_template_id = ?) as count`,
+    )
+    .get(id, id) as { count: number };
+  if (inUse.count > 0) {
+    res.status(409).json({ error: '맵에 배치되었거나 마을 수비대로 쓰이는 몬스터는 삭제할 수 없습니다. 먼저 배치를 제거하세요.' });
+    return;
+  }
+
+  db.prepare('DELETE FROM mob_loot_pool WHERE mob_template_id = ?').run(id);
+  db.prepare('DELETE FROM mob_templates WHERE id = ?').run(id);
+  res.status(204).send();
+});
+
+interface LootPoolQueryRow extends ItemRow {
+  weight: number;
+}
+
+function toLootPoolItemDto(row: LootPoolQueryRow) {
+  return { ...toItemDto(row), weight: row.weight };
+}
+
+const LOOT_POOL_QUERY = `SELECT i.*, mlp.weight as weight FROM mob_loot_pool mlp JOIN items i ON i.id = mlp.item_id WHERE mlp.mob_template_id = ? ORDER BY i.id`;
+
 adminRouter.get('/mob-templates/:id/loot-pool', (req, res) => {
   const mobTemplateId = Number(req.params.id);
-  const rows = db
-    .prepare(
-      `SELECT i.* FROM mob_loot_pool mlp JOIN items i ON i.id = mlp.item_id WHERE mlp.mob_template_id = ? ORDER BY i.id`,
-    )
-    .all(mobTemplateId) as ItemRow[];
-  res.json({ items: rows.map(toItemDto) });
+  const rows = db.prepare(LOOT_POOL_QUERY).all(mobTemplateId) as LootPoolQueryRow[];
+  res.json({ items: rows.map(toLootPoolItemDto) });
 });
 
 const lootPoolSchema = z.object({
   itemId: z.number().int(),
+  weight: z.number().int().min(1, '가중치는 1 이상이어야 합니다.').optional(),
 });
 
 adminRouter.post('/mob-templates/:id/loot-pool', (req, res) => {
@@ -286,22 +418,22 @@ adminRouter.post('/mob-templates/:id/loot-pool', (req, res) => {
     return;
   }
 
-  if (!db.prepare('SELECT id FROM items WHERE id = ?').get(parsed.data.itemId)) {
+  const item = db.prepare('SELECT grade FROM items WHERE id = ?').get(parsed.data.itemId) as
+    | { grade: ItemGrade }
+    | undefined;
+  if (!item) {
     res.status(404).json({ error: '아이템을 찾을 수 없습니다.' });
     return;
   }
 
-  db.prepare('INSERT OR IGNORE INTO mob_loot_pool (mob_template_id, item_id) VALUES (?, ?)').run(
-    mobTemplateId,
-    parsed.data.itemId,
-  );
+  const weight = parsed.data.weight ?? ITEM_GRADE_DROP_WEIGHT[item.grade];
+  db.prepare(
+    `INSERT INTO mob_loot_pool (mob_template_id, item_id, weight) VALUES (?, ?, ?)
+     ON CONFLICT(mob_template_id, item_id) DO UPDATE SET weight = excluded.weight`,
+  ).run(mobTemplateId, parsed.data.itemId, weight);
 
-  const rows = db
-    .prepare(
-      `SELECT i.* FROM mob_loot_pool mlp JOIN items i ON i.id = mlp.item_id WHERE mlp.mob_template_id = ? ORDER BY i.id`,
-    )
-    .all(mobTemplateId) as ItemRow[];
-  res.status(201).json({ items: rows.map(toItemDto) });
+  const rows = db.prepare(LOOT_POOL_QUERY).all(mobTemplateId) as LootPoolQueryRow[];
+  res.status(201).json({ items: rows.map(toLootPoolItemDto) });
 });
 
 adminRouter.delete('/mob-templates/:id/loot-pool/:itemId', (req, res) => {

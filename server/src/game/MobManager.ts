@@ -1,4 +1,4 @@
-import { ITEM_GRADE_DROP_WEIGHT, type ElementType, type ItemGrade } from '@mud/shared';
+import type { ElementType } from '@mud/shared';
 import { db } from '../db/client.js';
 import type { MobTemplateRow } from '../db/types.js';
 
@@ -70,30 +70,26 @@ interface GarrisonRow {
 
 interface LootPoolItemRow {
   item_id: number;
-  grade: ItemGrade;
+  weight: number;
 }
 
-/** 몹 템플릿이 보유 가능한 아이템 풀에서, 등급이 높을수록 낮은 확률로 몇 개를 뽑아 들려준다. */
+/** 몹 템플릿이 보유 가능한 아이템 풀에서, admin이 지정한 가중치(weight)에 비례해 몇 개를 뽑아 들려준다. */
 export function rollMobLoot(templateId: number): number[] {
   const pool = db
-    .prepare(
-      `SELECT mlp.item_id as item_id, i.grade as grade
-       FROM mob_loot_pool mlp
-       JOIN items i ON i.id = mlp.item_id
-       WHERE mlp.mob_template_id = ?`,
-    )
+    .prepare(`SELECT item_id, weight FROM mob_loot_pool WHERE mob_template_id = ?`)
     .all(templateId) as LootPoolItemRow[];
   if (pool.length === 0) return [];
 
-  const totalWeight = pool.reduce((sum, entry) => sum + ITEM_GRADE_DROP_WEIGHT[entry.grade], 0);
+  const totalWeight = pool.reduce((sum, entry) => sum + entry.weight, 0);
   const carried = new Set<number>();
 
   for (let i = 0; i < MAX_CARRIED_ITEMS; i++) {
     if (Math.random() >= CARRY_ROLL_CHANCE) continue;
+    if (totalWeight <= 0) continue;
 
     let roll = Math.random() * totalWeight;
     for (const entry of pool) {
-      roll -= ITEM_GRADE_DROP_WEIGHT[entry.grade];
+      roll -= entry.weight;
       if (roll <= 0) {
         carried.add(entry.item_id);
         break;

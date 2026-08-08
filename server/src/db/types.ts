@@ -76,6 +76,7 @@ export interface MobLootPoolRow {
   id: number;
   mob_template_id: number;
   item_id: number;
+  weight: number;
 }
 
 export interface VillageRow {

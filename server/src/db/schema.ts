@@ -117,6 +117,7 @@ CREATE TABLE IF NOT EXISTS mob_loot_pool (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   mob_template_id INTEGER NOT NULL REFERENCES mob_templates(id),
   item_id INTEGER NOT NULL REFERENCES items(id),
+  weight INTEGER NOT NULL DEFAULT 1,
   UNIQUE(mob_template_id, item_id)
 );
 

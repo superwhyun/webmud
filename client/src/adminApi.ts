@@ -110,6 +110,18 @@ export function createItemTemplate(
   return apiRequest('/admin/items', { method: 'POST', headers: authHeader(token), body: JSON.stringify(data) });
 }
 
+export function updateItemTemplate(
+  token: string,
+  id: number,
+  data: Omit<ItemTemplateDto, 'id'>,
+): Promise<{ item: ItemTemplateDto }> {
+  return apiRequest(`/admin/items/${id}`, { method: 'PATCH', headers: authHeader(token), body: JSON.stringify(data) });
+}
+
+export function deleteItemTemplate(token: string, id: number): Promise<void> {
+  return apiRequest(`/admin/items/${id}`, { method: 'DELETE', headers: authHeader(token) });
+}
+
 export function fetchMobTemplates(token: string): Promise<{ mobTemplates: MobTemplateDto[] }> {
   return apiRequest('/admin/mob-templates', { headers: authHeader(token) });
 }
@@ -125,7 +137,27 @@ export function createMobTemplate(
   });
 }
 
-export function fetchMobLootPool(token: string, mobTemplateId: number): Promise<{ items: ItemTemplateDto[] }> {
+export function updateMobTemplate(
+  token: string,
+  id: number,
+  data: Omit<MobTemplateDto, 'id'>,
+): Promise<{ mobTemplate: MobTemplateDto }> {
+  return apiRequest(`/admin/mob-templates/${id}`, {
+    method: 'PATCH',
+    headers: authHeader(token),
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteMobTemplate(token: string, id: number): Promise<void> {
+  return apiRequest(`/admin/mob-templates/${id}`, { method: 'DELETE', headers: authHeader(token) });
+}
+
+export interface MobLootPoolItemDto extends ItemTemplateDto {
+  weight: number;
+}
+
+export function fetchMobLootPool(token: string, mobTemplateId: number): Promise<{ items: MobLootPoolItemDto[] }> {
   return apiRequest(`/admin/mob-templates/${mobTemplateId}/loot-pool`, { headers: authHeader(token) });
 }
 
@@ -133,11 +165,12 @@ export function addMobLootPoolItem(
   token: string,
   mobTemplateId: number,
   itemId: number,
-): Promise<{ items: ItemTemplateDto[] }> {
+  weight?: number,
+): Promise<{ items: MobLootPoolItemDto[] }> {
   return apiRequest(`/admin/mob-templates/${mobTemplateId}/loot-pool`, {
     method: 'POST',
     headers: authHeader(token),
-    body: JSON.stringify({ itemId }),
+    body: JSON.stringify({ itemId, weight }),
   });
 }
 
