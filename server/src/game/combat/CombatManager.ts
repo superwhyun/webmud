@@ -7,6 +7,7 @@ import { loadCharacter, loadCharacterState } from '../characterState.js';
 import type { CommandContext } from '../commands/context.js';
 import { applyLevelUps } from '../leveling.js';
 import { getMobsInRoom, killMob, type DamageType, type MobInstance } from '../MobManager.js';
+import { computeMobExpReward } from '../mobExp.js';
 import { broadcastRoomSnapshot } from '../roomSnapshot.js';
 import { broadcastToRoom } from '../sessionRegistry.js';
 import { hasLearnedSkill, resolveSkillArg } from '../skillProgress.js';
@@ -396,9 +397,10 @@ function performRound(ctx: CommandContext): void {
 }
 
 function handleMobDefeat(ctx: CommandContext, mob: MobInstance, characterId: number): void {
+  const expReward = computeMobExpReward(mob);
   ctx.send({
     type: 'text',
-    text: `${mob.name}를 물리쳤습니다! (경험치 +${mob.expReward}, 골드 +${mob.goldReward})`,
+    text: `${mob.name}를 물리쳤습니다! (경험치 +${expReward}, 골드 +${mob.goldReward})`,
   });
   broadcastToRoom(
     ctx.session.roomId,
@@ -408,7 +410,7 @@ function handleMobDefeat(ctx: CommandContext, mob: MobInstance, characterId: num
 
   const earnings = applyGoldEarnings(characterId, mob.goldReward);
   db.prepare('UPDATE characters SET exp = exp + ?, gold = gold + ? WHERE id = ?').run(
-    mob.expReward,
+    expReward,
     earnings.personalAmount,
     characterId,
   );
