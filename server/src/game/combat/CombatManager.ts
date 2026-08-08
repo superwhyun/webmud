@@ -1,5 +1,14 @@
 import type { WebSocket } from 'ws';
-import { ELEMENT_ADVANTAGE, formatItemMention, SKILLS, type ElementType, type ItemGrade, type SkillDefinition } from '@mud/shared';
+import {
+  ELEMENT_ADVANTAGE,
+  formatItemMention,
+  getSkillById,
+  SKILLS,
+  type ElementType,
+  type ItemGrade,
+  type SkillCooldownInfo,
+  type SkillDefinition,
+} from '@mud/shared';
 import { db } from '../../db/client.js';
 import { STARTING_ROOM_ID } from '../../db/seed.js';
 import { getEffectiveStats } from '../combatStats.js';
@@ -232,6 +241,24 @@ function startCooldown(characterId: number, skillId: string, cooldownMs: number)
   skillCooldowns.set(characterId, characterCooldowns);
 }
 
+/** 캐릭터의 재사용 대기 중인 스킬 목록을 클라이언트가 쿨타임 바를 그릴 수 있는 형태로 스냅샷한다. */
+export function getActiveSkillCooldowns(characterId: number): SkillCooldownInfo[] {
+  const now = Date.now();
+  const cooldowns: SkillCooldownInfo[] = [];
+  for (const [skillId, readyAt] of skillCooldowns.get(characterId) ?? []) {
+    const remainingMs = readyAt - now;
+    if (remainingMs <= 0) continue;
+    const skill = getSkillById(skillId);
+    if (!skill) continue;
+    cooldowns.push({ skillId, name: skill.name, remainingMs, totalMs: skill.cooldownMs ?? 0 });
+  }
+  return cooldowns;
+}
+
+export function sendSkillCooldowns(ctx: CommandContext, characterId: number): void {
+  ctx.send({ type: 'skillCooldowns', cooldowns: getActiveSkillCooldowns(characterId) });
+}
+
 interface ResolvedCast {
   skill: SkillDefinition;
   targetHint: string;
@@ -321,6 +348,7 @@ export function handleCast(ctx: CommandContext, rest: string): void {
 
     db.prepare('UPDATE characters SET mp = mp - ? WHERE id = ?').run(skill.mpCost, character.id);
     startCooldown(character.id, skill.id, skill.cooldownMs ?? 0);
+    sendSkillCooldowns(ctx, character.id);
     mob.hp = Math.max(0, mob.hp - damage);
 
     ctx.send({
@@ -350,6 +378,7 @@ export function handleCast(ctx: CommandContext, rest: string): void {
   const healedHp = Math.min(character.max_hp, character.hp + skill.power);
   db.prepare('UPDATE characters SET hp = ?, mp = mp - ? WHERE id = ?').run(healedHp, skill.mpCost, character.id);
   startCooldown(character.id, skill.id, skill.cooldownMs ?? 0);
+  sendSkillCooldowns(ctx, character.id);
 
   ctx.send({
     type: 'text',

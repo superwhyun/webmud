@@ -3,7 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SCHEMA_SQL } from './schema.js';
-import { seed } from './seed.js';
+import { ITEMS, seed } from './seed.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const dataDir = join(__dirname, '..', '..', 'data');
@@ -35,6 +35,12 @@ function migrate(target: Database.Database): void {
     'ALTER TABLE items ADD COLUMN attack_power_bonus INTEGER NOT NULL DEFAULT 0',
   );
   ensureColumn(target, 'items', 'mana_amount', 'ALTER TABLE items ADD COLUMN mana_amount INTEGER NOT NULL DEFAULT 0');
+  ensureColumn(
+    target,
+    'items',
+    'intelligence_bonus',
+    'ALTER TABLE items ADD COLUMN intelligence_bonus INTEGER NOT NULL DEFAULT 0',
+  );
   ensureColumn(target, 'characters', 'mp', 'ALTER TABLE characters ADD COLUMN mp INTEGER NOT NULL DEFAULT 0');
   ensureColumn(target, 'characters', 'max_mp', 'ALTER TABLE characters ADD COLUMN max_mp INTEGER NOT NULL DEFAULT 0');
   ensureColumn(target, 'characters', 'job', 'ALTER TABLE characters ADD COLUMN job TEXT');
@@ -134,6 +140,39 @@ function backfillRoomPositions(target: Database.Database): void {
   tx();
 }
 
+/**
+ * seed()는 rooms 테이블이 비어 있을 때만(최초 1회) 실행되므로, 이미 세팅된 DB에 ITEMS 배열로
+ * 나중에 추가한 기본 아이템(예: 마법 지팡이류)은 여기서 id 기준으로 없는 것만 채워 넣는다.
+ * 계정/캐릭터/기존 아이템/관리자가 만든 콘텐츠는 전혀 건드리지 않는다.
+ */
+function backfillMissingItems(target: Database.Database): void {
+  const insertMissingItem = target.prepare(
+    `INSERT OR IGNORE INTO items (id, name, description, type, slot, level, grade, strength_bonus, dexterity_bonus, attack_power_bonus, intelligence_bonus, physical_defense_bonus, magic_defense_bonus, heal_amount, mana_amount, value)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+  for (const item of ITEMS) {
+    insertMissingItem.run(
+      item.id,
+      item.name,
+      item.description,
+      item.type,
+      item.slot,
+      item.level,
+      item.grade,
+      item.strengthBonus,
+      item.dexterityBonus,
+      item.attackPowerBonus,
+      item.intelligenceBonus,
+      item.physicalDefenseBonus,
+      item.magicDefenseBonus,
+      item.healAmount,
+      item.manaAmount,
+      item.value,
+    );
+  }
+}
+
 migrate(db);
 seed(db);
+backfillMissingItems(db);
 backfillRoomPositions(db);

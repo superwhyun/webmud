@@ -30,6 +30,7 @@ export interface ItemTemplateDto {
   strengthBonus: number;
   dexterityBonus: number;
   attackPowerBonus: number;
+  intelligenceBonus: number;
   physicalDefenseBonus: number;
   magicDefenseBonus: number;
   healAmount: number;
@@ -180,6 +181,28 @@ export function removeMobLootPoolItem(token: string, mobTemplateId: number, item
   return apiRequest(`/admin/mob-templates/${mobTemplateId}/loot-pool/${itemId}`, {
     method: 'DELETE',
     headers: authHeader(token),
+  });
+}
+
+export interface ContentExportDto {
+  exportedAt: string;
+  items: ItemTemplateDto[];
+  mobTemplates: MobTemplateDto[];
+  mobLootPool: { mobTemplateId: number; itemId: number; weight: number }[];
+}
+
+export function exportContent(token: string): Promise<ContentExportDto> {
+  return apiRequest('/admin/content-export', { headers: authHeader(token) });
+}
+
+export function importContent(
+  token: string,
+  data: Omit<ContentExportDto, 'exportedAt'>,
+): Promise<{ itemCount: number; mobTemplateCount: number; lootEntryCount: number }> {
+  return apiRequest('/admin/content-import', {
+    method: 'POST',
+    headers: authHeader(token),
+    body: JSON.stringify(data),
   });
 }
 

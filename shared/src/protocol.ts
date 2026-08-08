@@ -95,6 +95,13 @@ export interface InventoryItemInfo {
 
 export type EquipmentSnapshot = Partial<Record<EquipmentSlot, InventoryItemInfo>>;
 
+export interface SkillCooldownInfo {
+  skillId: string;
+  name: string;
+  remainingMs: number;
+  totalMs: number;
+}
+
 export type ClientMessage =
   | { type: 'auth'; token: string }
   | { type: 'command'; text: string }
@@ -114,4 +121,5 @@ export type ServerMessage =
   | { type: 'equipment'; slots: EquipmentSnapshot }
   | { type: 'inventory'; items: InventoryItemInfo[] }
   | { type: 'needsJob' }
-  | { type: 'skills'; learnedSkillIds: string[] };
+  | { type: 'skills'; learnedSkillIds: string[] }
+  | { type: 'skillCooldowns'; cooldowns: SkillCooldownInfo[] };

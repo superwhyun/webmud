@@ -15,12 +15,14 @@ import {
   createMobTemplate,
   deleteItemTemplate,
   deleteMobTemplate,
+  exportContent,
   fetchAccounts,
   fetchAdminRooms,
   fetchItemTemplates,
   fetchMobLootPool,
   fetchMobTemplates,
   fetchSessions,
+  importContent,
   moderationKick,
   moderationMove,
   removeMobLootPoolItem,
@@ -28,6 +30,7 @@ import {
   updateAccount,
   updateItemTemplate,
   updateMobTemplate,
+  type ContentExportDto,
   type ItemTemplateDto,
   type MobTemplateDto,
   type RoomOptionDto,
@@ -58,6 +61,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
         <button type="button" class="admin-main-tab-btn" data-admin-tab="announce">공지 보내기</button>
         <button type="button" class="admin-main-tab-btn" data-admin-tab="items">아이템</button>
         <button type="button" class="admin-main-tab-btn" data-admin-tab="mobs">몹</button>
+        <button type="button" class="admin-main-tab-btn" data-admin-tab="backup">백업</button>
       </div>
       <div class="admin-body">
         <section class="admin-section" data-admin-tab-panel="accounts">
@@ -135,6 +139,10 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
             <div class="admin-field">
               <label for="admin-item-attack">공격력 보너스 (무기)</label>
               <input id="admin-item-attack" type="number" placeholder="공격력" value="0" />
+            </div>
+            <div class="admin-field">
+              <label for="admin-item-int">지능 보너스 (마법 무기)</label>
+              <input id="admin-item-int" type="number" placeholder="지능" value="0" />
             </div>
             <div class="admin-field">
               <label for="admin-item-pdef">물리방어 보너스</label>
@@ -258,6 +266,23 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
             체크한 아이템 중 몹이 무작위로 최대 2개를 들고 스폰되며, 처치되면 그 아이템을 떨어뜨립니다. 등급이 높을수록 보유 확률이 낮습니다.
           </p>
           <p class="admin-error" id="admin-mob-loot-error"></p>
+        </section>
+
+        <section class="admin-section" data-admin-tab-panel="backup">
+          <h3>백업</h3>
+          <p class="admin-panel-empty">
+            관리자 화면에서 만든 아이템/몹/드랍풀은 DB에만 저장되어 있어, DB를 초기화하거나 서버를 재설치하면 사라집니다.
+            내보내기로 현재 상태를 파일로 저장해두고, 복원할 때 가져오기로 그 파일을 불러오세요. (같은 id는 덮어씁니다.)
+          </p>
+          <div class="admin-form-row">
+            <button type="button" id="admin-backup-export">내보내기 (파일 다운로드)</button>
+          </div>
+          <div class="admin-form-row">
+            <input id="admin-backup-import-file" type="file" accept="application/json" />
+            <button type="button" id="admin-backup-import">가져오기</button>
+          </div>
+          <p class="admin-panel-empty" id="admin-backup-result"></p>
+          <p class="admin-error" id="admin-backup-error"></p>
         </section>
       </div>
     </div>
@@ -391,6 +416,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
     container.querySelector<HTMLInputElement>('#admin-item-str')!.value = String(item.strengthBonus);
     container.querySelector<HTMLInputElement>('#admin-item-dex')!.value = String(item.dexterityBonus);
     container.querySelector<HTMLInputElement>('#admin-item-attack')!.value = String(item.attackPowerBonus);
+    container.querySelector<HTMLInputElement>('#admin-item-int')!.value = String(item.intelligenceBonus);
     container.querySelector<HTMLInputElement>('#admin-item-pdef')!.value = String(item.physicalDefenseBonus);
     container.querySelector<HTMLInputElement>('#admin-item-mdef')!.value = String(item.magicDefenseBonus);
     container.querySelector<HTMLInputElement>('#admin-item-heal')!.value = String(item.healAmount);
@@ -409,6 +435,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
     container.querySelector<HTMLInputElement>('#admin-item-str')!.value = '0';
     container.querySelector<HTMLInputElement>('#admin-item-dex')!.value = '0';
     container.querySelector<HTMLInputElement>('#admin-item-attack')!.value = '0';
+    container.querySelector<HTMLInputElement>('#admin-item-int')!.value = '0';
     container.querySelector<HTMLInputElement>('#admin-item-pdef')!.value = '0';
     container.querySelector<HTMLInputElement>('#admin-item-mdef')!.value = '0';
     container.querySelector<HTMLInputElement>('#admin-item-heal')!.value = '0';
@@ -419,6 +446,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
   function itemStatSummary(item: ItemTemplateDto): string {
     const stats: string[] = [];
     if (item.attackPowerBonus) stats.push(`공격력 +${item.attackPowerBonus}`);
+    if (item.intelligenceBonus) stats.push(`지능 +${item.intelligenceBonus}`);
     if (item.strengthBonus) stats.push(`힘 +${item.strengthBonus}`);
     if (item.dexterityBonus) stats.push(`민첩 +${item.dexterityBonus}`);
     if (item.physicalDefenseBonus) stats.push(`물리방어 +${item.physicalDefenseBonus}`);
@@ -681,6 +709,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
       strengthBonus: Number(container.querySelector<HTMLInputElement>('#admin-item-str')!.value),
       dexterityBonus: Number(container.querySelector<HTMLInputElement>('#admin-item-dex')!.value),
       attackPowerBonus: Number(container.querySelector<HTMLInputElement>('#admin-item-attack')!.value),
+      intelligenceBonus: Number(container.querySelector<HTMLInputElement>('#admin-item-int')!.value),
       physicalDefenseBonus: Number(container.querySelector<HTMLInputElement>('#admin-item-pdef')!.value),
       magicDefenseBonus: Number(container.querySelector<HTMLInputElement>('#admin-item-mdef')!.value),
       healAmount: Number(container.querySelector<HTMLInputElement>('#admin-item-heal')!.value),
@@ -739,6 +768,53 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
     refreshMobLootPool().catch((error: unknown) => {
       mobLootError.textContent = error instanceof Error ? error.message : '아이템 풀을 불러오지 못했습니다.';
     });
+  });
+
+  const backupExportBtn = container.querySelector<HTMLButtonElement>('#admin-backup-export')!;
+  const backupImportBtn = container.querySelector<HTMLButtonElement>('#admin-backup-import')!;
+  const backupImportFile = container.querySelector<HTMLInputElement>('#admin-backup-import-file')!;
+  const backupResult = container.querySelector<HTMLParagraphElement>('#admin-backup-result')!;
+  const backupError = container.querySelector<HTMLParagraphElement>('#admin-backup-error')!;
+
+  backupExportBtn.addEventListener('click', () => {
+    backupError.textContent = '';
+    exportContent(token)
+      .then((data) => {
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `mud-content-backup-${data.exportedAt.slice(0, 10)}.json`;
+        link.click();
+        URL.revokeObjectURL(url);
+        backupResult.textContent = `${data.items.length}개 아이템, ${data.mobTemplates.length}개 몹, ${data.mobLootPool.length}개 드랍 항목을 내보냈습니다.`;
+      })
+      .catch((error: unknown) => {
+        backupError.textContent = error instanceof Error ? error.message : '내보내기에 실패했습니다.';
+      });
+  });
+
+  backupImportBtn.addEventListener('click', () => {
+    backupError.textContent = '';
+    const file = backupImportFile.files?.[0];
+    if (!file) {
+      backupError.textContent = '가져올 파일을 선택하세요.';
+      return;
+    }
+    file
+      .text()
+      .then((text) => {
+        const data = JSON.parse(text) as ContentExportDto;
+        return importContent(token, { items: data.items, mobTemplates: data.mobTemplates, mobLootPool: data.mobLootPool });
+      })
+      .then((result) => {
+        backupResult.textContent = `${result.itemCount}개 아이템, ${result.mobTemplateCount}개 몹, ${result.lootEntryCount}개 드랍 항목을 가져왔습니다.`;
+        backupImportFile.value = '';
+        return Promise.all([refreshItems(), refreshMobs()]);
+      })
+      .catch((error: unknown) => {
+        backupError.textContent = error instanceof Error ? error.message : '가져오기 파일을 처리하지 못했습니다.';
+      });
   });
 
   container.querySelector<HTMLButtonElement>('#admin-back')!.addEventListener('click', onBack);

@@ -62,6 +62,7 @@ CREATE TABLE IF NOT EXISTS items (
   strength_bonus INTEGER NOT NULL DEFAULT 0,
   dexterity_bonus INTEGER NOT NULL DEFAULT 0,
   attack_power_bonus INTEGER NOT NULL DEFAULT 0,
+  intelligence_bonus INTEGER NOT NULL DEFAULT 0,
   physical_defense_bonus INTEGER NOT NULL DEFAULT 0,
   magic_defense_bonus INTEGER NOT NULL DEFAULT 0,
   heal_amount INTEGER NOT NULL DEFAULT 0,

@@ -26,6 +26,7 @@ export interface ItemTemplateDto {
   strengthBonus: number;
   dexterityBonus: number;
   attackPowerBonus: number;
+  intelligenceBonus: number;
   physicalDefenseBonus: number;
   magicDefenseBonus: number;
   healAmount: number;

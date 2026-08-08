@@ -111,6 +111,7 @@ export function renderGameScreen(
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-stats" id="sidebar-stats"></div>
         <div class="equipment-panel" id="equipment-panel"></div>
+        <div class="cooldown-panel" id="cooldown-panel"></div>
         <button type="button" id="equip-swap-button" class="equip-swap-btn">장비 교체</button>
         <button type="button" id="skill-button" class="skill-btn">스킬</button>
         <button type="button" id="macro-button" class="skill-btn">매크로</button>
@@ -188,6 +189,7 @@ export function renderGameScreen(
   const terminal = container.querySelector<HTMLDivElement>('#terminal')!;
   const sidebarStats = container.querySelector<HTMLDivElement>('#sidebar-stats')!;
   const equipmentPanel = container.querySelector<HTMLDivElement>('#equipment-panel')!;
+  const cooldownPanel = container.querySelector<HTMLDivElement>('#cooldown-panel')!;
   const minimap = container.querySelector<HTMLDivElement>('#minimap')!;
   const inventoryPanelList = container.querySelector<HTMLDivElement>('#inventory-panel-list')!;
   const inventoryCountLabel = container.querySelector<HTMLSpanElement>('#inventory-count')!;
@@ -238,6 +240,39 @@ export function renderGameScreen(
   let currentCharacterState: CharacterState | undefined;
   let learnedSkillIds: string[] = [];
   let latestCombatMobs: CombatMobInfo[] = [];
+
+  interface ActiveCooldown {
+    name: string;
+    endsAt: number;
+    totalMs: number;
+  }
+  const activeCooldowns = new Map<string, ActiveCooldown>();
+
+  function renderCooldownPanel(): void {
+    const now = Date.now();
+    for (const [skillId, cooldown] of activeCooldowns) {
+      if (cooldown.endsAt <= now) activeCooldowns.delete(skillId);
+    }
+    if (activeCooldowns.size === 0) {
+      cooldownPanel.innerHTML = '';
+      return;
+    }
+    cooldownPanel.innerHTML = [...activeCooldowns.entries()]
+      .map(([skillId, cooldown]) => {
+        const remainingMs = Math.max(0, cooldown.endsAt - now);
+        const ratio = cooldown.totalMs > 0 ? remainingMs / cooldown.totalMs : 0;
+        return `
+          <div class="cooldown-row" data-skill-id="${skillId}">
+            <span class="cooldown-label">${escapeHtml(cooldown.name)} ${(remainingMs / 1000).toFixed(1)}초</span>
+            <div class="cooldown-bar" role="progressbar" aria-valuenow="${remainingMs}" aria-valuemin="0" aria-valuemax="${cooldown.totalMs}">
+              <div class="cooldown-bar-fill" style="width: ${Math.max(0, ratio * 100)}%"></div>
+            </div>
+          </div>
+        `;
+      })
+      .join('');
+  }
+  setInterval(renderCooldownPanel, 100);
 
   function renderState(character: CharacterState): void {
     currentCharacterState = character;
@@ -650,6 +685,20 @@ export function renderGameScreen(
     } else if (message.type === 'skills') {
       learnedSkillIds = message.learnedSkillIds;
       if (!skillModal.hidden) renderSkillModal();
+    } else if (message.type === 'skillCooldowns') {
+      const now = Date.now();
+      const activeIds = new Set(message.cooldowns.map((cooldown) => cooldown.skillId));
+      for (const skillId of activeCooldowns.keys()) {
+        if (!activeIds.has(skillId)) activeCooldowns.delete(skillId);
+      }
+      for (const cooldown of message.cooldowns) {
+        activeCooldowns.set(cooldown.skillId, {
+          name: cooldown.name,
+          endsAt: now + cooldown.remainingMs,
+          totalMs: cooldown.totalMs,
+        });
+      }
+      renderCooldownPanel();
     } else if (message.type === 'needsJob') {
       showJobModal((job) => {
         const chooseJobMessage: ClientMessage = { type: 'chooseJob', job };

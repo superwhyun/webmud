@@ -49,6 +49,7 @@ export interface ItemRow {
   strength_bonus: number;
   dexterity_bonus: number;
   attack_power_bonus: number;
+  intelligence_bonus: number;
   physical_defense_bonus: number;
   magic_defense_bonus: number;
   heal_amount: number;
