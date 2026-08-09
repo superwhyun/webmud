@@ -1,4 +1,4 @@
-import { DIRECTION_LABELS } from '@mud/shared';
+import { DIRECTION_LABELS, ITEM_GRADE_LABELS, ITEM_GRADE_VALUES, type ItemGrade } from '@mud/shared';
 import {
   type BuilderExitDto,
   type BuilderRoomDto,
@@ -98,6 +98,7 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
   let mobSpawns: MobSpawnDto[] = [];
   let npcTemplates: NpcTemplateDto[] = [];
   let npcSpawns: NpcSpawnDto[] = [];
+  const expandedItemGrades = new Set<ItemGrade>();
 
   const livePositions = new Map<number, Point>();
   const nodeElements = new Map<number, SVGGElement>();
@@ -181,23 +182,43 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
     palette.innerHTML = `
       <h3>보유 아이템</h3>
       ${roomHint}
-      <ul class="builder-palette-list">
+      <div class="builder-item-groups">
         ${
-          itemTemplates
-            .map(
-              (item) => `
-                <li>
-                  <span class="builder-palette-name"><span class="item-grade-${item.grade}">${escapeHtml(item.name)}</span> <span class="builder-palette-qty">x${PLACEHOLDER_OWNED_QTY}</span></span>
-                  <div class="builder-palette-actions">
-                    <input type="number" class="builder-palette-num-input" data-item-qty="${item.id}" value="1" min="1" />
-                    <button type="button" data-place-item="${item.id}" ${room ? '' : 'disabled'}>배치</button>
-                  </div>
-                </li>
-              `,
-            )
-            .join('') || '<li class="builder-panel-empty">등록된 아이템이 없습니다.</li>'
+          ITEM_GRADE_VALUES.map((grade) => {
+            const items = itemTemplates.filter((item) => item.grade === grade);
+            if (items.length === 0) return '';
+            const expanded = expandedItemGrades.has(grade);
+            return `
+              <div class="builder-item-group">
+                <button type="button" class="builder-item-group-header" data-toggle-grade="${grade}">
+                  <span class="builder-item-group-caret">${expanded ? '▾' : '▸'}</span>
+                  <span class="item-grade-${grade}">${ITEM_GRADE_LABELS[grade]}</span>
+                  <span class="builder-item-group-count">${items.length}</span>
+                </button>
+                ${
+                  expanded
+                    ? `<ul class="builder-palette-list">
+                        ${items
+                          .map(
+                            (item) => `
+                              <li>
+                                <span class="builder-palette-name"><span class="item-grade-${item.grade}">${escapeHtml(item.name)}</span> <span class="builder-palette-qty">x${PLACEHOLDER_OWNED_QTY}</span></span>
+                                <div class="builder-palette-actions">
+                                  <input type="number" class="builder-palette-num-input" data-item-qty="${item.id}" value="1" min="1" />
+                                  <button type="button" data-place-item="${item.id}" ${room ? '' : 'disabled'}>배치</button>
+                                </div>
+                              </li>
+                            `,
+                          )
+                          .join('')}
+                      </ul>`
+                    : ''
+                }
+              </div>
+            `;
+          }).join('') || '<p class="builder-panel-empty">등록된 아이템이 없습니다.</p>'
         }
-      </ul>
+      </div>
 
       <h3>보유 몹 / NPC</h3>
       <p class="builder-panel-hint">몹 목록에서 "적대적" 옵션을 끈 몹은 상점 주인 같은 비전투 NPC로 동작합니다.</p>
@@ -237,6 +258,18 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
         }
       </ul>
     `;
+
+    palette.querySelectorAll<HTMLButtonElement>('[data-toggle-grade]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const grade = button.dataset.toggleGrade as ItemGrade;
+        if (expandedItemGrades.has(grade)) {
+          expandedItemGrades.delete(grade);
+        } else {
+          expandedItemGrades.add(grade);
+        }
+        renderPalette();
+      });
+    });
 
     palette.querySelectorAll<HTMLButtonElement>('[data-place-item]').forEach((button) => {
       button.addEventListener('click', () => {
