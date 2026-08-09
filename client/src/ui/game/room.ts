@@ -57,7 +57,7 @@ export function renderRoom(ctx: GameContext, room: RoomSnapshot): void {
       : '-';
   const playersText = room.players.length > 0 ? room.players.join(', ') : '-';
 
-  ctx.roomPanel.innerHTML = `
+  ctx.roomInfo.innerHTML = `
     <div class="room-name">${room.name}</div>
     <p class="room-desc">${room.description}</p>
     <div class="room-meta">

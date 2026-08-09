@@ -7,10 +7,32 @@
 
 .room-panel {
   flex-shrink: 0;
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 4px;
   padding: 1rem;
+}
+
+.room-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.room-map-dock {
+  flex-shrink: 0;
+  width: clamp(280px, 24vw, 420px);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.room-map-title {
+  color: var(--color-text-dim);
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
 }
 
 .room-name {
