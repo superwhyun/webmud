@@ -138,6 +138,59 @@ builderRouter.post('/zones', (req, res) => {
   res.status(201).json({ zone: { id: Number(info.lastInsertRowid), name, description } });
 });
 
+/** Deletes a zone and every room/exit inside it. Refuses if any room can't be safely removed (occupied or a village anchor). */
+builderRouter.delete('/zones/:id', (req, res) => {
+  const zoneId = Number(req.params.id);
+  if (!db.prepare('SELECT 1 FROM zones WHERE id = ?').get(zoneId)) {
+    res.status(404).json({ error: '존을 찾을 수 없습니다.' });
+    return;
+  }
+
+  const roomIds = (db.prepare('SELECT id FROM rooms WHERE zone_id = ?').all(zoneId) as { id: number }[]).map(
+    (row) => row.id,
+  );
+
+  for (const roomId of roomIds) {
+    const check = canDeleteRoom(roomId);
+    if (!check.allowed) {
+      res.status(409).json({ error: `이 존을 삭제할 수 없습니다: ${check.reason}` });
+      return;
+    }
+  }
+
+  const affectedRoomIds = new Set<number>();
+
+  if (roomIds.length > 0) {
+    const placeholders = roomIds.map(() => '?').join(',');
+    const connectedExits = db
+      .prepare(
+        `SELECT room_id, direction, target_room_id FROM room_exits
+         WHERE room_id IN (${placeholders}) OR target_room_id IN (${placeholders})`,
+      )
+      .all(...roomIds, ...roomIds) as { room_id: number; direction: string; target_room_id: number }[];
+
+    db.prepare(
+      `DELETE FROM room_exits WHERE room_id IN (${placeholders}) OR target_room_id IN (${placeholders})`,
+    ).run(...roomIds, ...roomIds);
+
+    for (const exit of connectedExits) {
+      removeExit(exit.room_id, exit.direction);
+      affectedRoomIds.add(exit.room_id);
+      affectedRoomIds.add(exit.target_room_id);
+    }
+    for (const roomId of roomIds) affectedRoomIds.delete(roomId);
+
+    db.prepare(`DELETE FROM rooms WHERE id IN (${placeholders})`).run(...roomIds);
+    for (const roomId of roomIds) unregisterRoom(roomId);
+  }
+
+  db.prepare('DELETE FROM zones WHERE id = ?').run(zoneId);
+
+  for (const roomId of affectedRoomIds) broadcastRoomSnapshot(roomId);
+
+  res.status(204).send();
+});
+
 /** Lightweight cross-zone room list for portal target pickers — no coordinates/exits needed. */
 builderRouter.get('/rooms/all', (_req, res) => {
   const rows = db

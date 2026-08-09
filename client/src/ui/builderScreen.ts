@@ -14,6 +14,7 @@ import {
   createBuilderRoom,
   createZone,
   deleteBuilderRoom,
+  deleteZone,
   fetchAllRoomOptions,
   fetchBuilderItemTemplates,
   fetchBuilderMobSpawns,
@@ -188,11 +189,14 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
       ${zones
         .map(
           (zone) => `
-            <button
-              type="button"
-              class="zone-tab-btn${zone.id === selectedZoneId ? ' zone-tab-btn-active' : ''}"
-              data-zone-id="${zone.id}"
-            >${escapeHtml(zone.name)}</button>
+            <span class="zone-tab">
+              <button
+                type="button"
+                class="zone-tab-btn${zone.id === selectedZoneId ? ' zone-tab-btn-active' : ''}"
+                data-zone-id="${zone.id}"
+              >${escapeHtml(zone.name)}</button>
+              <button type="button" class="zone-tab-delete" data-delete-zone-id="${zone.id}" title="존 삭제" aria-label="존 삭제">✕</button>
+            </span>
           `,
         )
         .join('')}
@@ -213,6 +217,28 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
         panelMode = 'empty';
         renderZoneBar();
         void refresh();
+      });
+    });
+
+    zoneBar.querySelectorAll<HTMLButtonElement>('[data-delete-zone-id]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const zoneId = Number(button.dataset.deleteZoneId);
+        const zone = zones.find((entry) => entry.id === zoneId);
+        if (!zone) return;
+        if (!confirm(`"${zone.name}" 존을 삭제할까요? 존 안의 모든 방과 연결점이 함께 삭제됩니다.`)) return;
+
+        deleteZone(token, zoneId)
+          .then(() => {
+            if (selectedZoneId === zoneId) {
+              selectedRoomId = null;
+              panelMode = 'empty';
+            }
+            return refreshZones();
+          })
+          .then(() => refreshRoomOptions())
+          .catch((error: unknown) => {
+            showToolbarError(error instanceof Error ? error.message : '존 삭제에 실패했습니다.');
+          });
       });
     });
 

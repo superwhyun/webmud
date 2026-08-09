@@ -133,6 +133,10 @@ export function createZone(token: string, name: string, description: string): Pr
   });
 }
 
+export function deleteZone(token: string, id: number): Promise<void> {
+  return apiRequest(`/builder/zones/${id}`, { method: 'DELETE', headers: authHeader(token) });
+}
+
 export function addRoomExit(
   token: string,
   roomId: number,
