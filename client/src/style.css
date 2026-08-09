@@ -898,21 +898,34 @@ body::after {
   padding-bottom: 0.3rem;
 }
 
-.admin-list li.admin-mob-row {
-  flex-direction: column;
-  align-items: stretch;
+.admin-mob-table td {
+  vertical-align: top;
 }
 
-.admin-mob-row-main {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.admin-mob-row-loot {
+.admin-mob-loot-cell {
   color: var(--color-text-dim);
   font-size: 0.8rem;
+  max-width: 320px;
+}
+
+.admin-mob-passive-tag {
+  color: var(--color-text-dim);
+  font-size: 0.75rem;
+}
+
+.admin-loot-items {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.admin-loot-items li {
+  flex: 0 0 auto;
+  justify-content: flex-start;
+  gap: 0.4rem;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.3rem 0.5rem;
+  background: var(--color-surface);
 }
 
 .admin-panel-empty {

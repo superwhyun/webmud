@@ -187,7 +187,20 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
 
         <section class="admin-section" data-admin-tab-panel="mobs">
           <h3>몹</h3>
-          <ul class="admin-list" id="admin-mob-templates"></ul>
+          <table class="admin-table admin-mob-table">
+            <thead>
+              <tr>
+                <th>이름</th>
+                <th>레벨</th>
+                <th>HP</th>
+                <th>속성</th>
+                <th>공격</th>
+                <th>보유 아이템</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="admin-mob-templates"></tbody>
+          </table>
           <div class="admin-form-row">
             <input id="admin-mob-name" placeholder="이름" maxlength="30" title="몬스터 이름" />
             <input
@@ -271,7 +284,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
           <p class="admin-error" id="admin-mob-error"></p>
 
           <h4>보유 가능 아이템 (죽었을 때 드랍)</h4>
-          <ul class="admin-list" id="admin-mob-loot-items"></ul>
+          <ul class="admin-list admin-loot-items" id="admin-mob-loot-items"></ul>
           <p class="admin-panel-empty">
             체크한 아이템 중 몹이 무작위로 최대 2개를 들고 스폰되며, 처치되면 그 아이템을 떨어뜨립니다. 등급이 높을수록 보유 확률이 낮습니다.
             현재 레벨 입력값 기준으로 걸 수 있는 아이템만 표시됩니다.
@@ -358,7 +371,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
   let selectedItemGrade: ItemGrade = ITEM_GRADE_VALUES[0];
   let editingItemId: number | null = null;
 
-  const mobTemplatesList = container.querySelector<HTMLUListElement>('#admin-mob-templates')!;
+  const mobTemplatesList = container.querySelector<HTMLTableSectionElement>('#admin-mob-templates')!;
   const mobError = container.querySelector<HTMLParagraphElement>('#admin-mob-error')!;
   const mobElementSelect = container.querySelector<HTMLSelectElement>('#admin-mob-element')!;
   const mobLevelInput = container.querySelector<HTMLInputElement>('#admin-mob-level')!;
@@ -623,19 +636,23 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
             .map((entry) => `<span class="item-grade-${entry.grade}">${escapeHtml(entry.name)}</span>(${entry.weight}%)`)
             .join(', ');
           return `
-            <li class="admin-mob-row">
-              <div class="admin-mob-row-main">
-                <span>${escapeHtml(mob.name)} (Lv.${mob.level}, HP ${mob.hp}, ${ELEMENT_LABELS[mob.element]}, ${DAMAGE_TYPE_LABELS[mob.damageType]}${mob.hostile ? '' : ', 비전투'})</span>
+            <tr>
+              <td>${escapeHtml(mob.name)}${mob.hostile ? '' : ' <span class="admin-mob-passive-tag">비전투</span>'}</td>
+              <td>${mob.level}</td>
+              <td>${mob.hp}</td>
+              <td>${ELEMENT_LABELS[mob.element]}</td>
+              <td>${DAMAGE_TYPE_LABELS[mob.damageType]}</td>
+              <td class="admin-mob-loot-cell">${lootText || '-'}</td>
+              <td>
                 <span class="admin-row-actions">
                   <button type="button" class="admin-edit-btn" data-mob-id="${mob.id}">수정</button>
                   <button type="button" class="admin-delete-btn" data-mob-id="${mob.id}">삭제</button>
                 </span>
-              </div>
-              ${lootText ? `<div class="admin-mob-row-loot">${lootText}</div>` : ''}
-            </li>
+              </td>
+            </tr>
           `;
         })
-        .join('') || '<li class="admin-panel-empty">없음</li>';
+        .join('') || '<tr><td colspan="7" class="admin-panel-empty">없음</td></tr>';
 
     mobTemplatesList.querySelectorAll<HTMLButtonElement>('.admin-edit-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
