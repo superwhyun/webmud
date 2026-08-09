@@ -32,6 +32,7 @@ import {
   fetchMobTemplates,
   fetchNpcTemplates,
   fetchSessions,
+  grantGold,
   importContent,
   moderationKick,
   moderationMove,
@@ -81,7 +82,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
         <section class="admin-section" data-admin-tab-panel="accounts">
           <h3>유저 권한 관리</h3>
           <table class="admin-table">
-            <thead><tr><th>아이디</th><th>빌더</th><th>어드민</th></tr></thead>
+            <thead><tr><th>아이디</th><th>빌더</th><th>어드민</th><th>골드</th><th></th></tr></thead>
             <tbody id="admin-accounts-body"></tbody>
           </table>
           <p class="admin-error" id="admin-accounts-error"></p>
@@ -421,6 +422,19 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
             <td>${escapeHtml(account.username)}</td>
             <td><input type="checkbox" class="admin-role-toggle" data-account-id="${account.id}" data-field="isBuilder" ${account.isBuilder ? 'checked' : ''} /></td>
             <td><input type="checkbox" class="admin-role-toggle" data-account-id="${account.id}" data-field="isAdmin" ${account.isAdmin ? 'checked' : ''} /></td>
+            <td>${account.gold !== null ? account.gold : '-'}</td>
+            <td>
+              ${
+                account.gold !== null
+                  ? `
+                    <span class="admin-row-actions">
+                      <input type="number" class="admin-gold-amount" data-account-id="${account.id}" placeholder="지급량" min="1" value="100" />
+                      <button type="button" class="admin-grant-gold-btn" data-account-id="${account.id}">지급</button>
+                    </span>
+                  `
+                  : '<span class="admin-panel-empty">캐릭터 없음</span>'
+              }
+            </td>
           </tr>
         `,
       )
@@ -434,6 +448,24 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
           accountsError.textContent = error instanceof Error ? error.message : '권한 변경에 실패했습니다.';
           checkbox.checked = !checkbox.checked;
         });
+      });
+    });
+
+    accountsBody.querySelectorAll<HTMLButtonElement>('.admin-grant-gold-btn').forEach((button) => {
+      button.addEventListener('click', () => {
+        const accountId = Number(button.dataset.accountId);
+        const amountInput = accountsBody.querySelector<HTMLInputElement>(`.admin-gold-amount[data-account-id="${accountId}"]`)!;
+        const amount = Number(amountInput.value);
+        accountsError.textContent = '';
+        if (!Number.isInteger(amount) || amount < 1) {
+          accountsError.textContent = '지급할 골드는 1 이상의 정수여야 합니다.';
+          return;
+        }
+        grantGold(token, accountId, amount)
+          .then(() => refreshAccounts())
+          .catch((error: unknown) => {
+            accountsError.textContent = error instanceof Error ? error.message : '골드 지급에 실패했습니다.';
+          });
       });
     });
   }

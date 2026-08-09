@@ -1,7 +1,7 @@
 import { db } from '../db/client.js';
 import { loadCharacterState } from '../game/characterState.js';
 import { broadcastRoomSnapshot } from '../game/roomSnapshot.js';
-import { broadcastToRoom, type Session } from '../game/sessionRegistry.js';
+import { broadcastToRoom, getAllSessions, type Session } from '../game/sessionRegistry.js';
 import { getRoom } from '../game/World.js';
 import { send } from '../game/wsUtil.js';
 
@@ -41,6 +41,33 @@ export function forceMoveSession(session: Session, targetRoomId: number): ForceM
   broadcastRoomSnapshot(targetRoomId);
 
   return { ok: true };
+}
+
+export interface GrantGoldResult {
+  ok: boolean;
+  error?: string;
+  gold?: number;
+}
+
+export function grantGold(accountId: number, amount: number): GrantGoldResult {
+  const character = db.prepare('SELECT id FROM characters WHERE account_id = ?').get(accountId) as
+    | { id: number }
+    | undefined;
+  if (!character) {
+    return { ok: false, error: '이 계정에는 캐릭터가 없습니다.' };
+  }
+
+  db.prepare('UPDATE characters SET gold = gold + ? WHERE id = ?').run(amount, character.id);
+  const row = db.prepare('SELECT gold FROM characters WHERE id = ?').get(character.id) as { gold: number };
+
+  const session = getAllSessions().find((s) => s.accountId === accountId);
+  if (session) {
+    send(session.ws, { type: 'text', text: `관리자로부터 ${amount} gold를 지급받았습니다.` });
+    const state = loadCharacterState(character.id);
+    if (state) send(session.ws, { type: 'state', character: state });
+  }
+
+  return { ok: true, gold: row.gold };
 }
 
 export function kickSession(session: Session, reason?: string): void {

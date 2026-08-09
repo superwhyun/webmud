@@ -6,6 +6,7 @@ export interface AccountDto {
   username: string;
   isBuilder: boolean;
   isAdmin: boolean;
+  gold: number | null;
 }
 
 export interface SessionDto {
@@ -76,6 +77,14 @@ export function updateAccount(
     method: 'PATCH',
     headers: authHeader(token),
     body: JSON.stringify(patch),
+  });
+}
+
+export function grantGold(token: string, accountId: number, amount: number): Promise<{ gold: number }> {
+  return apiRequest(`/admin/accounts/${accountId}/grant-gold`, {
+    method: 'POST',
+    headers: authHeader(token),
+    body: JSON.stringify({ amount }),
   });
 }
 

@@ -16,7 +16,7 @@ import { requireAdmin, requireAuth } from '../auth/middleware.js';
 import { getAllSessions, getSessionByCharacterName } from '../game/sessionRegistry.js';
 import { getRoom } from '../game/World.js';
 import { send } from '../game/wsUtil.js';
-import { forceMoveSession, kickSession } from './moderation.js';
+import { forceMoveSession, grantGold, kickSession } from './moderation.js';
 
 export const adminRouter = Router();
 
@@ -27,14 +27,28 @@ interface AccountRow {
   username: string;
   is_builder: number;
   is_admin: number;
+  gold: number | null;
 }
 
 function toAccountDto(row: AccountRow) {
-  return { id: row.id, username: row.username, isBuilder: Boolean(row.is_builder), isAdmin: Boolean(row.is_admin) };
+  return {
+    id: row.id,
+    username: row.username,
+    isBuilder: Boolean(row.is_builder),
+    isAdmin: Boolean(row.is_admin),
+    gold: row.gold,
+  };
 }
 
 adminRouter.get('/accounts', (_req, res) => {
-  const rows = db.prepare('SELECT id, username, is_builder, is_admin FROM accounts ORDER BY username').all() as AccountRow[];
+  const rows = db
+    .prepare(
+      `SELECT a.id, a.username, a.is_builder, a.is_admin, c.gold as gold
+       FROM accounts a
+       LEFT JOIN characters c ON c.account_id = a.id
+       ORDER BY a.username`,
+    )
+    .all() as AccountRow[];
   res.json({ accounts: rows.map(toAccountDto) });
 });
 
@@ -75,8 +89,41 @@ adminRouter.patch('/accounts/:id', (req, res) => {
   values.push(id);
 
   db.prepare(`UPDATE accounts SET ${fields.join(', ')} WHERE id = ?`).run(...values);
-  const row = db.prepare('SELECT id, username, is_builder, is_admin FROM accounts WHERE id = ?').get(id) as AccountRow;
+  const row = db
+    .prepare(
+      `SELECT a.id, a.username, a.is_builder, a.is_admin, c.gold as gold
+       FROM accounts a
+       LEFT JOIN characters c ON c.account_id = a.id
+       WHERE a.id = ?`,
+    )
+    .get(id) as AccountRow;
   res.json({ account: toAccountDto(row) });
+});
+
+const grantGoldSchema = z.object({
+  amount: z.number().int().positive('지급할 골드는 1 이상이어야 합니다.'),
+});
+
+adminRouter.post('/accounts/:id/grant-gold', (req, res) => {
+  const id = Number(req.params.id);
+  if (!db.prepare('SELECT id FROM accounts WHERE id = ?').get(id)) {
+    res.status(404).json({ error: '계정을 찾을 수 없습니다.' });
+    return;
+  }
+
+  const parsed = grantGoldSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
+    return;
+  }
+
+  const result = grantGold(id, parsed.data.amount);
+  if (!result.ok) {
+    res.status(409).json({ error: result.error });
+    return;
+  }
+
+  res.json({ gold: result.gold });
 });
 
 adminRouter.get('/sessions', (_req, res) => {
