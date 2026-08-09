@@ -1,0 +1,106 @@
+@media (max-width: 1100px) {
+  .game-layout {
+    flex-wrap: wrap;
+  }
+
+  .terminal {
+    flex-basis: 100%;
+    min-width: 360px;
+  }
+
+  .sidebar,
+  .ops-menu,
+  .map-panel {
+    width: auto;
+    flex: 1 1 220px;
+  }
+
+  .builder-body {
+    flex-direction: column;
+  }
+
+  .builder-canvas-wrap {
+    flex: 0 0 auto;
+    height: 50vh;
+  }
+
+  .builder-panel,
+  .builder-palette {
+    width: 100%;
+    flex: 0 0 auto;
+    max-height: 40vh;
+  }
+}
+
+@media (max-width: 768px) {
+  #app {
+    padding: 0.5rem;
+    gap: 0.5rem;
+  }
+
+  .game-layout {
+    flex-direction: column;
+    flex-wrap: nowrap;
+  }
+
+  .terminal {
+    flex-basis: auto;
+    min-width: 0;
+  }
+
+  .sidebar {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.75rem 1.25rem;
+  }
+
+  .sidebar-stats {
+    flex: 1;
+    min-width: 220px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1.25rem;
+  }
+
+  .equipment-panel {
+    width: 100%;
+    border-top: none;
+    padding-top: 0;
+  }
+
+  .map-panel {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .minimap {
+    width: 100%;
+    max-width: 260px;
+    margin: 0 auto;
+  }
+
+  .stat-room {
+    border-top: none;
+    padding-top: 0;
+    width: 100%;
+  }
+
+  .hp-bar,
+  .mp-bar {
+    width: 120px;
+  }
+
+  .ops-menu {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .builder-canvas-wrap {
+    height: 40vh;
+  }
+}

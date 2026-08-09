@@ -1,0 +1,153 @@
+.game-layout {
+  flex: 1;
+  display: flex;
+  gap: 0.75rem;
+  min-height: 0;
+}
+
+.room-panel {
+  flex-shrink: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 1rem;
+}
+
+.room-name {
+  color: var(--color-accent);
+  font-weight: bold;
+  font-size: 1.54rem;
+  text-shadow: var(--glow-accent);
+}
+
+.room-desc {
+  margin: 0.5rem 0;
+  color: var(--color-text);
+  font-size: 1.4rem;
+  line-height: 1.5;
+}
+
+.room-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.5rem;
+  color: var(--color-text-dim);
+  font-size: 1.26rem;
+  border-top: 1px solid var(--color-border);
+  padding-top: 0.5rem;
+}
+
+.room-meta strong {
+  color: var(--color-text);
+  margin-right: 0.4rem;
+}
+
+.village-panel {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.village-title {
+  color: var(--color-accent);
+  font-weight: bold;
+}
+
+.combat-panel {
+  flex-shrink: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-danger);
+  border-radius: 4px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.combat-panel[hidden] {
+  display: none;
+}
+
+.combat-mob-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.combat-mob-name {
+  color: var(--color-danger);
+  font-weight: bold;
+}
+
+.terminal {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 1rem;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.line-say {
+  color: var(--color-text);
+}
+
+.line-shout {
+  color: var(--color-warning);
+  font-weight: bold;
+}
+
+.line-echo {
+  color: var(--color-text-dim);
+}
+
+.line-error {
+  color: var(--color-danger);
+}
+
+.line-admin {
+  color: var(--color-accent);
+  font-weight: bold;
+}
+
+.item-grade-low {
+  color: var(--grade-low);
+}
+
+.item-grade-mid {
+  color: var(--grade-mid);
+}
+
+.item-grade-high {
+  color: var(--grade-high);
+}
+
+.item-grade-rare {
+  color: var(--grade-rare);
+}
+
+.item-grade-legend {
+  color: var(--grade-legend);
+  font-weight: bold;
+}
+
+.item-grade-epic {
+  color: var(--grade-epic);
+  font-weight: bold;
+  text-shadow: 0 0 6px rgba(255, 212, 71, 0.55);
+}
+
+.terminal::-webkit-scrollbar {
+  width: 8px;
+}
+
+.terminal::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}

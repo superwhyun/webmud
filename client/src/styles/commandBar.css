@@ -1,0 +1,78 @@
+.command-input {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.command-input:focus-within {
+  border-color: var(--color-accent);
+  box-shadow: var(--glow-accent);
+}
+
+.command-input .prompt {
+  color: var(--color-accent);
+}
+
+.command-input input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 1rem;
+}
+
+.logout-btn {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-dim);
+  padding: 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.logout-btn:hover {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.builder-entry-btn {
+  background: var(--color-surface);
+  border: 1px solid var(--color-accent);
+  color: var(--color-accent);
+  padding: 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  transition: box-shadow var(--transition-fast);
+}
+
+.builder-entry-btn:hover {
+  box-shadow: var(--glow-accent);
+}
+
+.admin-entry-btn {
+  background: var(--color-surface);
+  border: 1px solid var(--color-warning);
+  color: var(--color-warning);
+  padding: 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  transition: box-shadow var(--transition-fast);
+}
+
+.admin-entry-btn:hover {
+  box-shadow: 0 0 8px rgba(242, 201, 76, 0.45);
+}

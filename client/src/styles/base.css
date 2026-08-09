@@ -1,0 +1,79 @@
+:root {
+  --color-bg: #0a0d0a;
+  --color-surface: #10140f;
+  --color-text: #c8f5c0;
+  --color-text-dim: #6f8f68;
+  --color-accent: #4dff88;
+  --color-border: #234023;
+  --color-danger: #ff6b6b;
+  --color-warning: #f2c94c;
+  --color-mana: #4d9dff;
+
+  --grade-low: #9aa8a2;
+  --grade-mid: #58d68d;
+  --grade-high: #55c1f0;
+  --grade-rare: #b083f0;
+  --grade-legend: #ff9f43;
+  --grade-epic: #ffd447;
+
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+
+  --glow-accent: 0 0 8px rgba(77, 255, 136, 0.45);
+  --transition-fast: 150ms ease;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+}
+
+body {
+  position: relative;
+  overflow: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1000;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0) 0,
+    rgba(0, 0, 0, 0) 2px,
+    rgba(0, 0, 0, 0.12) 3px
+  );
+  mix-blend-mode: multiply;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 999;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.55) 100%);
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 1rem;
+  gap: 0.75rem;
+}
+
+#app:has(.admin-screen) {
+  max-width: none;
+}
