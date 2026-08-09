@@ -267,17 +267,15 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
             <button type="button" id="admin-mob-cancel" hidden>취소</button>
           </div>
           <p class="admin-error" id="admin-mob-error"></p>
-          <p class="admin-panel-empty">몬스터 배치는 맵 빌더에서 할 수 있습니다.</p>
 
           <h4>보유 가능 아이템 (죽었을 때 드랍)</h4>
-          <div class="admin-form-row">
-            <select id="admin-mob-loot-select" title="아이템 풀을 설정할 몬스터를 선택하세요."></select>
-          </div>
           <ul class="admin-list" id="admin-mob-loot-items"></ul>
           <p class="admin-panel-empty">
             체크한 아이템 중 몹이 무작위로 최대 2개를 들고 스폰되며, 처치되면 그 아이템을 떨어뜨립니다. 등급이 높을수록 보유 확률이 낮습니다.
+            현재 레벨 입력값 기준으로 걸 수 있는 아이템만 표시됩니다.
           </p>
           <p class="admin-error" id="admin-mob-loot-error"></p>
+          <p class="admin-panel-empty">몬스터 배치는 맵 빌더에서 할 수 있습니다.</p>
         </section>
 
         <section class="admin-section" data-admin-tab-panel="npcs">
@@ -361,7 +359,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
   const mobTemplatesList = container.querySelector<HTMLUListElement>('#admin-mob-templates')!;
   const mobError = container.querySelector<HTMLParagraphElement>('#admin-mob-error')!;
   const mobElementSelect = container.querySelector<HTMLSelectElement>('#admin-mob-element')!;
-  const mobLootSelect = container.querySelector<HTMLSelectElement>('#admin-mob-loot-select')!;
+  const mobLevelInput = container.querySelector<HTMLInputElement>('#admin-mob-level')!;
   const mobLootItemsList = container.querySelector<HTMLUListElement>('#admin-mob-loot-items')!;
   const mobLootError = container.querySelector<HTMLParagraphElement>('#admin-mob-loot-error')!;
   const mobCreateBtn = container.querySelector<HTMLButtonElement>('#admin-mob-create')!;
@@ -369,6 +367,8 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
 
   let mobTemplates: MobTemplateDto[] = [];
   let editingMobId: number | null = null;
+  /** 아직 생성되지 않은 신규 몬스터에 임시로 체크해둔 보유 가능 아이템(itemId -> weight). 생성 성공 후 실제로 반영한다. */
+  let pendingLootWeights = new Map<number, number>();
 
   const npcTemplatesList = container.querySelector<HTMLUListElement>('#admin-npc-templates')!;
   const npcError = container.querySelector<HTMLParagraphElement>('#admin-npc-error')!;
@@ -602,10 +602,10 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
     container.querySelector<HTMLInputElement>('#admin-mob-mdef')!.value = '0';
     container.querySelector<HTMLInputElement>('#admin-mob-exp')!.value = '5';
     container.querySelector<HTMLInputElement>('#admin-mob-gold')!.value = '1';
+    pendingLootWeights = new Map();
   }
 
   async function refreshMobs(): Promise<void> {
-    const previousLootSelection = mobLootSelect.value;
     const { mobTemplates: fetched } = await fetchMobTemplates(token);
     mobTemplates = fetched;
 
@@ -633,6 +633,9 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
         mobCreateBtn.textContent = '저장';
         mobCancelBtn.hidden = false;
         mobError.textContent = '';
+        refreshMobLootPool().catch((error: unknown) => {
+          mobLootError.textContent = error instanceof Error ? error.message : '아이템 풀을 불러오지 못했습니다.';
+        });
       });
     });
 
@@ -652,31 +655,22 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
       });
     });
 
-    mobLootSelect.innerHTML =
-      mobTemplates
-        .map((mob) => `<option value="${mob.id}">${escapeHtml(mob.name)} (Lv.${mob.level})</option>`)
-        .join('') || '<option value="">몬스터 없음</option>';
-
-    if (mobTemplates.some((mob) => String(mob.id) === previousLootSelection)) {
-      mobLootSelect.value = previousLootSelection;
-    }
-
     await refreshMobLootPool();
   }
 
+  /**
+   * 편집 중인 몬스터가 있으면 그 몬스터의 실제 보유 아이템 풀을(서버에 바로 반영하며) 보여주고,
+   * 새 몬스터를 만드는 중이면 아직 저장되지 않은 로컬 선택(pendingLootWeights)만 보여준다.
+   * 두 경우 모두 레벨 입력창에 현재 입력된 값 기준으로 아이템을 필터링한다.
+   */
   async function refreshMobLootPool(): Promise<void> {
     mobLootError.textContent = '';
-    const mobTemplateId = Number(mobLootSelect.value);
-    if (!mobTemplateId) {
-      mobLootItemsList.innerHTML = '<li class="admin-panel-empty">몬스터를 먼저 생성하세요.</li>';
-      return;
-    }
+    const level = Number(mobLevelInput.value) || 1;
+    const eligibleItems = itemTemplates.filter((item) => item.level <= level);
 
-    const mobTemplate = mobTemplates.find((mob) => mob.id === mobTemplateId);
-    const eligibleItems = itemTemplates.filter((item) => !mobTemplate || item.level <= mobTemplate.level);
-
-    const { items: poolItems } = await fetchMobLootPool(token, mobTemplateId);
-    const poolWeights = new Map<number, number>(poolItems.map((item) => [item.id, item.weight]));
+    const poolWeights = editingMobId
+      ? new Map<number, number>((await fetchMobLootPool(token, editingMobId)).items.map((item) => [item.id, item.weight]))
+      : pendingLootWeights;
 
     mobLootItemsList.innerHTML =
       eligibleItems
@@ -701,8 +695,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
             </li>
           `;
         })
-        .join('') ||
-      `<li class="admin-panel-empty">${itemTemplates.length === 0 ? '생성된 아이템이 없습니다.' : `${mobTemplate?.level ?? 1}레벨 이하 아이템이 없습니다.`}</li>`;
+        .join('') || `<li class="admin-panel-empty">${itemTemplates.length === 0 ? '생성된 아이템이 없습니다.' : `${level}레벨 이하 아이템이 없습니다.`}</li>`;
 
     mobLootItemsList.querySelectorAll<HTMLInputElement>('.admin-mob-loot-toggle').forEach((checkbox) => {
       const weightInput = mobLootItemsList.querySelector<HTMLInputElement>(
@@ -711,9 +704,14 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
       checkbox.addEventListener('change', () => {
         const itemId = Number(checkbox.dataset.itemId);
         weightInput.disabled = !checkbox.checked;
+        if (!editingMobId) {
+          if (checkbox.checked) pendingLootWeights.set(itemId, Number(weightInput.value));
+          else pendingLootWeights.delete(itemId);
+          return;
+        }
         const action = checkbox.checked
-          ? addMobLootPoolItem(token, mobTemplateId, itemId, Number(weightInput.value))
-          : removeMobLootPoolItem(token, mobTemplateId, itemId);
+          ? addMobLootPoolItem(token, editingMobId, itemId, Number(weightInput.value))
+          : removeMobLootPoolItem(token, editingMobId, itemId);
         action.catch((error: unknown) => {
           mobLootError.textContent = error instanceof Error ? error.message : '아이템 풀 변경에 실패했습니다.';
           checkbox.checked = !checkbox.checked;
@@ -726,7 +724,11 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
       weightInput.addEventListener('change', () => {
         const itemId = Number(weightInput.dataset.itemId);
         const weight = Number(weightInput.value);
-        addMobLootPoolItem(token, mobTemplateId, itemId, weight).catch((error: unknown) => {
+        if (!editingMobId) {
+          if (pendingLootWeights.has(itemId)) pendingLootWeights.set(itemId, weight);
+          return;
+        }
+        addMobLootPoolItem(token, editingMobId, itemId, weight).catch((error: unknown) => {
           mobLootError.textContent = error instanceof Error ? error.message : '가중치 변경에 실패했습니다.';
         });
       });
@@ -879,9 +881,15 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
       hostile: container.querySelector<HTMLInputElement>('#admin-mob-hostile')!.checked,
       name,
     };
+    const wasCreating = !editingMobId;
+    const pending = [...pendingLootWeights.entries()];
     const request = editingMobId ? updateMobTemplate(token, editingMobId, data) : createMobTemplate(token, data);
     request
-      .then(() => {
+      .then(async (result) => {
+        if (wasCreating && pending.length > 0) {
+          const newMobId = result.mobTemplate.id;
+          await Promise.all(pending.map(([itemId, weight]) => addMobLootPoolItem(token, newMobId, itemId, weight)));
+        }
         resetMobForm();
         return refreshMobs();
       })
@@ -890,9 +898,14 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
       });
   });
 
-  mobCancelBtn.addEventListener('click', () => resetMobForm());
+  mobCancelBtn.addEventListener('click', () => {
+    resetMobForm();
+    refreshMobLootPool().catch((error: unknown) => {
+      mobLootError.textContent = error instanceof Error ? error.message : '아이템 풀을 불러오지 못했습니다.';
+    });
+  });
 
-  mobLootSelect.addEventListener('change', () => {
+  mobLevelInput.addEventListener('input', () => {
     refreshMobLootPool().catch((error: unknown) => {
       mobLootError.textContent = error instanceof Error ? error.message : '아이템 풀을 불러오지 못했습니다.';
     });
