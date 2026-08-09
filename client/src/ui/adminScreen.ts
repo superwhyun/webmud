@@ -201,6 +201,8 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
             </thead>
             <tbody id="admin-mob-templates"></tbody>
           </table>
+          <div id="admin-mob-form-slot"></div>
+          <div id="admin-mob-form-container">
           <div class="admin-form-row">
             <input id="admin-mob-name" placeholder="이름" maxlength="30" title="몬스터 이름" />
             <input
@@ -290,6 +292,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
             현재 레벨 입력값 기준으로 걸 수 있는 아이템만 표시됩니다.
           </p>
           <p class="admin-error" id="admin-mob-loot-error"></p>
+          </div>
           <p class="admin-panel-empty">몬스터 배치는 맵 빌더에서 할 수 있습니다.</p>
         </section>
 
@@ -379,6 +382,8 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
   const mobLootError = container.querySelector<HTMLParagraphElement>('#admin-mob-loot-error')!;
   const mobCreateBtn = container.querySelector<HTMLButtonElement>('#admin-mob-create')!;
   const mobCancelBtn = container.querySelector<HTMLButtonElement>('#admin-mob-cancel')!;
+  const mobFormSlot = container.querySelector<HTMLDivElement>('#admin-mob-form-slot')!;
+  const mobFormContainer = container.querySelector<HTMLDivElement>('#admin-mob-form-container')!;
 
   let mobTemplates: MobTemplateDto[] = [];
   let editingMobId: number | null = null;
@@ -587,6 +592,24 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
     renderItemList();
   }
 
+  /** 몹 수정 폼을 표에서 빼내 원래 위치(표 바로 아래)로 되돌린다. */
+  function parkMobFormAtDefault(): void {
+    container.querySelector('.admin-mob-edit-row')?.remove();
+    mobFormSlot.insertAdjacentElement('afterend', mobFormContainer);
+  }
+
+  /** 몹 수정 폼을 표에서 해당 몹의 행 바로 아래로 옮긴다. */
+  function moveMobFormBelowRow(row: HTMLTableRowElement): void {
+    container.querySelector('.admin-mob-edit-row')?.remove();
+    const editRow = document.createElement('tr');
+    editRow.className = 'admin-mob-edit-row';
+    const cell = document.createElement('td');
+    cell.colSpan = 7;
+    editRow.appendChild(cell);
+    row.insertAdjacentElement('afterend', editRow);
+    cell.appendChild(mobFormContainer);
+  }
+
   function fillMobForm(mob: MobTemplateDto): void {
     container.querySelector<HTMLInputElement>('#admin-mob-name')!.value = mob.name;
     container.querySelector<HTMLInputElement>('#admin-mob-hp')!.value = String(mob.hp);
@@ -607,6 +630,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
     mobCreateBtn.textContent = '몬스터 생성';
     mobCancelBtn.hidden = true;
     mobError.textContent = '';
+    parkMobFormAtDefault();
     container.querySelector<HTMLInputElement>('#admin-mob-name')!.value = '';
     container.querySelector<HTMLInputElement>('#admin-mob-hp')!.value = '10';
     container.querySelector<HTMLInputElement>('#admin-mob-level')!.value = '1';
@@ -636,7 +660,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
             .map((entry) => `<span class="item-grade-${entry.grade}">${escapeHtml(entry.name)}</span>(${entry.weight}%)`)
             .join(', ');
           return `
-            <tr>
+            <tr data-mob-id="${mob.id}">
               <td>${escapeHtml(mob.name)}${mob.hostile ? '' : ' <span class="admin-mob-passive-tag">비전투</span>'}</td>
               <td>${mob.level}</td>
               <td>${mob.hp}</td>
@@ -663,6 +687,8 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
         mobCreateBtn.textContent = '저장';
         mobCancelBtn.hidden = false;
         mobError.textContent = '';
+        const row = btn.closest<HTMLTableRowElement>('tr');
+        if (row) moveMobFormBelowRow(row);
         refreshMobLootPool().catch((error: unknown) => {
           mobLootError.textContent = error instanceof Error ? error.message : '아이템 풀을 불러오지 못했습니다.';
         });
@@ -684,6 +710,11 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
           });
       });
     });
+
+    if (editingMobId !== null) {
+      const row = mobTemplatesList.querySelector<HTMLTableRowElement>(`tr[data-mob-id="${editingMobId}"]`);
+      if (row) moveMobFormBelowRow(row);
+    }
   }
 
   async function refreshMobLootSummaries(): Promise<void> {

@@ -902,6 +902,16 @@ body::after {
   vertical-align: top;
 }
 
+.admin-mob-edit-row td {
+  background: var(--color-surface);
+  border-bottom: 2px solid var(--color-accent);
+  padding: 0.75rem;
+}
+
+#admin-mob-form-slot {
+  height: 0;
+}
+
 .admin-mob-loot-cell {
   color: var(--color-text-dim);
   font-size: 0.8rem;
