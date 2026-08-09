@@ -898,6 +898,23 @@ body::after {
   padding-bottom: 0.3rem;
 }
 
+.admin-list li.admin-mob-row {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.admin-mob-row-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.admin-mob-row-loot {
+  color: var(--color-text-dim);
+  font-size: 0.8rem;
+}
+
 .admin-panel-empty {
   color: var(--color-text-dim);
   font-size: 0.9rem;

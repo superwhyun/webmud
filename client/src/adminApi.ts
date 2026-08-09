@@ -173,6 +173,14 @@ export function fetchMobLootPool(token: string, mobTemplateId: number): Promise<
   return apiRequest(`/admin/mob-templates/${mobTemplateId}/loot-pool`, { headers: authHeader(token) });
 }
 
+export interface MobLootPoolEntryDto extends MobLootPoolItemDto {
+  mobTemplateId: number;
+}
+
+export function fetchAllMobLootPools(token: string): Promise<{ items: MobLootPoolEntryDto[] }> {
+  return apiRequest('/admin/mob-loot-pool', { headers: authHeader(token) });
+}
+
 export function addMobLootPoolItem(
   token: string,
   mobTemplateId: number,

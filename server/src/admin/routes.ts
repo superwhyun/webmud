@@ -417,6 +417,18 @@ adminRouter.get('/mob-templates/:id/loot-pool', (req, res) => {
   res.json({ items: rows.map(toLootPoolItemDto) });
 });
 
+interface LootPoolAllQueryRow extends LootPoolQueryRow {
+  mob_template_id: number;
+}
+
+const LOOT_POOL_ALL_QUERY = `SELECT mlp.mob_template_id as mob_template_id, i.*, mlp.weight as weight
+  FROM mob_loot_pool mlp JOIN items i ON i.id = mlp.item_id ORDER BY mlp.mob_template_id, mlp.weight DESC`;
+
+adminRouter.get('/mob-loot-pool', (_req, res) => {
+  const rows = db.prepare(LOOT_POOL_ALL_QUERY).all() as LootPoolAllQueryRow[];
+  res.json({ items: rows.map((row) => ({ ...toLootPoolItemDto(row), mobTemplateId: row.mob_template_id })) });
+});
+
 const lootPoolSchema = z.object({
   itemId: z.number().int(),
   weight: z.number().int().min(1, '가중치는 1 이상이어야 합니다.').optional(),

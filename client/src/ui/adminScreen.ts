@@ -26,6 +26,7 @@ import {
   exportContent,
   fetchAccounts,
   fetchAdminRooms,
+  fetchAllMobLootPools,
   fetchItemTemplates,
   fetchMobLootPool,
   fetchMobTemplates,
@@ -42,6 +43,7 @@ import {
   updateNpcTemplate,
   type ContentExportDto,
   type ItemTemplateDto,
+  type MobLootPoolEntryDto,
   type MobTemplateDto,
   type NpcTemplateDto,
   type RoomOptionDto,
@@ -605,23 +607,34 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
     pendingLootWeights = new Map();
   }
 
-  async function refreshMobs(): Promise<void> {
-    const { mobTemplates: fetched } = await fetchMobTemplates(token);
-    mobTemplates = fetched;
+  function renderMobTemplatesList(lootEntries: MobLootPoolEntryDto[]): void {
+    const lootByMobId = new Map<number, MobLootPoolEntryDto[]>();
+    for (const entry of lootEntries) {
+      const list = lootByMobId.get(entry.mobTemplateId) ?? [];
+      list.push(entry);
+      lootByMobId.set(entry.mobTemplateId, list);
+    }
 
     mobTemplatesList.innerHTML =
       mobTemplates
-        .map(
-          (mob) => `
-            <li>
-              <span>${escapeHtml(mob.name)} (Lv.${mob.level}, HP ${mob.hp}, ${ELEMENT_LABELS[mob.element]}, ${DAMAGE_TYPE_LABELS[mob.damageType]}${mob.hostile ? '' : ', 비전투'})</span>
-              <span class="admin-row-actions">
-                <button type="button" class="admin-edit-btn" data-mob-id="${mob.id}">수정</button>
-                <button type="button" class="admin-delete-btn" data-mob-id="${mob.id}">삭제</button>
-              </span>
+        .map((mob) => {
+          const loot = lootByMobId.get(mob.id) ?? [];
+          const lootText = loot
+            .map((entry) => `<span class="item-grade-${entry.grade}">${escapeHtml(entry.name)}</span>(${entry.weight}%)`)
+            .join(', ');
+          return `
+            <li class="admin-mob-row">
+              <div class="admin-mob-row-main">
+                <span>${escapeHtml(mob.name)} (Lv.${mob.level}, HP ${mob.hp}, ${ELEMENT_LABELS[mob.element]}, ${DAMAGE_TYPE_LABELS[mob.damageType]}${mob.hostile ? '' : ', 비전투'})</span>
+                <span class="admin-row-actions">
+                  <button type="button" class="admin-edit-btn" data-mob-id="${mob.id}">수정</button>
+                  <button type="button" class="admin-delete-btn" data-mob-id="${mob.id}">삭제</button>
+                </span>
+              </div>
+              ${lootText ? `<div class="admin-mob-row-loot">${lootText}</div>` : ''}
             </li>
-          `,
-        )
+          `;
+        })
         .join('') || '<li class="admin-panel-empty">없음</li>';
 
     mobTemplatesList.querySelectorAll<HTMLButtonElement>('.admin-edit-btn').forEach((btn) => {
@@ -654,6 +667,20 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
           });
       });
     });
+  }
+
+  async function refreshMobLootSummaries(): Promise<void> {
+    const { items: lootEntries } = await fetchAllMobLootPools(token);
+    renderMobTemplatesList(lootEntries);
+  }
+
+  async function refreshMobs(): Promise<void> {
+    const [{ mobTemplates: fetched }, { items: lootEntries }] = await Promise.all([
+      fetchMobTemplates(token),
+      fetchAllMobLootPools(token),
+    ]);
+    mobTemplates = fetched;
+    renderMobTemplatesList(lootEntries);
 
     await refreshMobLootPool();
   }
@@ -712,11 +739,13 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
         const action = checkbox.checked
           ? addMobLootPoolItem(token, editingMobId, itemId, Number(weightInput.value))
           : removeMobLootPoolItem(token, editingMobId, itemId);
-        action.catch((error: unknown) => {
-          mobLootError.textContent = error instanceof Error ? error.message : '아이템 풀 변경에 실패했습니다.';
-          checkbox.checked = !checkbox.checked;
-          weightInput.disabled = !checkbox.checked;
-        });
+        action
+          .then(() => refreshMobLootSummaries())
+          .catch((error: unknown) => {
+            mobLootError.textContent = error instanceof Error ? error.message : '아이템 풀 변경에 실패했습니다.';
+            checkbox.checked = !checkbox.checked;
+            weightInput.disabled = !checkbox.checked;
+          });
       });
     });
 
@@ -728,9 +757,11 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
           if (pendingLootWeights.has(itemId)) pendingLootWeights.set(itemId, weight);
           return;
         }
-        addMobLootPoolItem(token, editingMobId, itemId, weight).catch((error: unknown) => {
-          mobLootError.textContent = error instanceof Error ? error.message : '가중치 변경에 실패했습니다.';
-        });
+        addMobLootPoolItem(token, editingMobId, itemId, weight)
+          .then(() => refreshMobLootSummaries())
+          .catch((error: unknown) => {
+            mobLootError.textContent = error instanceof Error ? error.message : '가중치 변경에 실패했습니다.';
+          });
       });
     });
   }
