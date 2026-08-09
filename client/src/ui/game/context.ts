@@ -29,7 +29,7 @@ export interface GameContext {
   onLogout: () => void;
   socket: WebSocket;
 
-  roomPanel: HTMLDivElement;
+  roomInfo: HTMLDivElement;
   combatPanel: HTMLDivElement;
   terminal: HTMLDivElement;
   sidebarStats: HTMLDivElement;
@@ -74,7 +74,13 @@ export interface GameContext {
 
 function renderShellHtml(isBuilder: boolean, isAdmin: boolean): string {
   return `
-    <div class="room-panel" id="room-panel"></div>
+    <div class="room-panel" id="room-panel">
+      <div class="room-info" id="room-info"></div>
+      <aside class="room-map-dock">
+        <div class="room-map-title">지도</div>
+        <div class="minimap" id="minimap"></div>
+      </aside>
+    </div>
     <div class="command-input">
       <span class="prompt">&gt;</span>
       <input id="command" type="text" autocomplete="off" autofocus aria-label="명령어 입력" />
@@ -114,10 +120,8 @@ function renderShellHtml(isBuilder: boolean, isAdmin: boolean): string {
       </aside>`
           : ''
       }
-      <aside class="map-panel" id="map-panel">
-        <div class="map-panel-title">지도</div>
-        <div class="minimap" id="minimap"></div>
-        <div class="map-panel-title">인벤토리 (<span id="inventory-count">0</span>/${MAX_INVENTORY_SLOTS})</div>
+      <aside class="inventory-panel" id="inventory-panel">
+        <div class="inventory-panel-title">인벤토리 (<span id="inventory-count">0</span>/${MAX_INVENTORY_SLOTS})</div>
         <div class="inventory-panel-list" id="inventory-panel-list"></div>
       </aside>
     </div>
@@ -179,7 +183,7 @@ export function createGameContext(
     onLogout,
     socket,
 
-    roomPanel: container.querySelector<HTMLDivElement>('#room-panel')!,
+    roomInfo: container.querySelector<HTMLDivElement>('#room-info')!,
     combatPanel: container.querySelector<HTMLDivElement>('#combat-panel')!,
     terminal: container.querySelector<HTMLDivElement>('#terminal')!,
     sidebarStats: container.querySelector<HTMLDivElement>('#sidebar-stats')!,

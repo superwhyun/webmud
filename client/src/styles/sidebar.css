@@ -299,7 +299,7 @@
   box-shadow: var(--glow-accent);
 }
 
-.map-panel {
+.inventory-panel {
   width: clamp(280px, 24vw, 420px);
   flex-shrink: 0;
   display: flex;
@@ -312,7 +312,7 @@
   overflow-y: auto;
 }
 
-.map-panel-title {
+.inventory-panel-title {
   color: var(--color-text-dim);
   font-size: 0.85rem;
   letter-spacing: 0.05em;

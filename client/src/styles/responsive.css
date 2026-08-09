@@ -10,7 +10,7 @@
 
   .sidebar,
   .ops-menu,
-  .map-panel {
+  .inventory-panel {
     width: auto;
     flex: 1 1 220px;
   }
@@ -71,10 +71,18 @@
     padding-top: 0;
   }
 
-  .map-panel {
+  .inventory-panel {
     width: 100%;
     max-width: 100%;
     min-width: 0;
+  }
+
+  .room-panel {
+    flex-direction: column;
+  }
+
+  .room-map-dock {
+    width: 100%;
   }
 
   .minimap {
