@@ -11,6 +11,7 @@ export interface RoomData {
   description: string;
   x: number;
   y: number;
+  zoneId: number;
   exits: Record<string, RoomExit>;
 }
 
@@ -20,6 +21,7 @@ interface RoomRow {
   description: string;
   x: number;
   y: number;
+  zone_id: number;
 }
 
 interface RoomExitRow {
@@ -34,9 +36,17 @@ const rooms = new Map<number, RoomData>();
 export function loadWorld(): void {
   rooms.clear();
 
-  const roomRows = db.prepare('SELECT id, name, description, x, y FROM rooms').all() as RoomRow[];
+  const roomRows = db.prepare('SELECT id, name, description, x, y, zone_id FROM rooms').all() as RoomRow[];
   for (const row of roomRows) {
-    rooms.set(row.id, { id: row.id, name: row.name, description: row.description, x: row.x, y: row.y, exits: {} });
+    rooms.set(row.id, {
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      x: row.x,
+      y: row.y,
+      zoneId: row.zone_id,
+      exits: {},
+    });
   }
 
   const exitRows = db

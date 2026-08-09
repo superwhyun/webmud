@@ -69,7 +69,18 @@ export function buildRoomSnapshot(roomId: number, viewerWs?: WebSocket): RoomSna
 
   const village = buildVillageInfo(roomId);
 
-  return { id: room.id, name: room.name, description: room.description, exits, items, mobs, npcs, players, village };
+  return {
+    id: room.id,
+    name: room.name,
+    description: room.description,
+    zoneId: room.zoneId,
+    exits,
+    items,
+    mobs,
+    npcs,
+    players,
+    village,
+  };
 }
 
 export function sendRoomSnapshot(ctx: CommandContext): void {

@@ -3,7 +3,7 @@ import { handleAttack, handleCast, handleFlee } from './combat.js';
 import type { CommandContext } from './context.js';
 import { handleDrop, handleEquip, handleGet, handleInventory, handleUse } from './items.js';
 import { describeRoom, showHelp } from './misc.js';
-import { handleMove, resolveDirection } from './movement.js';
+import { handleEnter, handleMove, resolveDirection } from './movement.js';
 import { handleBuy, handleSell, handleShop } from './npc.js';
 import { handleRaid } from './raid.js';
 import { handleSkill } from './skills.js';
@@ -110,6 +110,11 @@ export function dispatchCommand(ctx: CommandContext, rawText: string): void {
 
   if (lowerVerb === 'leave') {
     handleLeave(ctx);
+    return;
+  }
+
+  if (lowerVerb === 'enter') {
+    handleEnter(ctx, rest);
     return;
   }
 

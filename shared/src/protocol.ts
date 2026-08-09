@@ -83,6 +83,7 @@ export interface RoomSnapshot {
   id: number;
   name: string;
   description: string;
+  zoneId: number;
   exits: RoomExitInfo[];
   items: RoomItemInfo[];
   mobs: RoomMobInfo[];

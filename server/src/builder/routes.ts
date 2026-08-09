@@ -25,6 +25,21 @@ const roomCreateSchema = z.object({
   description: z.string().min(1, '방 설명을 입력하세요.').max(500, '설명은 500자 이하여야 합니다.'),
   x: z.number().int(),
   y: z.number().int(),
+  zoneId: z.number().int(),
+});
+
+const zoneCreateSchema = z.object({
+  name: z.string().min(1, '존 이름을 입력하세요.').max(30, '존 이름은 30자 이하여야 합니다.'),
+  description: z.string().max(200, '설명은 200자 이하여야 합니다.').optional().default(''),
+});
+
+const CARDINAL_SET = new Set<string>(CARDINAL_DIRECTIONS);
+
+const exitCreateSchema = z.object({
+  roomId: z.number().int(),
+  label: z.string().min(1, '연결점 이름을 입력하세요.').max(30, '연결점 이름은 30자 이하여야 합니다.'),
+  targetRoomId: z.number().int(),
+  returnLabel: z.string().max(30, '왕복 연결점 이름은 30자 이하여야 합니다.').optional(),
 });
 
 const roomPatchSchema = z.object({
@@ -46,6 +61,7 @@ interface RoomRow {
   description: string;
   x: number;
   y: number;
+  zone_id: number;
 }
 
 interface RoomExitRow {
@@ -55,16 +71,22 @@ interface RoomExitRow {
   blocked: number;
 }
 
-/** Recomputes the N/S/E/W exit graph from grid positions (excluding village rooms) and applies the diff to the DB, World.ts, and connected clients. */
-function applyExitReconciliation(): void {
+/**
+ * Recomputes the N/S/E/W exit graph from grid positions within one zone (excluding village rooms)
+ * and applies the diff to the DB, World.ts, and connected clients. Scoped to a single zone_id so
+ * that rooms in different zones never get treated as grid-adjacent to each other, and so editing
+ * one zone never touches another zone's cardinal exits.
+ */
+function applyExitReconciliation(zoneId: number): void {
   const roomRows = db
-    .prepare(`SELECT id, x, y FROM rooms WHERE ${NON_VILLAGE_ROOMS_SQL}`)
-    .all() as { id: number; x: number; y: number }[];
+    .prepare(`SELECT id, x, y FROM rooms WHERE zone_id = ? AND ${NON_VILLAGE_ROOMS_SQL}`)
+    .all(zoneId) as { id: number; x: number; y: number }[];
   const exitRows = db
     .prepare(
-      `SELECT room_id, direction, target_room_id FROM room_exits WHERE direction IN ('north','south','east','west')`,
+      `SELECT room_id, direction, target_room_id FROM room_exits
+       WHERE direction IN ('north','south','east','west') AND room_id IN (SELECT id FROM rooms WHERE zone_id = ?)`,
     )
-    .all() as { room_id: number; direction: CardinalDirection; target_room_id: number }[];
+    .all(zoneId) as { room_id: number; direction: CardinalDirection; target_room_id: number }[];
 
   const diff = reconcileExits(
     roomRows,
@@ -94,10 +116,51 @@ function applyExitReconciliation(): void {
   for (const roomId of affectedRoomIds) broadcastRoomSnapshot(roomId);
 }
 
-builderRouter.get('/rooms', (_req, res) => {
+builderRouter.get('/zones', (_req, res) => {
+  const zones = db.prepare('SELECT id, name, description FROM zones ORDER BY id').all();
+  res.json({ zones });
+});
+
+builderRouter.post('/zones', (req, res) => {
+  const parsed = zoneCreateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
+    return;
+  }
+
+  const { name, description } = parsed.data;
+  if (db.prepare('SELECT 1 FROM zones WHERE name = ?').get(name)) {
+    res.status(409).json({ error: '이미 사용 중인 존 이름입니다.' });
+    return;
+  }
+
+  const info = db.prepare('INSERT INTO zones (name, description) VALUES (?, ?)').run(name, description);
+  res.status(201).json({ zone: { id: Number(info.lastInsertRowid), name, description } });
+});
+
+/** Lightweight cross-zone room list for portal target pickers — no coordinates/exits needed. */
+builderRouter.get('/rooms/all', (_req, res) => {
+  const rows = db
+    .prepare(
+      `SELECT rooms.id as id, rooms.name as name, rooms.zone_id as zoneId, zones.name as zoneName
+       FROM rooms JOIN zones ON zones.id = rooms.zone_id
+       WHERE rooms.id NOT IN (SELECT room_id FROM villages)
+       ORDER BY zones.id, rooms.name`,
+    )
+    .all();
+  res.json({ rooms: rows });
+});
+
+builderRouter.get('/rooms', (req, res) => {
+  const zoneId = Number(req.query.zoneId);
+  if (!zoneId) {
+    res.status(400).json({ error: 'zoneId 쿼리 파라미터가 필요합니다.' });
+    return;
+  }
+
   const roomRows = db
-    .prepare(`SELECT id, name, description, x, y FROM rooms WHERE ${NON_VILLAGE_ROOMS_SQL}`)
-    .all() as RoomRow[];
+    .prepare(`SELECT id, name, description, x, y, zone_id FROM rooms WHERE zone_id = ? AND ${NON_VILLAGE_ROOMS_SQL}`)
+    .all(zoneId) as RoomRow[];
   const exitRows = db
     .prepare('SELECT room_id, direction, target_room_id, blocked FROM room_exits')
     .all() as RoomExitRow[];
@@ -109,7 +172,15 @@ builderRouter.get('/rooms', (_req, res) => {
     exitsByRoom.set(row.room_id, list);
   }
 
-  const rooms = roomRows.map((room) => ({ ...room, exits: exitsByRoom.get(room.id) ?? [] }));
+  const rooms = roomRows.map((room) => ({
+    id: room.id,
+    name: room.name,
+    description: room.description,
+    x: room.x,
+    y: room.y,
+    zoneId: room.zone_id,
+    exits: exitsByRoom.get(room.id) ?? [],
+  }));
   res.json({ rooms });
 });
 
@@ -120,23 +191,28 @@ builderRouter.post('/rooms', (req, res) => {
     return;
   }
 
-  const { name, description, x, y } = parsed.data;
+  const { name, description, x, y, zoneId } = parsed.data;
+
+  if (!db.prepare('SELECT 1 FROM zones WHERE id = ?').get(zoneId)) {
+    res.status(404).json({ error: '존을 찾을 수 없습니다.' });
+    return;
+  }
 
   const occupied = db
-    .prepare(`SELECT 1 FROM rooms WHERE x = ? AND y = ? AND ${NON_VILLAGE_ROOMS_SQL}`)
-    .get(x, y);
+    .prepare(`SELECT 1 FROM rooms WHERE x = ? AND y = ? AND zone_id = ? AND ${NON_VILLAGE_ROOMS_SQL}`)
+    .get(x, y, zoneId);
   if (occupied) {
     res.status(409).json({ error: '이미 그 위치에 방이 있습니다.' });
     return;
   }
 
   const info = db
-    .prepare('INSERT INTO rooms (name, description, x, y) VALUES (?, ?, ?, ?)')
-    .run(name, description, x, y);
+    .prepare('INSERT INTO rooms (name, description, x, y, zone_id) VALUES (?, ?, ?, ?, ?)')
+    .run(name, description, x, y, zoneId);
   const id = Number(info.lastInsertRowid);
-  registerRoom({ id, name, description, x, y, exits: {} });
+  registerRoom({ id, name, description, x, y, zoneId, exits: {} });
 
-  applyExitReconciliation();
+  applyExitReconciliation(zoneId);
 
   const created = getRoom(id)!;
   res.status(201).json({
@@ -146,6 +222,7 @@ builderRouter.post('/rooms', (req, res) => {
       description: created.description,
       x: created.x,
       y: created.y,
+      zoneId: created.zoneId,
       exits: Object.entries(created.exits).map(([direction, exit]) => ({
         direction,
         targetRoomId: exit.targetRoomId,
@@ -157,7 +234,8 @@ builderRouter.post('/rooms', (req, res) => {
 
 builderRouter.patch('/rooms/:id', (req, res) => {
   const id = Number(req.params.id);
-  if (!getRoom(id)) {
+  const existingRoom = getRoom(id);
+  if (!existingRoom) {
     res.status(404).json({ error: '방을 찾을 수 없습니다.' });
     return;
   }
@@ -176,8 +254,8 @@ builderRouter.patch('/rooms/:id', (req, res) => {
 
   if (x !== undefined && y !== undefined) {
     const occupied = db
-      .prepare(`SELECT 1 FROM rooms WHERE x = ? AND y = ? AND id != ? AND ${NON_VILLAGE_ROOMS_SQL}`)
-      .get(x, y, id);
+      .prepare(`SELECT 1 FROM rooms WHERE x = ? AND y = ? AND id != ? AND zone_id = ? AND ${NON_VILLAGE_ROOMS_SQL}`)
+      .get(x, y, id, existingRoom.zoneId);
     if (occupied) {
       res.status(409).json({ error: '이미 그 위치에 방이 있습니다.' });
       return;
@@ -208,7 +286,7 @@ builderRouter.patch('/rooms/:id', (req, res) => {
   updateRoom(id, { name, description, x, y });
 
   if (x !== undefined || y !== undefined) {
-    applyExitReconciliation();
+    applyExitReconciliation(existingRoom.zoneId);
   } else {
     broadcastRoomSnapshot(id);
   }
@@ -271,6 +349,85 @@ builderRouter.patch('/exits/block', (req, res) => {
   broadcastRoomSnapshot(roomId);
 
   res.json({ roomId, direction, blocked });
+});
+
+/**
+ * Portal-style connectors between rooms (usually across zones). Reuses room_exits with a custom,
+ * non-cardinal `direction` value as the label — exitReconciler only ever touches north/south/east/west
+ * rows, so these are completely safe from grid auto-reconciliation, and handleMove() already resolves
+ * any direction string generically, so no runtime movement changes are needed.
+ */
+builderRouter.post('/exits', (req, res) => {
+  const parsed = exitCreateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
+    return;
+  }
+
+  const { roomId, label, targetRoomId, returnLabel } = parsed.data;
+
+  if (CARDINAL_SET.has(label) || (returnLabel && CARDINAL_SET.has(returnLabel))) {
+    res.status(400).json({ error: '연결점 이름으로 north/south/east/west는 쓸 수 없습니다.' });
+    return;
+  }
+
+  const fromRoom = getRoom(roomId);
+  const toRoom = getRoom(targetRoomId);
+  if (!fromRoom || !toRoom) {
+    res.status(404).json({ error: '방을 찾을 수 없습니다.' });
+    return;
+  }
+  if (fromRoom.exits[label]) {
+    res.status(409).json({ error: '이미 같은 이름의 연결점이 있습니다.' });
+    return;
+  }
+  if (returnLabel && toRoom.exits[returnLabel]) {
+    res.status(409).json({ error: '대상 방에 이미 같은 이름의 연결점이 있습니다.' });
+    return;
+  }
+
+  db.prepare('INSERT INTO room_exits (room_id, direction, target_room_id, blocked) VALUES (?, ?, ?, 0)').run(
+    roomId,
+    label,
+    targetRoomId,
+  );
+  addExit(roomId, label, targetRoomId, false);
+
+  if (returnLabel) {
+    db.prepare('INSERT INTO room_exits (room_id, direction, target_room_id, blocked) VALUES (?, ?, ?, 0)').run(
+      targetRoomId,
+      returnLabel,
+      roomId,
+    );
+    addExit(targetRoomId, returnLabel, roomId, false);
+  }
+
+  broadcastRoomSnapshot(roomId);
+  if (returnLabel) broadcastRoomSnapshot(targetRoomId);
+
+  res.status(201).json({ ok: true });
+});
+
+builderRouter.delete('/exits/:roomId/:direction', (req, res) => {
+  const roomId = Number(req.params.roomId);
+  const direction = decodeURIComponent(req.params.direction);
+
+  if (CARDINAL_SET.has(direction)) {
+    res.status(400).json({ error: '방향 출구는 방을 드래그하거나 화살표를 클릭해 관리하세요.' });
+    return;
+  }
+
+  const room = getRoom(roomId);
+  if (!room?.exits[direction]) {
+    res.status(404).json({ error: '연결점을 찾을 수 없습니다.' });
+    return;
+  }
+
+  db.prepare('DELETE FROM room_exits WHERE room_id = ? AND direction = ?').run(roomId, direction);
+  removeExit(roomId, direction);
+  broadcastRoomSnapshot(roomId);
+
+  res.status(204).send();
 });
 
 builderRouter.get('/item-templates', (_req, res) => {

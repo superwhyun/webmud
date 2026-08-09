@@ -49,9 +49,10 @@ export function handleMove(ctx: CommandContext, direction: string): void {
 
   const oldRoomId = room.id;
 
+  const departureLabel = DIRECTION_LABELS[direction] ?? direction;
   broadcastToRoom(
     oldRoomId,
-    { type: 'text', text: `${ctx.session.characterName}님이 ${DIRECTION_LABELS[direction]}(으)로 떠났습니다.` },
+    { type: 'text', text: `${ctx.session.characterName}님이 ${departureLabel}(으)로 떠났습니다.` },
     ctx.session.ws,
   );
 
@@ -59,9 +60,12 @@ export function handleMove(ctx: CommandContext, direction: string): void {
   db.prepare('UPDATE characters SET room_id = ? WHERE id = ?').run(targetRoomId, ctx.session.characterId);
 
   const arrivalDirection = OPPOSITE_DIRECTION[direction];
+  const arrivalText = arrivalDirection
+    ? `${DIRECTION_LABELS[arrivalDirection]}에서 들어왔습니다.`
+    : '연결점을 통해 들어왔습니다.';
   broadcastToRoom(
     targetRoomId,
-    { type: 'text', text: `${ctx.session.characterName}님이 ${DIRECTION_LABELS[arrivalDirection]}에서 들어왔습니다.` },
+    { type: 'text', text: `${ctx.session.characterName}님이 ${arrivalText}` },
     ctx.session.ws,
   );
 
@@ -72,4 +76,22 @@ export function handleMove(ctx: CommandContext, direction: string): void {
   broadcastRoomSnapshot(targetRoomId);
 
   triggerAggro(ctx);
+}
+
+/** Moves through a named, non-cardinal exit (a builder-created portal) by exact label match. */
+export function handleEnter(ctx: CommandContext, label: string): void {
+  const trimmed = label.trim();
+  if (!trimmed) {
+    ctx.send({ type: 'error', text: '이동할 곳의 이름을 입력하세요. 사용법: enter <이름>' });
+    return;
+  }
+
+  const room = getRoom(ctx.session.roomId);
+  const matchedDirection = room && Object.keys(room.exits).find((direction) => direction === trimmed);
+  if (!matchedDirection) {
+    ctx.send({ type: 'text', text: '그런 이름의 연결점이 없습니다.' });
+    return;
+  }
+
+  handleMove(ctx, matchedDirection);
 }

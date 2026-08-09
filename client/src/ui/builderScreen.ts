@@ -8,8 +8,13 @@ import {
   type NpcSpawnDto,
   type NpcTemplateDto,
   type RoomItemDto,
+  type RoomOptionAllZonesDto,
+  type ZoneDto,
+  addRoomExit,
   createBuilderRoom,
+  createZone,
   deleteBuilderRoom,
+  fetchAllRoomOptions,
   fetchBuilderItemTemplates,
   fetchBuilderMobSpawns,
   fetchBuilderMobTemplates,
@@ -17,12 +22,14 @@ import {
   fetchBuilderNpcTemplates,
   fetchBuilderRoomItems,
   fetchBuilderRooms,
+  fetchZones,
   placeBuilderMobSpawn,
   placeBuilderNpcSpawn,
   placeBuilderRoomItem,
   removeBuilderMobSpawn,
   removeBuilderNpcSpawn,
   removeBuilderRoomItem,
+  removeRoomExit,
   setExitBlocked,
   updateBuilderRoom,
 } from '../builderApi';
@@ -47,6 +54,7 @@ const CARDINAL_OFFSET: Record<CardinalDirection, { dx: number; dy: number }> = {
   west: { dx: -1, dy: 0 },
 };
 const CARDINAL_DIRECTIONS = Object.keys(CARDINAL_OFFSET) as CardinalDirection[];
+const CARDINAL_SET = new Set<string>(CARDINAL_DIRECTIONS);
 
 interface Point {
   x: number;
@@ -69,6 +77,7 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
         <span class="builder-toolbar-error" id="builder-toolbar-error"></span>
         <button type="button" id="builder-back">게임으로 돌아가기</button>
       </div>
+      <div class="builder-zone-bar" id="builder-zone-bar"></div>
       <div class="builder-body">
         <div class="builder-canvas-wrap" id="builder-canvas-wrap">
           <svg class="builder-canvas" id="builder-canvas"></svg>
@@ -84,6 +93,7 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
   const svg = container.querySelector<SVGSVGElement>('#builder-canvas')!;
   const panel = container.querySelector<HTMLDivElement>('#builder-panel')!;
   const palette = container.querySelector<HTMLDivElement>('#builder-palette')!;
+  const zoneBar = container.querySelector<HTMLDivElement>('#builder-zone-bar')!;
   const addRoomButton = container.querySelector<HTMLButtonElement>('#builder-add-room')!;
   const backButton = container.querySelector<HTMLButtonElement>('#builder-back')!;
   const toolbarError = container.querySelector<HTMLSpanElement>('#builder-toolbar-error')!;
@@ -91,6 +101,10 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
   let rooms: BuilderRoomDto[] = [];
   let selectedRoomId: number | null = null;
   let panelMode: 'create' | 'edit' | 'empty' = 'empty';
+
+  let zones: ZoneDto[] = [];
+  let selectedZoneId: number | null = null;
+  let allRoomOptions: RoomOptionAllZonesDto[] = [];
 
   let itemTemplates: ItemTemplateDto[] = [];
   let mobTemplates: MobTemplateDto[] = [];
@@ -146,11 +160,84 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
   }
 
   async function refresh(): Promise<void> {
-    const result = await fetchBuilderRooms(token);
+    if (selectedZoneId === null) return;
+    const result = await fetchBuilderRooms(token, selectedZoneId);
     rooms = result.rooms;
     renderCanvas();
     renderPanel();
     renderPalette();
+  }
+
+  async function refreshZones(): Promise<void> {
+    const result = await fetchZones(token);
+    zones = result.zones;
+    if (selectedZoneId === null || !zones.some((zone) => zone.id === selectedZoneId)) {
+      selectedZoneId = zones[0]?.id ?? null;
+    }
+    renderZoneBar();
+    await refresh();
+  }
+
+  async function refreshRoomOptions(): Promise<void> {
+    const result = await fetchAllRoomOptions(token);
+    allRoomOptions = result.rooms;
+  }
+
+  function renderZoneBar(): void {
+    zoneBar.innerHTML = `
+      ${zones
+        .map(
+          (zone) => `
+            <button
+              type="button"
+              class="zone-tab-btn${zone.id === selectedZoneId ? ' zone-tab-btn-active' : ''}"
+              data-zone-id="${zone.id}"
+            >${escapeHtml(zone.name)}</button>
+          `,
+        )
+        .join('')}
+      <button type="button" id="builder-zone-add-toggle">+ 존 추가</button>
+      <span class="builder-zone-add-form" id="builder-zone-add-form" hidden>
+        <input id="builder-zone-name" type="text" maxlength="30" placeholder="존 이름" />
+        <input id="builder-zone-desc" type="text" maxlength="200" placeholder="설명(선택)" />
+        <button type="button" id="builder-zone-add-confirm">추가</button>
+      </span>
+    `;
+
+    zoneBar.querySelectorAll<HTMLButtonElement>('[data-zone-id]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const zoneId = Number(button.dataset.zoneId);
+        if (zoneId === selectedZoneId) return;
+        selectedZoneId = zoneId;
+        selectedRoomId = null;
+        panelMode = 'empty';
+        renderZoneBar();
+        void refresh();
+      });
+    });
+
+    const addForm = zoneBar.querySelector<HTMLSpanElement>('#builder-zone-add-form')!;
+    zoneBar.querySelector<HTMLButtonElement>('#builder-zone-add-toggle')!.addEventListener('click', () => {
+      addForm.hidden = !addForm.hidden;
+    });
+    zoneBar.querySelector<HTMLButtonElement>('#builder-zone-add-confirm')!.addEventListener('click', () => {
+      const name = zoneBar.querySelector<HTMLInputElement>('#builder-zone-name')!.value.trim();
+      const description = zoneBar.querySelector<HTMLInputElement>('#builder-zone-desc')!.value.trim();
+      if (!name) {
+        showToolbarError('존 이름을 입력하세요.');
+        return;
+      }
+      createZone(token, name, description)
+        .then((result) => {
+          selectedZoneId = result.zone.id;
+          selectedRoomId = null;
+          panelMode = 'empty';
+          return refreshZones();
+        })
+        .catch((error: unknown) => {
+          showToolbarError(error instanceof Error ? error.message : '존 생성에 실패했습니다.');
+        });
+    });
   }
 
   async function refreshPalette(): Promise<void> {
@@ -694,12 +781,18 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
           target = computeFreeCell();
         }
 
-        createBuilderRoom(token, name, description, target.x, target.y)
+        if (selectedZoneId === null) {
+          errorEl.textContent = '존을 먼저 선택하세요.';
+          return;
+        }
+
+        createBuilderRoom(token, name, description, target.x, target.y, selectedZoneId)
           .then((result) => {
             selectedRoomId = result.room.id;
             panelMode = 'edit';
             return refresh();
           })
+          .then(() => refreshRoomOptions())
           .catch((error: unknown) => {
             errorEl.textContent = error instanceof Error ? error.message : '방 생성에 실패했습니다.';
           });
@@ -726,6 +819,10 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
 
         <h4>출구</h4>
         <p class="builder-panel-hint">출구는 지도에서 방을 드래그해 인접시키거나 떨어뜨려서 관리합니다. 화살표를 클릭하면 해당 방향을 막거나 열 수 있습니다.</p>
+
+        <h4>연결점 (포털)</h4>
+        <p class="builder-panel-hint">그리드 인접과 무관하게, 이 방에서 다른 방(다른 존 포함)으로 바로 이동할 수 있는 연결점을 만듭니다.</p>
+        <div id="builder-panel-portals"></div>
 
         <div id="builder-panel-placement"></div>
 
@@ -761,14 +858,106 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
             panelMode = 'empty';
             return refresh();
           })
+          .then(() => refreshRoomOptions())
           .catch((error: unknown) => {
             errorEl.textContent = error instanceof Error ? error.message : '삭제에 실패했습니다.';
           });
       });
+
+      renderPortalSection(room);
       return;
     }
 
     panel.innerHTML = '<p class="builder-panel-empty">방을 선택하세요.</p>';
+  }
+
+  function renderPortalSection(room: BuilderRoomDto): void {
+    const portalPanel = panel.querySelector<HTMLDivElement>('#builder-panel-portals');
+    if (!portalPanel) return;
+
+    const portalExits = room.exits.filter((exit) => !CARDINAL_SET.has(exit.direction));
+
+    const groupedOptions = new Map<string, RoomOptionAllZonesDto[]>();
+    for (const option of allRoomOptions) {
+      const list = groupedOptions.get(option.zoneName) ?? [];
+      list.push(option);
+      groupedOptions.set(option.zoneName, list);
+    }
+    const targetSelectHtml = [...groupedOptions.entries()]
+      .map(
+        ([zoneName, options]) => `
+          <optgroup label="${escapeHtml(zoneName)}">
+            ${options.map((option) => `<option value="${option.id}">${escapeHtml(option.name)}</option>`).join('')}
+          </optgroup>
+        `,
+      )
+      .join('');
+
+    portalPanel.innerHTML = `
+      <ul class="builder-palette-list">
+        ${
+          portalExits
+            .map((exit) => {
+              const target = allRoomOptions.find((option) => option.id === exit.targetRoomId);
+              const targetLabel = target
+                ? `${escapeHtml(target.name)} (${escapeHtml(target.zoneName)})`
+                : `#${exit.targetRoomId}`;
+              return `
+                <li>
+                  <span>${escapeHtml(exit.direction)} → ${targetLabel}</span>
+                  <button type="button" class="builder-exit-delete" data-remove-portal="${escapeHtml(exit.direction)}">제거</button>
+                </li>
+              `;
+            })
+            .join('') || '<li class="builder-panel-empty">연결점이 없습니다.</li>'
+        }
+      </ul>
+      <div class="builder-form-row">
+        <div class="builder-field">
+          <label for="builder-portal-label">이름</label>
+          <input id="builder-portal-label" type="text" maxlength="30" placeholder="예: 지하미궁행 포털" />
+        </div>
+        <div class="builder-field">
+          <label for="builder-portal-target">대상 방</label>
+          <select id="builder-portal-target">${targetSelectHtml}</select>
+        </div>
+        <div class="builder-field">
+          <label for="builder-portal-return-label">왕복 이름 (선택)</label>
+          <input id="builder-portal-return-label" type="text" maxlength="30" placeholder="비우면 편도" />
+        </div>
+        <button type="button" id="builder-portal-add">연결점 추가</button>
+      </div>
+      <p class="builder-error" id="builder-portal-error"></p>
+    `;
+
+    portalPanel.querySelectorAll<HTMLButtonElement>('[data-remove-portal]').forEach((button) => {
+      button.addEventListener('click', () => {
+        removeRoomExit(token, room.id, button.dataset.removePortal!)
+          .then(() => refresh())
+          .catch((error: unknown) => {
+            showToolbarError(error instanceof Error ? error.message : '연결점 제거에 실패했습니다.');
+          });
+      });
+    });
+
+    const portalErrorEl = portalPanel.querySelector<HTMLParagraphElement>('#builder-portal-error')!;
+    portalPanel.querySelector<HTMLButtonElement>('#builder-portal-add')?.addEventListener('click', () => {
+      const label = portalPanel.querySelector<HTMLInputElement>('#builder-portal-label')!.value.trim();
+      const targetSelect = portalPanel.querySelector<HTMLSelectElement>('#builder-portal-target')!;
+      const targetRoomId = Number(targetSelect.value);
+      const returnLabel = portalPanel.querySelector<HTMLInputElement>('#builder-portal-return-label')!.value.trim();
+
+      if (!label || !targetRoomId) {
+        portalErrorEl.textContent = '이름과 대상 방을 입력하세요.';
+        return;
+      }
+
+      addRoomExit(token, room.id, label, targetRoomId, returnLabel || undefined)
+        .then(() => refresh())
+        .catch((error: unknown) => {
+          portalErrorEl.textContent = error instanceof Error ? error.message : '연결점 추가에 실패했습니다.';
+        });
+    });
   }
 
   svg.addEventListener('pointerdown', () => {
@@ -786,6 +975,7 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
 
   backButton.addEventListener('click', onBack);
 
-  void refresh();
+  void refreshZones();
   void refreshPalette();
+  void refreshRoomOptions();
 }

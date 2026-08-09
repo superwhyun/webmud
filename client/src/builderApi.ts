@@ -13,7 +13,21 @@ export interface BuilderRoomDto {
   description: string;
   x: number;
   y: number;
+  zoneId: number;
   exits: BuilderExitDto[];
+}
+
+export interface ZoneDto {
+  id: number;
+  name: string;
+  description: string;
+}
+
+export interface RoomOptionAllZonesDto {
+  id: number;
+  name: string;
+  zoneId: number;
+  zoneName: string;
 }
 
 export interface ItemTemplateDto {
@@ -84,8 +98,12 @@ export interface NpcSpawnDto {
   npcName: string;
 }
 
-export function fetchBuilderRooms(token: string): Promise<{ rooms: BuilderRoomDto[] }> {
-  return apiRequest('/builder/rooms', { headers: authHeader(token) });
+export function fetchBuilderRooms(token: string, zoneId: number): Promise<{ rooms: BuilderRoomDto[] }> {
+  return apiRequest(`/builder/rooms?zoneId=${zoneId}`, { headers: authHeader(token) });
+}
+
+export function fetchAllRoomOptions(token: string): Promise<{ rooms: RoomOptionAllZonesDto[] }> {
+  return apiRequest('/builder/rooms/all', { headers: authHeader(token) });
 }
 
 export function createBuilderRoom(
@@ -94,11 +112,45 @@ export function createBuilderRoom(
   description: string,
   x: number,
   y: number,
+  zoneId: number,
 ): Promise<{ room: BuilderRoomDto }> {
   return apiRequest('/builder/rooms', {
     method: 'POST',
     headers: authHeader(token),
-    body: JSON.stringify({ name, description, x, y }),
+    body: JSON.stringify({ name, description, x, y, zoneId }),
+  });
+}
+
+export function fetchZones(token: string): Promise<{ zones: ZoneDto[] }> {
+  return apiRequest('/builder/zones', { headers: authHeader(token) });
+}
+
+export function createZone(token: string, name: string, description: string): Promise<{ zone: ZoneDto }> {
+  return apiRequest('/builder/zones', {
+    method: 'POST',
+    headers: authHeader(token),
+    body: JSON.stringify({ name, description }),
+  });
+}
+
+export function addRoomExit(
+  token: string,
+  roomId: number,
+  label: string,
+  targetRoomId: number,
+  returnLabel?: string,
+): Promise<void> {
+  return apiRequest('/builder/exits', {
+    method: 'POST',
+    headers: authHeader(token),
+    body: JSON.stringify({ roomId, label, targetRoomId, returnLabel: returnLabel || undefined }),
+  });
+}
+
+export function removeRoomExit(token: string, roomId: number, direction: string): Promise<void> {
+  return apiRequest(`/builder/exits/${roomId}/${encodeURIComponent(direction)}`, {
+    method: 'DELETE',
+    headers: authHeader(token),
   });
 }
 

@@ -65,6 +65,7 @@ const COMMAND_VERBS = [
   'village',
   'travel',
   'leave',
+  'enter',
   'raid',
   'stat',
   'skill',
@@ -558,30 +559,29 @@ export function renderGameScreen(
     `;
   }
 
-  const roomCoord = new Map<number, { x: number; y: number }>();
+  const roomCoord = new Map<number, { zoneId: number; x: number; y: number }>();
   const coordRoom = new Map<string, number>();
   const roomNames = new Map<number, string>();
   let currentRoomId: number | null = null;
   let pendingDirection: 'north' | 'south' | 'east' | 'west' | null = null;
   let latestRoom: RoomSnapshot | null = null;
 
-  function setRoomPosition(roomId: number, x: number, y: number): void {
-    roomCoord.set(roomId, { x, y });
-    coordRoom.set(`${x},${y}`, roomId);
+  function setRoomPosition(roomId: number, zoneId: number, x: number, y: number): void {
+    roomCoord.set(roomId, { zoneId, x, y });
+    coordRoom.set(`${zoneId}:${x},${y}`, roomId);
   }
 
   function recordRoomVisit(room: RoomSnapshot): void {
     roomNames.set(room.id, room.name);
 
     if (!roomCoord.has(room.id)) {
-      if (roomCoord.size === 0) {
-        setRoomPosition(room.id, 0, 0);
-      } else if (currentRoomId !== null && pendingDirection) {
-        const base = roomCoord.get(currentRoomId);
-        if (base) {
-          const offset = CARDINAL_OFFSET[pendingDirection];
-          setRoomPosition(room.id, base.x + offset.dx, base.y + offset.dy);
-        }
+      const previous = currentRoomId !== null ? roomCoord.get(currentRoomId) : undefined;
+      if (previous && pendingDirection && previous.zoneId === room.zoneId) {
+        const offset = CARDINAL_OFFSET[pendingDirection];
+        setRoomPosition(room.id, room.zoneId, previous.x + offset.dx, previous.y + offset.dy);
+      } else {
+        // 최초 진입이거나(전 위치 없음) 존이 바뀐 이동(포털 등 인접성 없는 이동) → 새 로컬 원점에서 시작
+        setRoomPosition(room.id, room.zoneId, 0, 0);
       }
     }
 
@@ -596,7 +596,7 @@ export function renderGameScreen(
 
     for (let dy = MINIMAP_ROW_START; dy <= MINIMAP_ROW_END; dy++) {
       for (let dx = -MINIMAP_COL_RADIUS; dx <= MINIMAP_COL_RADIUS; dx++) {
-        const roomId = coordRoom.get(`${center.x + dx},${center.y + dy}`);
+        const roomId = coordRoom.get(`${center.zoneId}:${center.x + dx},${center.y + dy}`);
         const cell = document.createElement('span');
         cell.className = 'minimap-cell';
         if (roomId !== undefined) {
