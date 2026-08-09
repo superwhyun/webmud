@@ -2,6 +2,7 @@ import {
   ELEMENT_LABELS,
   EQUIPMENT_SLOTS,
   EQUIPMENT_SLOT_LABELS,
+  DIRECTION_VALUES,
   ITEM_MENTION_PATTERN,
   JOB_DESCRIPTIONS,
   JOB_LABELS,
@@ -47,6 +48,16 @@ const CARDINAL_OFFSET: Record<'north' | 'south' | 'east' | 'west', { dx: number;
 const MINIMAP_COL_RADIUS = 2; // 5 columns wide
 const MINIMAP_ROW_START = -4;
 const MINIMAP_ROW_END = 5; // 10 rows tall
+
+const MINIMAP_EXIT_GLYPH: Record<'north' | 'south' | 'east' | 'west', string> = {
+  north: '▲',
+  south: '▼',
+  east: '▶',
+  west: '◀',
+};
+const MINIMAP_CARDINAL_DIRECTIONS = new Set(['north', 'south', 'east', 'west']);
+/** north/south/east/west/up/down이 아닌 출구는 빌더가 만든 이름 붙은 연결점(enter로 타는 포털)이다. */
+const MINIMAP_SPATIAL_DIRECTIONS = new Set(DIRECTION_VALUES);
 
 const COMMAND_VERBS = [
   'look',
@@ -526,10 +537,6 @@ export function renderGameScreen(
   }
 
   function renderRoom(room: RoomSnapshot): void {
-    const exitsText =
-      room.exits.length > 0
-        ? room.exits.map((exit) => (exit.blocked ? `${exit.label} [막힘]` : exit.label)).join(', ')
-        : '없음';
     const mobsText =
       room.mobs.length > 0
         ? room.mobs.map((mob) => `${mob.name} Lv.${mob.level} (${mob.hp}/${mob.maxHp})`).join(', ')
@@ -550,7 +557,6 @@ export function renderGameScreen(
       <div class="room-name">${room.name}</div>
       <p class="room-desc">${room.description}</p>
       <div class="room-meta">
-        <span><strong>출구</strong>${exitsText}</span>
         <span><strong>몬스터</strong>${mobsText}</span>
         <span><strong>아이템</strong>${itemsText}</span>
         <span><strong>NPC</strong>${npcsText}</span>
@@ -563,6 +569,8 @@ export function renderGameScreen(
   const roomCoord = new Map<number, { zoneId: number; x: number; y: number }>();
   const coordRoom = new Map<string, number>();
   const roomNames = new Map<number, string>();
+  /** 마지막으로 확인한 출구 정보를 방 id별로 기억해서, 그 방을 떠난 뒤에도 미니맵에 계속 표시한다. */
+  const roomExits = new Map<number, RoomSnapshot['exits']>();
   let currentRoomId: number | null = null;
   let pendingDirection: 'north' | 'south' | 'east' | 'west' | null = null;
   let latestRoom: RoomSnapshot | null = null;
@@ -574,6 +582,7 @@ export function renderGameScreen(
 
   function recordRoomVisit(room: RoomSnapshot): void {
     roomNames.set(room.id, room.name);
+    roomExits.set(room.id, room.exits);
 
     if (!roomCoord.has(room.id)) {
       const previous = currentRoomId !== null ? roomCoord.get(currentRoomId) : undefined;
@@ -590,6 +599,28 @@ export function renderGameScreen(
     pendingDirection = null;
   }
 
+  /** 방 칸 위에 출구 방향(화살표)/막힘(X)/포털(P) 표시를 얹는다. 가본 적 있는 방이면 그 방을 떠난 뒤에도 마지막으로 확인한 출구 정보를 계속 보여준다. */
+  function renderMinimapExits(cell: HTMLSpanElement, exits: RoomSnapshot['exits']): void {
+    let hasPortal = false;
+    for (const exit of exits) {
+      if (MINIMAP_CARDINAL_DIRECTIONS.has(exit.direction)) {
+        const direction = exit.direction as 'north' | 'south' | 'east' | 'west';
+        const marker = document.createElement('span');
+        marker.className = `minimap-exit minimap-exit-${direction}${exit.blocked ? ' minimap-exit-blocked' : ''}`;
+        marker.textContent = exit.blocked ? '✕' : MINIMAP_EXIT_GLYPH[direction];
+        cell.appendChild(marker);
+      } else if (!MINIMAP_SPATIAL_DIRECTIONS.has(exit.direction)) {
+        hasPortal = true;
+      }
+    }
+    if (hasPortal) {
+      const badge = document.createElement('span');
+      badge.className = 'minimap-portal-badge';
+      badge.textContent = 'P';
+      cell.appendChild(badge);
+    }
+  }
+
   function renderMinimap(): void {
     minimap.innerHTML = '';
     const center = currentRoomId !== null ? roomCoord.get(currentRoomId) : undefined;
@@ -603,6 +634,8 @@ export function renderGameScreen(
         if (roomId !== undefined) {
           cell.classList.add('minimap-visited');
           if (roomId === currentRoomId) cell.classList.add('minimap-current');
+          const exits = roomExits.get(roomId);
+          if (exits) renderMinimapExits(cell, exits);
           cell.title = roomNames.get(roomId) ?? '';
         }
         minimap.appendChild(cell);

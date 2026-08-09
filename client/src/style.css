@@ -96,13 +96,14 @@ body::after {
 .room-name {
   color: var(--color-accent);
   font-weight: bold;
-  font-size: 1.1rem;
+  font-size: 1.54rem;
   text-shadow: var(--glow-accent);
 }
 
 .room-desc {
   margin: 0.5rem 0;
   color: var(--color-text);
+  font-size: 1.4rem;
   line-height: 1.5;
 }
 
@@ -111,7 +112,7 @@ body::after {
   flex-wrap: wrap;
   gap: 0.4rem 1.5rem;
   color: var(--color-text-dim);
-  font-size: 0.9rem;
+  font-size: 1.26rem;
   border-top: 1px solid var(--color-border);
   padding-top: 0.5rem;
 }
@@ -246,6 +247,7 @@ body::after {
 .ops-menu {
   width: clamp(150px, 12vw, 180px);
   flex-shrink: 0;
+  order: 1;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -559,6 +561,7 @@ body::after {
 }
 
 .minimap-cell {
+  position: relative;
   aspect-ratio: 1;
   border-radius: 3px;
   background: var(--color-bg);
@@ -572,6 +575,55 @@ body::after {
 .minimap-current {
   background: var(--color-accent);
   box-shadow: var(--glow-accent);
+}
+
+.minimap-exit {
+  position: absolute;
+  font-size: 1.8rem;
+  line-height: 1;
+  color: var(--color-bg);
+  font-weight: bold;
+}
+
+.minimap-exit-north {
+  top: -1px;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.minimap-exit-south {
+  bottom: -1px;
+  left: 50%;
+  transform: translate(-50%, 50%);
+}
+
+.minimap-exit-east {
+  top: 50%;
+  right: -1px;
+  transform: translate(50%, -50%);
+}
+
+.minimap-exit-west {
+  top: 50%;
+  left: -1px;
+  transform: translate(-50%, -50%);
+}
+
+.minimap-exit-blocked {
+  color: var(--color-danger);
+}
+
+.minimap-portal-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  font-size: 1.65rem;
+  font-weight: bold;
+  line-height: 1;
+  color: var(--color-bg);
+  background: var(--color-warning);
+  border-radius: 2px;
+  padding: 0 2px;
 }
 
 .inventory-panel-list {
