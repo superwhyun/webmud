@@ -87,6 +87,9 @@ const COMMAND_VERBS = [
   'd',
 ];
 
+/** 게임 화면을 벗어났다 돌아올 때마다 새로 등록되는 걸 막기 위해, 이전에 등록한 핸들러를 기억해뒀다가 떼어낸다. */
+let activeCommandFocusHandler: ((event: KeyboardEvent) => void) | null = null;
+
 const STAT_ALLOC_ENTRIES: { key: string; label: string; pick: (c: CharacterState) => number }[] = [
   { key: 'str', label: '힘', pick: (c) => c.strength },
   { key: 'dex', label: '민첩', pick: (c) => c.dexterity },
@@ -860,6 +863,26 @@ export function renderGameScreen(
     if (!text) return;
     sendCommand(text);
   });
+
+  if (activeCommandFocusHandler) {
+    document.removeEventListener('keydown', activeCommandFocusHandler);
+  }
+
+  /** 모달이 열려있거나 다른 입력/버튼에 포커스가 있는 게 아니라면, 키보드 입력이 항상 명령창으로 가도록 되돌려놓는다. */
+  function isFocusStealExempt(): boolean {
+    if ([equipModal, jobModal, skillModal, macroModal].some((modal) => !modal.hidden)) return true;
+    const active = document.activeElement;
+    if (!active || active === commandInput) return false;
+    const tag = active.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON' || (active as HTMLElement).isContentEditable;
+  }
+
+  activeCommandFocusHandler = (event: KeyboardEvent) => {
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+    if (isFocusStealExempt()) return;
+    commandInput.focus();
+  };
+  document.addEventListener('keydown', activeCommandFocusHandler);
 
   const builderEntryButton = container.querySelector<HTMLButtonElement>('#builder-entry');
   builderEntryButton?.addEventListener('click', () => {
