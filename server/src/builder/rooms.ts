@@ -257,6 +257,9 @@ builderRouter.delete('/rooms/:id', (req, res) => {
     .all(id, id) as { room_id: number; direction: string; target_room_id: number }[];
 
   db.prepare('DELETE FROM room_exits WHERE room_id = ? OR target_room_id = ?').run(id, id);
+  db.prepare('DELETE FROM room_items WHERE room_id = ?').run(id);
+  db.prepare('DELETE FROM mob_spawns WHERE room_id = ?').run(id);
+  db.prepare('DELETE FROM npc_spawns WHERE room_id = ?').run(id);
   db.prepare('DELETE FROM rooms WHERE id = ?').run(id);
 
   const affectedRoomIds = new Set<number>();
