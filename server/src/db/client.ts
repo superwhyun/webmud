@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SCHEMA_SQL } from './schema.js';
 import { ITEMS, seed } from './seed/index.js';
+import { LAST_PROGRESSION_ROOM_ID, PROGRESSION_EXITS, PROGRESSION_MOB_SPAWNS, PROGRESSION_ROOMS, PROGRESSION_ZONES } from './seed/progressionZones.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const dataDir = join(__dirname, '..', '..', 'data');
@@ -175,7 +176,36 @@ function backfillMissingItems(target: Database.Database): void {
   }
 }
 
+/**
+ * seed()가 끝난 뒤에도 새로 추가된 레벨대 존(Lv 6-50)을 기존 DB에 한 번만 채워 넣는다.
+ * 마지막 존의 마지막 방 id가 이미 있으면 이전에 적용된 것이므로 건너뛴다.
+ */
+function backfillProgressionZones(target: Database.Database): void {
+  const existing = target.prepare('SELECT id FROM rooms WHERE id = ?').get(LAST_PROGRESSION_ROOM_ID);
+  if (existing) return;
+
+  const insertZone = target.prepare('INSERT INTO zones (id, name, description) VALUES (?, ?, ?)');
+  const insertRoom = target.prepare(
+    'INSERT INTO rooms (id, name, description, x, y, zone_id) VALUES (?, ?, ?, ?, ?, ?)',
+  );
+  const insertExit = target.prepare(
+    'INSERT INTO room_exits (room_id, direction, target_room_id) VALUES (?, ?, ?)',
+  );
+  const insertMobSpawn = target.prepare(
+    'INSERT INTO mob_spawns (room_id, mob_template_id, respawn_seconds) VALUES (?, ?, ?)',
+  );
+
+  const tx = target.transaction(() => {
+    for (const zone of PROGRESSION_ZONES) insertZone.run(zone.id, zone.name, zone.description);
+    for (const room of PROGRESSION_ROOMS) insertRoom.run(room.id, room.name, room.description, room.x, room.y, room.zoneId);
+    for (const exit of PROGRESSION_EXITS) insertExit.run(exit.roomId, exit.direction, exit.targetRoomId);
+    for (const spawn of PROGRESSION_MOB_SPAWNS) insertMobSpawn.run(spawn.roomId, spawn.mobTemplateId, spawn.respawnSeconds);
+  });
+  tx();
+}
+
 migrate(db);
 seed(db);
 backfillMissingItems(db);
 backfillRoomPositions(db);
+backfillProgressionZones(db);
