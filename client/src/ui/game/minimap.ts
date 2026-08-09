@@ -20,9 +20,9 @@ const CARDINAL_OFFSET: Record<'north' | 'south' | 'east' | 'west', { dx: number;
   west: { dx: -1, dy: 0 },
 };
 
-const MINIMAP_COL_RADIUS = 2; // 5 columns wide
-const MINIMAP_ROW_START = -4;
-const MINIMAP_ROW_END = 5; // 10 rows tall
+const MINIMAP_COL_RADIUS = 1; // 3 columns wide
+const MINIMAP_ROW_START = -1;
+const MINIMAP_ROW_END = 1; // 3 rows tall
 
 const MINIMAP_EXIT_GLYPH: Record<'north' | 'south' | 'east' | 'west', string> = {
   north: '▲',
