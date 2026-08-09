@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { ELEMENT_VALUES, JOB_BASE_STATS, JOB_VALUES } from '@mud/shared';
-import { STARTING_ROOM_ID } from '../db/seed.js';
+import { STARTING_ROOM_ID } from '../db/seed/index.js';
 import { db } from '../db/client.js';
 import type { CharacterWithRoomRow } from '../db/types.js';
 import { type AuthedRequest, requireAuth } from './middleware.js';
