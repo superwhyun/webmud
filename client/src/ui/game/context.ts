@@ -1,0 +1,256 @@
+import {
+  ITEM_MENTION_PATTERN,
+  MAX_INVENTORY_SLOTS,
+  type CharacterState,
+  type CombatMobInfo,
+  type EquipmentSnapshot,
+  type InventoryItemInfo,
+  type RoomSnapshot,
+} from '@mud/shared';
+import { loadMacros, type MacroMap } from '../../macros';
+
+export interface ActiveCooldown {
+  name: string;
+  endsAt: number;
+  totalMs: number;
+}
+
+export interface TabCompletionState {
+  base: string;
+  candidates: string[];
+  index: number;
+}
+
+export interface GameContext {
+  container: HTMLElement;
+  token: string;
+  isBuilder: boolean;
+  isAdmin: boolean;
+  onLogout: () => void;
+  socket: WebSocket;
+
+  roomPanel: HTMLDivElement;
+  combatPanel: HTMLDivElement;
+  terminal: HTMLDivElement;
+  sidebarStats: HTMLDivElement;
+  equipmentPanel: HTMLDivElement;
+  cooldownPanel: HTMLDivElement;
+  minimap: HTMLDivElement;
+  inventoryPanelList: HTMLDivElement;
+  inventoryCountLabel: HTMLSpanElement;
+  commandInput: HTMLInputElement;
+  equipModal: HTMLDivElement;
+  equipModalBody: HTMLDivElement;
+  jobModal: HTMLDivElement;
+  jobModalBody: HTMLDivElement;
+  skillModal: HTMLDivElement;
+  skillModalBody: HTMLDivElement;
+  macroModal: HTMLDivElement;
+  macroModalBody: HTMLDivElement;
+
+  currentCharacterState: CharacterState | undefined;
+  learnedSkillIds: string[];
+  latestCombatMobs: CombatMobInfo[];
+  activeCooldowns: Map<string, ActiveCooldown>;
+  macros: MacroMap;
+  equipmentState: EquipmentSnapshot;
+  inventoryState: InventoryItemInfo[];
+
+  /** 방 id -> 로컬 좌표. 존이 바뀌면 새 원점(0,0)에서 다시 시작한다. */
+  roomCoord: Map<number, { zoneId: number; x: number; y: number }>;
+  coordRoom: Map<string, number>;
+  roomNames: Map<number, string>;
+  /** 마지막으로 확인한 출구 정보를 방 id별로 기억해서, 그 방을 떠난 뒤에도 미니맵에 계속 표시한다. */
+  roomExits: Map<number, RoomSnapshot['exits']>;
+  currentRoomId: number | null;
+  pendingDirection: 'north' | 'south' | 'east' | 'west' | null;
+  latestRoom: RoomSnapshot | null;
+
+  commandHistory: string[];
+  historyIndex: number;
+  historyDraft: string;
+  tabCompletion: TabCompletionState | null;
+}
+
+function renderShellHtml(isBuilder: boolean, isAdmin: boolean): string {
+  return `
+    <div class="room-panel" id="room-panel"></div>
+    <div class="command-input">
+      <span class="prompt">&gt;</span>
+      <input id="command" type="text" autocomplete="off" autofocus aria-label="명령어 입력" />
+    </div>
+    <div class="combat-panel" id="combat-panel" hidden></div>
+    <div class="game-layout">
+      <div class="terminal" id="terminal"></div>
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-stats" id="sidebar-stats"></div>
+        <div class="equipment-panel" id="equipment-panel"></div>
+        <div class="cooldown-panel" id="cooldown-panel"></div>
+        <button type="button" id="equip-swap-button" class="equip-swap-btn">장비 교체</button>
+        <button type="button" id="skill-button" class="skill-btn">스킬</button>
+        <button type="button" id="macro-button" class="skill-btn">매크로</button>
+        <button type="button" id="logout-button" class="logout-btn">로그아웃</button>
+      </aside>
+      ${
+        isBuilder || isAdmin
+          ? `
+      <aside class="ops-menu" id="ops-menu">
+        ${
+          isBuilder
+            ? `<div class="ops-menu-section">
+                <div class="ops-menu-title">🛠 빌더 메뉴</div>
+                <button type="button" id="builder-entry" class="builder-entry-btn">맵 편집기 열기</button>
+              </div>`
+            : ''
+        }
+        ${
+          isAdmin
+            ? `<div class="ops-menu-section">
+                <div class="ops-menu-title">⚙ 어드민 메뉴</div>
+                <button type="button" id="admin-entry" class="admin-entry-btn">관리자 패널 열기</button>
+              </div>`
+            : ''
+        }
+      </aside>`
+          : ''
+      }
+      <aside class="map-panel" id="map-panel">
+        <div class="map-panel-title">지도</div>
+        <div class="minimap" id="minimap"></div>
+        <div class="map-panel-title">인벤토리 (<span id="inventory-count">0</span>/${MAX_INVENTORY_SLOTS})</div>
+        <div class="inventory-panel-list" id="inventory-panel-list"></div>
+      </aside>
+    </div>
+    <div class="modal-overlay" id="equip-modal" hidden>
+      <div class="modal-content">
+        <div class="modal-header">
+          <span>장비 교체</span>
+          <button type="button" id="equip-modal-close" class="modal-close-btn" aria-label="닫기">✕</button>
+        </div>
+        <div class="modal-body" id="equip-modal-body"></div>
+      </div>
+    </div>
+    <div class="modal-overlay" id="job-modal" hidden>
+      <div class="modal-content">
+        <div class="modal-header">
+          <span>직업 선택</span>
+        </div>
+        <div class="modal-body" id="job-modal-body"></div>
+      </div>
+    </div>
+    <div class="modal-overlay" id="skill-modal" hidden>
+      <div class="modal-content">
+        <div class="modal-header">
+          <span>스킬</span>
+          <button type="button" id="skill-modal-close" class="modal-close-btn" aria-label="닫기">✕</button>
+        </div>
+        <div class="modal-body" id="skill-modal-body"></div>
+      </div>
+    </div>
+    <div class="modal-overlay" id="macro-modal" hidden>
+      <div class="modal-content">
+        <div class="modal-header">
+          <span>매크로</span>
+          <button type="button" id="macro-modal-close" class="modal-close-btn" aria-label="닫기">✕</button>
+        </div>
+        <div class="modal-body" id="macro-modal-body"></div>
+      </div>
+    </div>
+  `;
+}
+
+export function createGameContext(
+  container: HTMLElement,
+  token: string,
+  isBuilder: boolean,
+  isAdmin: boolean,
+  onLogout: () => void,
+): GameContext {
+  container.innerHTML = renderShellHtml(isBuilder, isAdmin);
+
+  const wsUrl = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`;
+  const socket = new WebSocket(wsUrl);
+
+  return {
+    container,
+    token,
+    isBuilder,
+    isAdmin,
+    onLogout,
+    socket,
+
+    roomPanel: container.querySelector<HTMLDivElement>('#room-panel')!,
+    combatPanel: container.querySelector<HTMLDivElement>('#combat-panel')!,
+    terminal: container.querySelector<HTMLDivElement>('#terminal')!,
+    sidebarStats: container.querySelector<HTMLDivElement>('#sidebar-stats')!,
+    equipmentPanel: container.querySelector<HTMLDivElement>('#equipment-panel')!,
+    cooldownPanel: container.querySelector<HTMLDivElement>('#cooldown-panel')!,
+    minimap: container.querySelector<HTMLDivElement>('#minimap')!,
+    inventoryPanelList: container.querySelector<HTMLDivElement>('#inventory-panel-list')!,
+    inventoryCountLabel: container.querySelector<HTMLSpanElement>('#inventory-count')!,
+    commandInput: container.querySelector<HTMLInputElement>('#command')!,
+    equipModal: container.querySelector<HTMLDivElement>('#equip-modal')!,
+    equipModalBody: container.querySelector<HTMLDivElement>('#equip-modal-body')!,
+    jobModal: container.querySelector<HTMLDivElement>('#job-modal')!,
+    jobModalBody: container.querySelector<HTMLDivElement>('#job-modal-body')!,
+    skillModal: container.querySelector<HTMLDivElement>('#skill-modal')!,
+    skillModalBody: container.querySelector<HTMLDivElement>('#skill-modal-body')!,
+    macroModal: container.querySelector<HTMLDivElement>('#macro-modal')!,
+    macroModalBody: container.querySelector<HTMLDivElement>('#macro-modal-body')!,
+
+    currentCharacterState: undefined,
+    learnedSkillIds: [],
+    latestCombatMobs: [],
+    activeCooldowns: new Map(),
+    macros: loadMacros(),
+    equipmentState: {},
+    inventoryState: [],
+
+    roomCoord: new Map(),
+    coordRoom: new Map(),
+    roomNames: new Map(),
+    roomExits: new Map(),
+    currentRoomId: null,
+    pendingDirection: null,
+    latestRoom: null,
+
+    commandHistory: [],
+    historyIndex: 0,
+    historyDraft: '',
+    tabCompletion: null,
+  };
+}
+
+export function hpLevel(ratio: number): 'normal' | 'warning' | 'danger' {
+  if (ratio <= 0.25) return 'danger';
+  if (ratio <= 0.5) return 'warning';
+  return 'normal';
+}
+
+function appendItemMentions(target: HTMLElement, text: string): void {
+  ITEM_MENTION_PATTERN.lastIndex = 0;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = ITEM_MENTION_PATTERN.exec(text))) {
+    if (match.index > lastIndex) {
+      target.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+    }
+    const [, grade, name] = match;
+    const span = document.createElement('span');
+    span.className = `item-grade-${grade}`;
+    span.textContent = name;
+    target.appendChild(span);
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) {
+    target.appendChild(document.createTextNode(text.slice(lastIndex)));
+  }
+}
+
+export function appendLine(ctx: GameContext, text: string, channel?: string): void {
+  const line = document.createElement('div');
+  line.className = `line line-${channel ?? 'system'}`;
+  appendItemMentions(line, text);
+  ctx.terminal.prepend(line);
+  ctx.terminal.scrollTop = 0;
+}
