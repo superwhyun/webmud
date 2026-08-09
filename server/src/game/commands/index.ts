@@ -113,7 +113,7 @@ export function dispatchCommand(ctx: CommandContext, rawText: string): void {
     return;
   }
 
-  if (lowerVerb === 'enter') {
+  if (lowerVerb === 'enter' || lowerVerb === 'e') {
     handleEnter(ctx, rest);
     return;
   }

@@ -3,20 +3,24 @@ import { resolveDirection } from './movement.js';
 
 describe('resolveDirection', () => {
   it.each([
-    ['n', 'north'],
     ['north', 'north'],
-    ['s', 'south'],
+    ['w', 'north'],
     ['south', 'south'],
-    ['e', 'east'],
+    ['s', 'south'],
     ['east', 'east'],
-    ['w', 'west'],
+    ['d', 'east'],
     ['west', 'west'],
-    ['u', 'up'],
+    ['a', 'west'],
     ['up', 'up'],
-    ['d', 'down'],
+    ['u', 'up'],
     ['down', 'down'],
   ])('resolves %s to %s', (input, expected) => {
     expect(resolveDirection(input)).toBe(expected);
+  });
+
+  it('no longer resolves the old n/e single-letter shortcuts (e is reserved for enter)', () => {
+    expect(resolveDirection('n')).toBeUndefined();
+    expect(resolveDirection('e')).toBeUndefined();
   });
 
   it('is case-insensitive', () => {

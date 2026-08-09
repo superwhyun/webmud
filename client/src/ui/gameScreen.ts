@@ -25,15 +25,16 @@ import { renderBuilderScreen } from './builderScreen';
 import { escapeHtml } from '../domUtils';
 import { loadMacros, saveMacro, MACRO_SLOTS, type MacroMap, type MacroSlot } from '../macros';
 
+// WASD 배치: w=북, a=서, s=남, d=동. e는 enter(포털) 단축 verb라 방향에 없음.
 const CARDINAL_ALIASES: Record<string, 'north' | 'south' | 'east' | 'west'> = {
-  n: 'north',
   north: 'north',
-  s: 'south',
+  w: 'north',
   south: 'south',
-  e: 'east',
+  s: 'south',
   east: 'east',
-  w: 'west',
+  d: 'east',
   west: 'west',
+  a: 'west',
 };
 
 const CARDINAL_OFFSET: Record<'north' | 'south' | 'east' | 'west', { dx: number; dy: number }> = {
@@ -66,6 +67,7 @@ const COMMAND_VERBS = [
   'travel',
   'leave',
   'enter',
+  'e',
   'raid',
   'stat',
   'skill',
@@ -78,14 +80,13 @@ const COMMAND_VERBS = [
   'south',
   'east',
   'west',
-  'n',
-  's',
-  'e',
   'w',
+  'a',
+  's',
+  'd',
   'up',
   'down',
   'u',
-  'd',
 ];
 
 /** 게임 화면을 벗어났다 돌아올 때마다 새로 등록되는 걸 막기 위해, 이전에 등록한 핸들러를 기억해뒀다가 떼어낸다. */

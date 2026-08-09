@@ -7,18 +7,19 @@ import { broadcastToRoom } from '../sessionRegistry.js';
 import { getRoom } from '../World.js';
 import type { CommandContext } from './context.js';
 
+// WASD 배치: w=북, a=서, s=남, d=동 (게임 키보드 관례). n/e 한 글자 단축키는 더 이상 없음 —
+// e는 enter(포털) 명령의 단축 verb로 쓰인다.
 const DIRECTION_ALIASES: Record<string, string> = {
-  n: 'north',
   north: 'north',
-  s: 'south',
+  w: 'north',
   south: 'south',
-  e: 'east',
+  s: 'south',
   east: 'east',
-  w: 'west',
+  d: 'east',
   west: 'west',
-  u: 'up',
+  a: 'west',
   up: 'up',
-  d: 'down',
+  u: 'up',
   down: 'down',
 };
 

@@ -11,7 +11,7 @@ export function showHelp(ctx: CommandContext): void {
     text: [
       '사용 가능한 명령어:',
       'look (l) - 현재 방을 다시 살펴봅니다.',
-      'north/south/east/west/up/down (n/s/e/w/u/d) - 이동합니다.',
+      'north/south/east/west/up/down (w/a/s/d, u) - 이동합니다. (w=북, a=서, s=남, d=동)',
       'say <메시지> - 같은 방에 있는 사람에게 말합니다.',
       'shout <메시지> - 접속 중인 모든 사람에게 외칩니다.',
       'who - 현재 접속 중인 사람 목록을 봅니다.',
@@ -40,7 +40,7 @@ export function showHelp(ctx: CommandContext): void {
       'village disband - (영주) 마을을 완전히 해체합니다.',
       'travel <마을이름> - (미개척지) 마을로 이동합니다. (레벨 3 미만은 마을원만)',
       'leave - 마을에서 미개척지로 돌아갑니다.',
-      'enter <이름> - 방에 있는 연결점(포털)을 통해 이동합니다.',
+      'enter <이름> (e) - 방에 있는 연결점(포털)을 통해 이동합니다.',
       'raid <마을이름> - (영주) 레벨 3+ 마을을 습격합니다.',
       'stat <str|dex|int|vit|wis|luk> <수치> - 미분배 스탯 포인트를 분배합니다.',
       'skill list - 직업 스킬 목록과 습득 현황을 봅니다.',
