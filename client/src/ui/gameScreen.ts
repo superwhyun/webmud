@@ -3,7 +3,16 @@ import { renderAdminScreen } from './adminScreen';
 import { renderBuilderScreen } from './builderScreen';
 import { attachCommandBarListeners } from './game/commandBar';
 import { appendLine, createGameContext } from './game/context';
-import { closeEquipModal, openEquipModal, renderEquipModal, renderEquipmentPanel, renderInventoryPanel } from './game/equipment';
+import {
+  closeEquipModal,
+  closeInventoryModal,
+  openEquipModal,
+  openInventoryModal,
+  renderEquipModal,
+  renderEquipmentPanel,
+  renderInventoryCount,
+  renderInventoryModal,
+} from './game/equipment';
 import { closeMacroModal, openMacroModal } from './game/macroPanel';
 import { recordRoomVisit, renderMinimap } from './game/minimap';
 import { hideCombat, renderCombat, renderRoom, showJobModal } from './game/room';
@@ -54,7 +63,8 @@ export function renderGameScreen(
       if (!ctx.equipModal.hidden) renderEquipModal(ctx);
     } else if (message.type === 'inventory') {
       ctx.inventoryState = message.items;
-      renderInventoryPanel(ctx);
+      renderInventoryCount(ctx);
+      if (!ctx.inventoryModal.hidden) renderInventoryModal(ctx);
       if (!ctx.equipModal.hidden) renderEquipModal(ctx);
     } else if (message.type === 'skills') {
       ctx.learnedSkillIds = message.learnedSkillIds;
@@ -82,7 +92,7 @@ export function renderGameScreen(
   });
 
   renderEquipmentPanel(ctx);
-  renderInventoryPanel(ctx);
+  renderInventoryCount(ctx);
 
   attachCommandBarListeners(ctx);
 
@@ -132,5 +142,15 @@ export function renderGameScreen(
 
   ctx.macroModal.addEventListener('click', (event) => {
     if (event.target === ctx.macroModal) closeMacroModal(ctx);
+  });
+
+  const inventoryButton = container.querySelector<HTMLButtonElement>('#inventory-button')!;
+  inventoryButton.addEventListener('click', () => openInventoryModal(ctx));
+
+  const inventoryModalCloseButton = container.querySelector<HTMLButtonElement>('#inventory-modal-close')!;
+  inventoryModalCloseButton.addEventListener('click', () => closeInventoryModal(ctx));
+
+  ctx.inventoryModal.addEventListener('click', (event) => {
+    if (event.target === ctx.inventoryModal) closeInventoryModal(ctx);
   });
 }

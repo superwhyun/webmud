@@ -10,19 +10,6 @@
   padding: 1rem;
 }
 
-.ops-menu {
-  width: clamp(150px, 12vw, 180px);
-  flex-shrink: 0;
-  order: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  padding: 1rem;
-}
-
 .ops-menu-section {
   display: flex;
   flex-direction: column;
@@ -171,6 +158,7 @@
   white-space: nowrap;
 }
 
+.inventory-open-btn,
 .equip-swap-btn,
 .skill-btn {
   background: var(--color-surface);
@@ -184,6 +172,7 @@
   transition: box-shadow var(--transition-fast);
 }
 
+.inventory-open-btn:hover,
 .equip-swap-btn:hover,
 .skill-btn:hover {
   box-shadow: var(--glow-accent);
@@ -300,7 +289,7 @@
 }
 
 .inventory-panel {
-  width: clamp(280px, 24vw, 420px);
+  width: clamp(160px, 14vw, 200px);
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -309,13 +298,6 @@
   border: 1px solid var(--color-border);
   border-radius: 4px;
   padding: 1rem;
-  overflow-y: auto;
-}
-
-.inventory-panel-title {
-  color: var(--color-text-dim);
-  font-size: 0.85rem;
-  letter-spacing: 0.05em;
 }
 
 .minimap {
@@ -390,15 +372,6 @@
   background: var(--color-warning);
   border-radius: 2px;
   padding: 0 2px;
-}
-
-.inventory-panel-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  max-height: 220px;
-  overflow-y: auto;
-  padding-right: 0.2rem;
 }
 
 .inventory-panel-row {

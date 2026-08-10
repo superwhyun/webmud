@@ -19,9 +19,12 @@ export function renderEquipmentPanel(ctx: GameContext): void {
   }).join('');
 }
 
-export function renderInventoryPanel(ctx: GameContext): void {
+export function renderInventoryCount(ctx: GameContext): void {
   ctx.inventoryCountLabel.textContent = String(ctx.inventoryState.length);
-  ctx.inventoryPanelList.innerHTML =
+}
+
+export function renderInventoryModal(ctx: GameContext): void {
+  ctx.inventoryModalBody.innerHTML =
     ctx.inventoryState
       .map(
         (item) => `
@@ -32,6 +35,15 @@ export function renderInventoryPanel(ctx: GameContext): void {
         `,
       )
       .join('') || '<div class="inventory-panel-empty">비어있음</div>';
+}
+
+export function openInventoryModal(ctx: GameContext): void {
+  renderInventoryModal(ctx);
+  ctx.inventoryModal.hidden = false;
+}
+
+export function closeInventoryModal(ctx: GameContext): void {
+  ctx.inventoryModal.hidden = true;
 }
 
 export function renderEquipModal(ctx: GameContext): void {

@@ -36,7 +36,6 @@ export interface GameContext {
   equipmentPanel: HTMLDivElement;
   cooldownPanel: HTMLDivElement;
   minimap: HTMLDivElement;
-  inventoryPanelList: HTMLDivElement;
   inventoryCountLabel: HTMLSpanElement;
   commandInput: HTMLInputElement;
   equipModal: HTMLDivElement;
@@ -47,6 +46,8 @@ export interface GameContext {
   skillModalBody: HTMLDivElement;
   macroModal: HTMLDivElement;
   macroModalBody: HTMLDivElement;
+  inventoryModal: HTMLDivElement;
+  inventoryModalBody: HTMLDivElement;
 
   currentCharacterState: CharacterState | undefined;
   learnedSkillIds: string[];
@@ -92,15 +93,16 @@ function renderShellHtml(isBuilder: boolean, isAdmin: boolean): string {
         <div class="sidebar-stats" id="sidebar-stats"></div>
         <div class="equipment-panel" id="equipment-panel"></div>
         <div class="cooldown-panel" id="cooldown-panel"></div>
-        <button type="button" id="equip-swap-button" class="equip-swap-btn">장비 교체</button>
-        <button type="button" id="skill-button" class="skill-btn">스킬</button>
-        <button type="button" id="macro-button" class="skill-btn">매크로</button>
-        <button type="button" id="logout-button" class="logout-btn">로그아웃</button>
       </aside>
-      ${
-        isBuilder || isAdmin
-          ? `
-      <aside class="ops-menu" id="ops-menu">
+      <aside class="inventory-panel" id="inventory-panel">
+        <div class="ops-menu-section">
+          <div class="ops-menu-title">사용자 메뉴</div>
+          <button type="button" id="inventory-button" class="inventory-open-btn">인벤토리 (<span id="inventory-count">0</span>/${MAX_INVENTORY_SLOTS})</button>
+          <button type="button" id="equip-swap-button" class="equip-swap-btn">장비 교체</button>
+          <button type="button" id="skill-button" class="skill-btn">스킬</button>
+          <button type="button" id="macro-button" class="skill-btn">매크로</button>
+          <button type="button" id="logout-button" class="logout-btn">로그아웃</button>
+        </div>
         ${
           isBuilder
             ? `<div class="ops-menu-section">
@@ -117,12 +119,6 @@ function renderShellHtml(isBuilder: boolean, isAdmin: boolean): string {
               </div>`
             : ''
         }
-      </aside>`
-          : ''
-      }
-      <aside class="inventory-panel" id="inventory-panel">
-        <div class="inventory-panel-title">인벤토리 (<span id="inventory-count">0</span>/${MAX_INVENTORY_SLOTS})</div>
-        <div class="inventory-panel-list" id="inventory-panel-list"></div>
       </aside>
     </div>
     <div class="modal-overlay" id="equip-modal" hidden>
@@ -160,6 +156,15 @@ function renderShellHtml(isBuilder: boolean, isAdmin: boolean): string {
         <div class="modal-body" id="macro-modal-body"></div>
       </div>
     </div>
+    <div class="modal-overlay" id="inventory-modal" hidden>
+      <div class="modal-content">
+        <div class="modal-header">
+          <span>인벤토리</span>
+          <button type="button" id="inventory-modal-close" class="modal-close-btn" aria-label="닫기">✕</button>
+        </div>
+        <div class="modal-body" id="inventory-modal-body"></div>
+      </div>
+    </div>
   `;
 }
 
@@ -190,7 +195,6 @@ export function createGameContext(
     equipmentPanel: container.querySelector<HTMLDivElement>('#equipment-panel')!,
     cooldownPanel: container.querySelector<HTMLDivElement>('#cooldown-panel')!,
     minimap: container.querySelector<HTMLDivElement>('#minimap')!,
-    inventoryPanelList: container.querySelector<HTMLDivElement>('#inventory-panel-list')!,
     inventoryCountLabel: container.querySelector<HTMLSpanElement>('#inventory-count')!,
     commandInput: container.querySelector<HTMLInputElement>('#command')!,
     equipModal: container.querySelector<HTMLDivElement>('#equip-modal')!,
@@ -201,6 +205,8 @@ export function createGameContext(
     skillModalBody: container.querySelector<HTMLDivElement>('#skill-modal-body')!,
     macroModal: container.querySelector<HTMLDivElement>('#macro-modal')!,
     macroModalBody: container.querySelector<HTMLDivElement>('#macro-modal-body')!,
+    inventoryModal: container.querySelector<HTMLDivElement>('#inventory-modal')!,
+    inventoryModalBody: container.querySelector<HTMLDivElement>('#inventory-modal-body')!,
 
     currentCharacterState: undefined,
     learnedSkillIds: [],

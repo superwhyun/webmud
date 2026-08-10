@@ -9,7 +9,6 @@
   }
 
   .sidebar,
-  .ops-menu,
   .inventory-panel {
     width: auto;
     flex: 1 1 220px;
@@ -75,6 +74,8 @@
     width: 100%;
     max-width: 100%;
     min-width: 0;
+    flex-direction: row;
+    flex-wrap: wrap;
   }
 
   .room-panel {
@@ -100,12 +101,6 @@
   .hp-bar,
   .mp-bar {
     width: 120px;
-  }
-
-  .ops-menu {
-    width: 100%;
-    flex-direction: row;
-    flex-wrap: wrap;
   }
 
   .builder-canvas-wrap {
