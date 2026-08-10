@@ -1,4 +1,4 @@
-import { SKILLS, type ClientMessage } from '@mud/shared';
+import { DIRECTION_VALUES, SKILLS, type ClientMessage } from '@mud/shared';
 import { MACRO_SLOTS, type MacroSlot } from '../../macros';
 import { appendLine, type GameContext, type TabCompletionState } from './context';
 import { CARDINAL_ALIASES } from './minimap';
@@ -89,6 +89,26 @@ function nameCompletionCandidates(ctx: GameContext): string[] {
   return [...names];
 }
 
+/** get은 몹이나 인벤토리가 아니라 방 바닥의 아이템만 대상이 될 수 있으므로, 방 아이템 목록 순서 그대로 후보를 만든다. */
+function roomItemCandidates(ctx: GameContext): string[] {
+  const names = new Set<string>();
+  if (ctx.latestRoom) {
+    for (const item of ctx.latestRoom.items) names.add(item.name);
+  }
+  return [...names];
+}
+
+/** enter는 방향이 아닌 이름 붙은 연결점(포털)만 대상이 될 수 있으므로, north/south/east/west/up/down이 아닌 출구만 후보로 삼는다. 한 방에 포털이 여러 개일 수 있다. */
+function portalExitCandidates(ctx: GameContext): string[] {
+  const names = new Set<string>();
+  if (ctx.latestRoom) {
+    for (const exit of ctx.latestRoom.exits) {
+      if (!DIRECTION_VALUES.includes(exit.direction)) names.add(exit.direction);
+    }
+  }
+  return [...names];
+}
+
 function learnedSkillNameCandidates(ctx: GameContext): string[] {
   const names = new Set<string>();
   for (const skill of SKILLS) {
@@ -108,6 +128,10 @@ function combatTargetCandidates(ctx: GameContext): string[] {
  * 동일 접두사에 여러 후보(예: "가죽"으로 시작하는 아이템 여러 개)가 있을 때
  * 탭을 반복해서 눌러 하나씩 넘겨보게 하기 위함이다.
  *
+ * 이전에 채워 넣은 후보 자체에 공백이 들어있으면(예: "용의 발톱") 입력값을 다시
+ * 공백으로 토큰화했을 때 base가 달라져 버리므로, "이전 base + 이전에 선택된 후보"와
+ * 현재 입력값이 그대로 일치하는지로 순환 중인지를 판단한다.
+ *
  * "마법"/"cast"는 두 번째 토큰이 스킬 이름, 세 번째 토큰이 대상이라서
  * 토큰 위치에 따라 후보 풀이 달라진다. 그 외 명령어는 기존처럼
  * 첫 토큰이면 명령어 목록, 아니면 방/인벤토리 이름 목록을 쓴다.
@@ -122,18 +146,21 @@ function handleTabComplete(ctx: GameContext): void {
     return;
   }
 
-  const tokens = value.split(' ');
-  const tokenIndex = tokens.length - 1;
-  const typed = tokens[tokenIndex];
-  const base = tokenIndex === 0 ? '' : `${tokens.slice(0, tokenIndex).join(' ')} `;
-  const verb = tokens[0].toLowerCase();
-  const isCastVerb = verb === 'cast' || verb === '마법';
+  const previous = ctx.tabCompletion;
+  const isContinuingCycle = previous !== null && value === previous.base + previous.candidates[previous.index];
 
   let tabCompletion: TabCompletionState;
-  if (ctx.tabCompletion && ctx.tabCompletion.base === base) {
-    tabCompletion = ctx.tabCompletion;
+  if (isContinuingCycle) {
+    tabCompletion = previous!;
     tabCompletion.index = (tabCompletion.index + 1) % tabCompletion.candidates.length;
   } else {
+    const tokens = value.split(' ');
+    const tokenIndex = tokens.length - 1;
+    const typed = tokens[tokenIndex];
+    const base = tokenIndex === 0 ? '' : `${tokens.slice(0, tokenIndex).join(' ')} `;
+    const verb = tokens[0].toLowerCase();
+    const isCastVerb = verb === 'cast' || verb === '마법';
+
     let pool: string[];
     if (tokenIndex === 0) {
       pool = COMMAND_VERBS;
@@ -141,6 +168,10 @@ function handleTabComplete(ctx: GameContext): void {
       pool = learnedSkillNameCandidates(ctx);
     } else if (isCastVerb) {
       pool = combatTargetCandidates(ctx);
+    } else if (verb === 'get') {
+      pool = roomItemCandidates(ctx);
+    } else if (verb === 'enter' || verb === 'e') {
+      pool = portalExitCandidates(ctx);
     } else {
       pool = nameCompletionCandidates(ctx);
     }
@@ -151,7 +182,7 @@ function handleTabComplete(ctx: GameContext): void {
     ctx.tabCompletion = tabCompletion;
   }
 
-  ctx.commandInput.value = base + tabCompletion.candidates[tabCompletion.index];
+  ctx.commandInput.value = tabCompletion.base + tabCompletion.candidates[tabCompletion.index];
   ctx.commandInput.setSelectionRange(ctx.commandInput.value.length, ctx.commandInput.value.length);
 }
 
