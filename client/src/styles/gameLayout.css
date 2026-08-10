@@ -140,6 +140,28 @@
   font-weight: bold;
 }
 
+.line-death {
+  display: block;
+  margin: 0.3rem 0;
+  padding: 0.4rem 0.7rem;
+  color: #ffdede;
+  font-weight: bold;
+  background: rgba(255, 107, 107, 0.16);
+  border-left: 3px solid var(--color-danger);
+  border-radius: 3px;
+  text-shadow: 0 0 8px rgba(255, 107, 107, 0.7);
+  animation: death-flash 600ms ease-out;
+}
+
+@keyframes death-flash {
+  0% {
+    background: rgba(255, 107, 107, 0.5);
+  }
+  100% {
+    background: rgba(255, 107, 107, 0.16);
+  }
+}
+
 .item-grade-low {
   color: var(--grade-low);
 }

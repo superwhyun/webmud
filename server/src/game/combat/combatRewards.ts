@@ -94,7 +94,7 @@ export function defeatCharacter(ctx: CommandContext): void {
   const respawnRoomId =
     (diedInRoom && getZoneEntranceRoomId(diedInRoom.zoneId)) ?? STARTING_ROOM_ID;
 
-  ctx.send({ type: 'text', text: '당신은 쓰러졌습니다...' });
+  ctx.send({ type: 'text', text: '☠ 당신은 쓰러졌습니다...', channel: 'death' });
   broadcastToRoom(
     oldRoomId,
     { type: 'text', text: `${ctx.session.characterName}님이 쓰러졌습니다.` },
@@ -111,7 +111,7 @@ export function defeatCharacter(ctx: CommandContext): void {
   if (state) ctx.send({ type: 'state', character: state });
 
   const room = getRoom(respawnRoomId);
-  if (room) ctx.send({ type: 'text', text: `정신을 차려보니 ${room.name}입니다.` });
+  if (room) ctx.send({ type: 'text', text: `정신을 차려보니 ${room.name}입니다.`, channel: 'death' });
 
   broadcastRoomSnapshot(oldRoomId);
   broadcastRoomSnapshot(respawnRoomId);
