@@ -137,17 +137,12 @@ export function deleteZone(token: string, id: number): Promise<void> {
   return apiRequest(`/builder/zones/${id}`, { method: 'DELETE', headers: authHeader(token) });
 }
 
-export function addRoomExit(
-  token: string,
-  roomId: number,
-  label: string,
-  targetRoomId: number,
-  returnLabel?: string,
-): Promise<void> {
+/** 포털은 항상 양방향이며 대상 방 이름을 따 자동으로 이름 붙는다 (예: "대장간 포털") — 편도는 지원하지 않는다. */
+export function addRoomExit(token: string, roomId: number, targetRoomId: number): Promise<void> {
   return apiRequest('/builder/exits', {
     method: 'POST',
     headers: authHeader(token),
-    body: JSON.stringify({ roomId, label, targetRoomId, returnLabel: returnLabel || undefined }),
+    body: JSON.stringify({ roomId, targetRoomId }),
   });
 }
 

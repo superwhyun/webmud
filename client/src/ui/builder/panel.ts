@@ -1,19 +1,16 @@
 import { DIRECTION_LABELS } from '@mud/shared';
-import { addRoomExit, createBuilderRoom, deleteBuilderRoom, removeRoomExit, updateBuilderRoom, type BuilderRoomDto } from '../../builderApi';
+import { createBuilderRoom, deleteBuilderRoom, updateBuilderRoom } from '../../builderApi';
 import { escapeHtml } from '../../domUtils';
 import {
   availableDirectionsFrom,
   CARDINAL_OFFSET,
-  CARDINAL_SET,
   computeFreeCell,
   findRoom,
-  showToolbarError,
   type BuilderContext,
   type CardinalDirection,
   type Point,
 } from './context';
 import { refreshRoomOptions } from './zones';
-import type { RoomOptionAllZonesDto } from '../../builderApi';
 
 function fieldRow(labelText: string, inputHtml: string): string {
   return `<div class="builder-field"><label>${labelText}</label>${inputHtml}</div>`;
@@ -110,13 +107,6 @@ export function renderPanel(ctx: BuilderContext): void {
         <button type="button" id="builder-edit-save">저장</button>
       </div>
 
-      <h4>출구</h4>
-      <p class="builder-panel-hint">출구는 지도에서 방을 드래그해 인접시키거나 떨어뜨려서 관리합니다. 화살표를 클릭하면 해당 방향을 막거나 열 수 있습니다.</p>
-
-      <h4>연결점 (포털)</h4>
-      <p class="builder-panel-hint">그리드 인접과 무관하게, 이 방에서 다른 방(다른 존 포함)으로 바로 이동할 수 있는 연결점을 만듭니다.</p>
-      <div id="builder-panel-portals"></div>
-
       <div id="builder-panel-placement"></div>
 
       <div class="builder-form-row">
@@ -157,98 +147,8 @@ export function renderPanel(ctx: BuilderContext): void {
         });
     });
 
-    renderPortalSection(ctx, room);
     return;
   }
 
   ctx.panel.innerHTML = '<p class="builder-panel-empty">방을 선택하세요.</p>';
-}
-
-function renderPortalSection(ctx: BuilderContext, room: BuilderRoomDto): void {
-  const portalPanel = ctx.panel.querySelector<HTMLDivElement>('#builder-panel-portals');
-  if (!portalPanel) return;
-
-  const portalExits = room.exits.filter((exit) => !CARDINAL_SET.has(exit.direction));
-
-  const groupedOptions = new Map<string, RoomOptionAllZonesDto[]>();
-  for (const option of ctx.allRoomOptions) {
-    const list = groupedOptions.get(option.zoneName) ?? [];
-    list.push(option);
-    groupedOptions.set(option.zoneName, list);
-  }
-  const targetSelectHtml = [...groupedOptions.entries()]
-    .map(
-      ([zoneName, options]) => `
-        <optgroup label="${escapeHtml(zoneName)}">
-          ${options.map((option) => `<option value="${option.id}">${escapeHtml(option.name)}</option>`).join('')}
-        </optgroup>
-      `,
-    )
-    .join('');
-
-  portalPanel.innerHTML = `
-    <ul class="builder-palette-list">
-      ${
-        portalExits
-          .map((exit) => {
-            const target = ctx.allRoomOptions.find((option) => option.id === exit.targetRoomId);
-            const targetLabel = target
-              ? `${escapeHtml(target.name)} (${escapeHtml(target.zoneName)})`
-              : `#${exit.targetRoomId}`;
-            return `
-              <li>
-                <span>${escapeHtml(exit.direction)} → ${targetLabel}</span>
-                <button type="button" class="builder-exit-delete" data-remove-portal="${escapeHtml(exit.direction)}">제거</button>
-              </li>
-            `;
-          })
-          .join('') || '<li class="builder-panel-empty">연결점이 없습니다.</li>'
-      }
-    </ul>
-    <div class="builder-form-row">
-      <div class="builder-field">
-        <label for="builder-portal-label">이름</label>
-        <input id="builder-portal-label" type="text" maxlength="30" placeholder="예: 지하미궁행 포털" />
-      </div>
-      <div class="builder-field">
-        <label for="builder-portal-target">대상 방</label>
-        <select id="builder-portal-target">${targetSelectHtml}</select>
-      </div>
-      <div class="builder-field">
-        <label for="builder-portal-return-label">왕복 이름 (선택)</label>
-        <input id="builder-portal-return-label" type="text" maxlength="30" placeholder="비우면 편도" />
-      </div>
-      <button type="button" id="builder-portal-add">연결점 추가</button>
-    </div>
-    <p class="builder-error" id="builder-portal-error"></p>
-  `;
-
-  portalPanel.querySelectorAll<HTMLButtonElement>('[data-remove-portal]').forEach((button) => {
-    button.addEventListener('click', () => {
-      removeRoomExit(ctx.token, room.id, button.dataset.removePortal!)
-        .then(() => ctx.refresh())
-        .catch((error: unknown) => {
-          showToolbarError(ctx, error instanceof Error ? error.message : '연결점 제거에 실패했습니다.');
-        });
-    });
-  });
-
-  const portalErrorEl = portalPanel.querySelector<HTMLParagraphElement>('#builder-portal-error')!;
-  portalPanel.querySelector<HTMLButtonElement>('#builder-portal-add')?.addEventListener('click', () => {
-    const label = portalPanel.querySelector<HTMLInputElement>('#builder-portal-label')!.value.trim();
-    const targetSelect = portalPanel.querySelector<HTMLSelectElement>('#builder-portal-target')!;
-    const targetRoomId = Number(targetSelect.value);
-    const returnLabel = portalPanel.querySelector<HTMLInputElement>('#builder-portal-return-label')!.value.trim();
-
-    if (!label || !targetRoomId) {
-      portalErrorEl.textContent = '이름과 대상 방을 입력하세요.';
-      return;
-    }
-
-    addRoomExit(ctx.token, room.id, label, targetRoomId, returnLabel || undefined)
-      .then(() => ctx.refresh())
-      .catch((error: unknown) => {
-        portalErrorEl.textContent = error instanceof Error ? error.message : '연결점 추가에 실패했습니다.';
-      });
-  });
 }

@@ -1,5 +1,6 @@
-import { ITEM_GRADE_LABELS, ITEM_GRADE_VALUES, type ItemGrade } from '@mud/shared';
+import { DIRECTION_VALUES, ITEM_GRADE_LABELS, ITEM_GRADE_VALUES, type ItemGrade } from '@mud/shared';
 import {
+  addRoomExit,
   fetchBuilderItemTemplates,
   fetchBuilderMobSpawns,
   fetchBuilderMobTemplates,
@@ -12,7 +13,9 @@ import {
   removeBuilderMobSpawn,
   removeBuilderNpcSpawn,
   removeBuilderRoomItem,
+  removeRoomExit,
   type BuilderRoomDto,
+  type RoomOptionAllZonesDto,
 } from '../../builderApi';
 import { escapeHtml } from '../../domUtils';
 import { findRoom, PLACEHOLDER_OWNED_QTY, showToolbarError, type BuilderContext } from './context';
@@ -185,6 +188,24 @@ function renderPlacedInRoom(ctx: BuilderContext, room: BuilderRoomDto | undefine
   const placedItems = ctx.roomItems.filter((row) => row.roomId === room.id);
   const placedMobs = ctx.mobSpawns.filter((row) => row.roomId === room.id);
   const placedNpcs = ctx.npcSpawns.filter((row) => row.roomId === room.id);
+  const portalExits = room.exits.filter((exit) => !DIRECTION_VALUES.includes(exit.direction));
+
+  const groupedRoomOptions = new Map<string, RoomOptionAllZonesDto[]>();
+  for (const option of ctx.allRoomOptions) {
+    if (option.id === room.id) continue;
+    const list = groupedRoomOptions.get(option.zoneName) ?? [];
+    list.push(option);
+    groupedRoomOptions.set(option.zoneName, list);
+  }
+  const portalTargetOptionsHtml = [...groupedRoomOptions.entries()]
+    .map(
+      ([zoneName, options]) => `
+        <optgroup label="${escapeHtml(zoneName)}">
+          ${options.map((option) => `<option value="${option.id}">${escapeHtml(option.name)}</option>`).join('')}
+        </optgroup>
+      `,
+    )
+    .join('');
 
   placement.innerHTML = `
     <h4>이 방에 배치된 아이템</h4>
@@ -218,6 +239,32 @@ function renderPlacedInRoom(ctx: BuilderContext, room: BuilderRoomDto | undefine
           .join('') || '<li class="builder-panel-empty">배치된 몹이 없습니다.</li>'
       }
     </ul>
+
+    <h4>이 방에 연결된 포털</h4>
+    <ul class="builder-palette-list">
+      ${
+        portalExits
+          .map((exit) => {
+            const target = ctx.allRoomOptions.find((option) => option.id === exit.targetRoomId);
+            const targetLabel = target ? `${escapeHtml(target.name)} (${escapeHtml(target.zoneName)})` : `#${exit.targetRoomId}`;
+            return `
+                  <li>
+                    <span>${escapeHtml(exit.direction)} → ${targetLabel}</span>
+                    <button type="button" class="builder-exit-delete" data-remove-portal="${escapeHtml(exit.direction)}">제거</button>
+                  </li>
+                `;
+          })
+          .join('') || '<li class="builder-panel-empty">연결된 포털이 없습니다.</li>'
+      }
+    </ul>
+    <div class="builder-form-row">
+      <div class="builder-field">
+        <label for="builder-portal-target">대상 방</label>
+        <select id="builder-portal-target">${portalTargetOptionsHtml}</select>
+      </div>
+      <button type="button" id="builder-portal-add">포털 추가</button>
+    </div>
+    <p class="builder-error" id="builder-portal-error"></p>
 
     <h4>이 방에 배치된 NPC</h4>
     <ul class="builder-palette-list">
@@ -264,5 +311,32 @@ function renderPlacedInRoom(ctx: BuilderContext, room: BuilderRoomDto | undefine
           showToolbarError(ctx, error instanceof Error ? error.message : '제거에 실패했습니다.');
         });
     });
+  });
+
+  const portalErrorEl = placement.querySelector<HTMLParagraphElement>('#builder-portal-error')!;
+
+  placement.querySelectorAll<HTMLButtonElement>('[data-remove-portal]').forEach((button) => {
+    button.addEventListener('click', () => {
+      removeRoomExit(ctx.token, room.id, button.dataset.removePortal!)
+        .then(() => ctx.refresh())
+        .catch((error: unknown) => {
+          portalErrorEl.textContent = error instanceof Error ? error.message : '포털 제거에 실패했습니다.';
+        });
+    });
+  });
+
+  placement.querySelector<HTMLButtonElement>('#builder-portal-add')?.addEventListener('click', () => {
+    const targetSelect = placement.querySelector<HTMLSelectElement>('#builder-portal-target')!;
+    const targetRoomId = Number(targetSelect.value);
+    if (!targetRoomId) {
+      portalErrorEl.textContent = '대상 방을 선택하세요.';
+      return;
+    }
+
+    addRoomExit(ctx.token, room.id, targetRoomId)
+      .then(() => ctx.refresh())
+      .catch((error: unknown) => {
+        portalErrorEl.textContent = error instanceof Error ? error.message : '포털 추가에 실패했습니다.';
+      });
   });
 }
