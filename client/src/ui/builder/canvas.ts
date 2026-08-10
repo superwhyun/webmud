@@ -1,13 +1,17 @@
+import { DIRECTION_VALUES } from '@mud/shared';
 import { setExitBlocked, updateBuilderRoom, type BuilderExitDto } from '../../builderApi';
 import { cellOccupant, showToolbarError, type BuilderContext, type EdgeEntry, type Point } from './context';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const GRID_SPACING = 160;
-const NODE_WIDTH = 140;
-const NODE_HEIGHT = 56;
+const NODE_SIZE = 100;
 const CANVAS_PADDING = 100;
 const EDGE_OFFSET = 5;
 const EDGE_GAP = 6;
+
+function hasPortalExit(exits: BuilderExitDto[]): boolean {
+  return exits.some((exit) => !DIRECTION_VALUES.includes(exit.direction));
+}
 
 function toSvgPoint(ctx: BuilderContext, clientX: number, clientY: number): Point {
   const point = ctx.svg.createSVGPoint();
@@ -84,10 +88,10 @@ export function renderCanvas(ctx: BuilderContext): void {
 
   const xs = [...ctx.livePositions.values()].map((pos) => pos.x);
   const ys = [...ctx.livePositions.values()].map((pos) => pos.y);
-  const minX = Math.min(...xs) - NODE_WIDTH / 2 - CANVAS_PADDING;
-  const minY = Math.min(...ys) - NODE_HEIGHT / 2 - CANVAS_PADDING;
-  const maxX = Math.max(...xs) + NODE_WIDTH / 2 + CANVAS_PADDING;
-  const maxY = Math.max(...ys) + NODE_HEIGHT / 2 + CANVAS_PADDING;
+  const minX = Math.min(...xs) - NODE_SIZE / 2 - CANVAS_PADDING;
+  const minY = Math.min(...ys) - NODE_SIZE / 2 - CANVAS_PADDING;
+  const maxX = Math.max(...xs) + NODE_SIZE / 2 + CANVAS_PADDING;
+  const maxY = Math.max(...ys) + NODE_SIZE / 2 + CANVAS_PADDING;
   const width = maxX - minX;
   const height = maxY - minY;
 
@@ -115,7 +119,7 @@ export function renderCanvas(ctx: BuilderContext): void {
       // Grid connections are always axis-aligned, so trim each end back by half the node's
       // size along that axis (plus a small gap) so the arrowhead lands in open space instead
       // of being drawn underneath the (opaque) destination node rectangle.
-      const inset = dx !== 0 ? NODE_WIDTH / 2 + EDGE_GAP : NODE_HEIGHT / 2 + EDGE_GAP;
+      const inset = NODE_SIZE / 2 + EDGE_GAP;
       const ux = dx / len;
       const uy = dy / len;
       const lineFromX = from.x + nx + ux * inset;
@@ -171,10 +175,10 @@ export function renderCanvas(ctx: BuilderContext): void {
     group.setAttribute('data-room-id', String(room.id));
 
     const rect = document.createElementNS(SVG_NS, 'rect');
-    rect.setAttribute('x', String(-NODE_WIDTH / 2));
-    rect.setAttribute('y', String(-NODE_HEIGHT / 2));
-    rect.setAttribute('width', String(NODE_WIDTH));
-    rect.setAttribute('height', String(NODE_HEIGHT));
+    rect.setAttribute('x', String(-NODE_SIZE / 2));
+    rect.setAttribute('y', String(-NODE_SIZE / 2));
+    rect.setAttribute('width', String(NODE_SIZE));
+    rect.setAttribute('height', String(NODE_SIZE));
     rect.setAttribute('rx', '6');
     rect.setAttribute('class', room.id === ctx.selectedRoomId ? 'builder-node-rect builder-node-selected' : 'builder-node-rect');
     group.appendChild(rect);
@@ -183,9 +187,30 @@ export function renderCanvas(ctx: BuilderContext): void {
     label.setAttribute('class', 'builder-node-label');
     label.setAttribute('text-anchor', 'middle');
     label.setAttribute('dominant-baseline', 'middle');
-    const displayName = room.name.length > 12 ? `${room.name.slice(0, 12)}…` : room.name;
+    const displayName = room.name.length > 10 ? `${room.name.slice(0, 10)}…` : room.name;
     label.textContent = displayName;
     group.appendChild(label);
+
+    if (hasPortalExit(room.exits as BuilderExitDto[])) {
+      const badgeCx = NODE_SIZE / 2 - 3;
+      const badgeCy = -NODE_SIZE / 2 + 3;
+
+      const badgeCircle = document.createElementNS(SVG_NS, 'circle');
+      badgeCircle.setAttribute('cx', String(badgeCx));
+      badgeCircle.setAttribute('cy', String(badgeCy));
+      badgeCircle.setAttribute('r', '10');
+      badgeCircle.setAttribute('class', 'builder-node-portal-badge');
+      group.appendChild(badgeCircle);
+
+      const badgeText = document.createElementNS(SVG_NS, 'text');
+      badgeText.setAttribute('x', String(badgeCx));
+      badgeText.setAttribute('y', String(badgeCy));
+      badgeText.setAttribute('text-anchor', 'middle');
+      badgeText.setAttribute('dominant-baseline', 'central');
+      badgeText.setAttribute('class', 'builder-node-portal-badge-text');
+      badgeText.textContent = 'P';
+      group.appendChild(badgeText);
+    }
 
     const title = document.createElementNS(SVG_NS, 'title');
     title.textContent = room.name;
