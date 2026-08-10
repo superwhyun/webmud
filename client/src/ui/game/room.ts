@@ -1,4 +1,5 @@
 import {
+  DIRECTION_VALUES,
   JOB_DESCRIPTIONS,
   JOB_LABELS,
   JOB_VALUES,
@@ -56,18 +57,21 @@ export function renderRoom(ctx: GameContext, room: RoomSnapshot): void {
       ? room.npcs.map((npc) => `${escapeHtml(npc.name)} (${NPC_TYPE_LABELS[npc.type]})`).join(', ')
       : '-';
   const playersText = room.players.length > 0 ? room.players.join(', ') : '-';
+  const portals = room.exits.filter((exit) => !DIRECTION_VALUES.includes(exit.direction));
+  const portalsText = portals.length > 0 ? portals.map((exit) => escapeHtml(exit.direction)).join(', ') : '-';
 
-  ctx.roomInfo.innerHTML = `
+  ctx.roomHeader.innerHTML = `
     <div class="room-name">${room.name}</div>
     <p class="room-desc">${room.description}</p>
-    <div class="room-meta">
-      <span><strong>몬스터</strong>${mobsText}</span>
-      <span><strong>아이템</strong>${itemsText}</span>
-      <span><strong>NPC</strong>${npcsText}</span>
-      <span><strong>유저</strong>${playersText}</span>
-    </div>
-    ${room.village ? renderVillageSection(room.village) : ''}
   `;
+  ctx.roomMeta.innerHTML = `
+    <span><strong>몬스터</strong>${mobsText}</span>
+    <span><strong>아이템</strong>${itemsText}</span>
+    <span><strong>NPC</strong>${npcsText}</span>
+    <span><strong>유저</strong>${playersText}</span>
+    <span><strong>포털</strong>${portalsText}</span>
+  `;
+  ctx.roomVillage.innerHTML = room.village ? renderVillageSection(room.village) : '';
 }
 
 export function renderCombat(ctx: GameContext, mobs: CombatMobInfo[]): void {

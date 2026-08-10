@@ -29,7 +29,9 @@ export interface GameContext {
   onLogout: () => void;
   socket: WebSocket;
 
-  roomInfo: HTMLDivElement;
+  roomHeader: HTMLDivElement;
+  roomMeta: HTMLDivElement;
+  roomVillage: HTMLDivElement;
   combatPanel: HTMLDivElement;
   terminal: HTMLDivElement;
   sidebarStats: HTMLDivElement;
@@ -76,11 +78,15 @@ export interface GameContext {
 function renderShellHtml(isBuilder: boolean, isAdmin: boolean): string {
   return `
     <div class="room-panel" id="room-panel">
-      <div class="room-info" id="room-info"></div>
-      <aside class="room-map-dock">
-        <div class="room-map-title">지도</div>
-        <div class="minimap" id="minimap"></div>
-      </aside>
+      <div class="room-header" id="room-header"></div>
+      <div class="room-lower-row">
+        <aside class="room-map-dock">
+          <div class="room-map-title">지도</div>
+          <div class="minimap" id="minimap"></div>
+        </aside>
+        <div class="room-meta" id="room-meta"></div>
+      </div>
+      <div id="room-village"></div>
     </div>
     <div class="command-input">
       <span class="prompt">&gt;</span>
@@ -188,7 +194,9 @@ export function createGameContext(
     onLogout,
     socket,
 
-    roomInfo: container.querySelector<HTMLDivElement>('#room-info')!,
+    roomHeader: container.querySelector<HTMLDivElement>('#room-header')!,
+    roomMeta: container.querySelector<HTMLDivElement>('#room-meta')!,
+    roomVillage: container.querySelector<HTMLDivElement>('#room-village')!,
     combatPanel: container.querySelector<HTMLDivElement>('#combat-panel')!,
     terminal: container.querySelector<HTMLDivElement>('#terminal')!,
     sidebarStats: container.querySelector<HTMLDivElement>('#sidebar-stats')!,
