@@ -95,6 +95,12 @@ export function renderMinimap(ctx: GameContext): void {
         if (roomId === ctx.currentRoomId) cell.classList.add('minimap-current');
         const exits = ctx.roomExits.get(roomId);
         if (exits) renderMinimapExits(cell, exits);
+        if (roomId === ctx.lastDeathRoomId) {
+          const deathMarker = document.createElement('span');
+          deathMarker.className = 'minimap-death-marker';
+          deathMarker.textContent = '✕';
+          cell.appendChild(deathMarker);
+        }
         cell.title = ctx.roomNames.get(roomId) ?? '';
       }
       ctx.minimap.appendChild(cell);

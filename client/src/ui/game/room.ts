@@ -61,6 +61,7 @@ export function renderRoom(ctx: GameContext, room: RoomSnapshot): void {
   const portalsText = portals.length > 0 ? portals.map((exit) => escapeHtml(exit.direction)).join(', ') : '-';
 
   ctx.roomHeader.innerHTML = `
+    <div class="room-zone-label">${escapeHtml(room.zoneName)}</div>
     <div class="room-name">${room.name}</div>
     <p class="room-desc">${room.description}</p>
   `;

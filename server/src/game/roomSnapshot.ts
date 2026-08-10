@@ -47,6 +47,8 @@ export function buildRoomSnapshot(roomId: number, viewerWs?: WebSocket): RoomSna
   const room = getRoom(roomId);
   if (!room) return undefined;
 
+  const zone = db.prepare('SELECT name FROM zones WHERE id = ?').get(room.zoneId) as { name: string } | undefined;
+
   const exits = Object.entries(room.exits).map(([direction, exit]) => ({
     direction,
     label: DIRECTION_LABELS[direction] ?? direction,
@@ -74,6 +76,7 @@ export function buildRoomSnapshot(roomId: number, viewerWs?: WebSocket): RoomSna
     name: room.name,
     description: room.description,
     zoneId: room.zoneId,
+    zoneName: zone?.name ?? '알 수 없음',
     exits,
     items,
     mobs,

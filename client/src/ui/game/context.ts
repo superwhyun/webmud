@@ -68,6 +68,8 @@ export interface GameContext {
   currentRoomId: number | null;
   pendingDirection: 'north' | 'south' | 'east' | 'west' | null;
   latestRoom: RoomSnapshot | null;
+  /** 가장 최근에 죽었던 방 id — 미니맵에 빨간 X로 표시한다. */
+  lastDeathRoomId: number | null;
 
   commandHistory: string[];
   historyIndex: number;
@@ -231,6 +233,7 @@ export function createGameContext(
     currentRoomId: null,
     pendingDirection: null,
     latestRoom: null,
+    lastDeathRoomId: null,
 
     commandHistory: [],
     historyIndex: 0,

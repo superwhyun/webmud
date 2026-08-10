@@ -95,6 +95,7 @@ export function defeatCharacter(ctx: CommandContext): void {
     (diedInRoom && getZoneEntranceRoomId(diedInRoom.zoneId)) ?? STARTING_ROOM_ID;
 
   ctx.send({ type: 'text', text: '☠ 당신은 쓰러졌습니다...', channel: 'death' });
+  ctx.send({ type: 'death', roomId: oldRoomId });
   broadcastToRoom(
     oldRoomId,
     { type: 'text', text: `${ctx.session.characterName}님이 쓰러졌습니다.` },

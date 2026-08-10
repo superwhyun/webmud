@@ -51,6 +51,9 @@ export function renderGameScreen(
       recordRoomVisit(ctx, message.room);
       renderRoom(ctx, message.room);
       renderMinimap(ctx);
+    } else if (message.type === 'death') {
+      ctx.lastDeathRoomId = message.roomId;
+      renderMinimap(ctx);
     } else if (message.type === 'combat') {
       ctx.latestCombatMobs = message.mobs;
       renderCombat(ctx, message.mobs);

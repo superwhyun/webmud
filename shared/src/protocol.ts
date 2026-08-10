@@ -84,6 +84,7 @@ export interface RoomSnapshot {
   name: string;
   description: string;
   zoneId: number;
+  zoneName: string;
   exits: RoomExitInfo[];
   items: RoomItemInfo[];
   mobs: RoomMobInfo[];
@@ -130,4 +131,5 @@ export type ServerMessage =
   | { type: 'inventory'; items: InventoryItemInfo[] }
   | { type: 'needsJob' }
   | { type: 'skills'; learnedSkillIds: string[] }
-  | { type: 'skillCooldowns'; cooldowns: SkillCooldownInfo[] };
+  | { type: 'skillCooldowns'; cooldowns: SkillCooldownInfo[] }
+  | { type: 'death'; roomId: number };
