@@ -455,8 +455,8 @@
   color: var(--color-text);
 }
 
-.builder-palette-qty {
-  color: var(--color-text-dim);
+.builder-palette-level {
+  color: var(--color-accent);
   font-size: 0.8rem;
 }
 

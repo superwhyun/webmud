@@ -1,4 +1,12 @@
-import { DIRECTION_VALUES, ITEM_GRADE_LABELS, ITEM_GRADE_VALUES, type ItemGrade } from '@mud/shared';
+import {
+  DIRECTION_VALUES,
+  ITEM_GRADE_LABELS,
+  ITEM_GRADE_VALUES,
+  NPC_TYPE_LABELS,
+  NPC_TYPE_VALUES,
+  type ItemGrade,
+  type NpcType,
+} from '@mud/shared';
 import {
   addRoomExit,
   fetchBuilderItemTemplates,
@@ -18,7 +26,13 @@ import {
   type RoomOptionAllZonesDto,
 } from '../../builderApi';
 import { escapeHtml } from '../../domUtils';
-import { findRoom, PLACEHOLDER_OWNED_QTY, showToolbarError, type BuilderContext } from './context';
+import { findRoom, showToolbarError, type BuilderContext } from './context';
+
+/** 존 설계와 동일하게 5레벨 단위로 묶는다: 1-5, 6-10, ..., 46-50. */
+const MOB_LEVEL_BRACKETS: { lower: number; upper: number }[] = Array.from({ length: 10 }, (_, index) => ({
+  lower: index * 5 + 1,
+  upper: index * 5 + 5,
+}));
 
 export async function refreshPalette(ctx: BuilderContext): Promise<void> {
   const [itemsResult, mobTemplatesResult, roomItemsResult, mobSpawnsResult, npcTemplatesResult, npcSpawnsResult] =
@@ -69,7 +83,7 @@ export function renderPalette(ctx: BuilderContext): void {
                         .map(
                           (item) => `
                             <li>
-                              <span class="builder-palette-name"><span class="item-grade-${item.grade}">${escapeHtml(item.name)}</span> <span class="builder-palette-qty">x${PLACEHOLDER_OWNED_QTY}</span></span>
+                              <span class="builder-palette-name"><span class="item-grade-${item.grade}">${escapeHtml(item.name)}</span></span>
                               <div class="builder-palette-actions">
                                 <input type="number" class="builder-palette-num-input" data-item-qty="${item.id}" value="1" min="1" />
                                 <button type="button" data-place-item="${item.id}" ${room ? '' : 'disabled'}>배치</button>
@@ -87,43 +101,83 @@ export function renderPalette(ctx: BuilderContext): void {
       }
     </div>
 
-    <h3>보유 몹 / NPC</h3>
+    <h3>보유 몹</h3>
     <p class="builder-panel-hint">몹 목록에서 "적대적" 옵션을 끈 몹은 상점 주인 같은 비전투 NPC로 동작합니다.</p>
-    <ul class="builder-palette-list">
+    <div class="builder-item-groups">
       ${
-        ctx.mobTemplates
-          .map(
-            (mob) => `
-              <li>
-                <span class="builder-palette-name">${escapeHtml(mob.name)} <span class="builder-palette-qty">x${PLACEHOLDER_OWNED_QTY}</span></span>
-                <div class="builder-palette-actions">
-                  <input type="number" class="builder-palette-num-input" data-mob-respawn="${mob.id}" value="20" min="5" />
-                  <button type="button" data-place-mob="${mob.id}" ${room ? '' : 'disabled'}>배치</button>
-                </div>
-              </li>
-            `,
-          )
-          .join('') || '<li class="builder-panel-empty">등록된 몹이 없습니다.</li>'
+        MOB_LEVEL_BRACKETS.map((bracket) => {
+          const mobs = ctx.mobTemplates.filter((mob) => mob.level >= bracket.lower && mob.level <= bracket.upper);
+          if (mobs.length === 0) return '';
+          const expanded = ctx.expandedMobLevelBrackets.has(bracket.lower);
+          return `
+            <div class="builder-item-group">
+              <button type="button" class="builder-item-group-header" data-toggle-mob-bracket="${bracket.lower}">
+                <span class="builder-item-group-caret">${expanded ? '▾' : '▸'}</span>
+                <span>Lv.${bracket.lower}-${bracket.upper}</span>
+                <span class="builder-item-group-count">${mobs.length}</span>
+              </button>
+              ${
+                expanded
+                  ? `<ul class="builder-palette-list">
+                      ${mobs
+                        .map(
+                          (mob) => `
+                            <li>
+                              <span class="builder-palette-name">${escapeHtml(mob.name)} <span class="builder-palette-level">Lv.${mob.level}</span></span>
+                              <div class="builder-palette-actions">
+                                <input type="number" class="builder-palette-num-input" data-mob-respawn="${mob.id}" value="20" min="5" />
+                                <button type="button" data-place-mob="${mob.id}" ${room ? '' : 'disabled'}>배치</button>
+                              </div>
+                            </li>
+                          `,
+                        )
+                        .join('')}
+                    </ul>`
+                  : ''
+              }
+            </div>
+          `;
+        }).join('') || '<p class="builder-panel-empty">등록된 몹이 없습니다.</p>'
       }
-    </ul>
+    </div>
 
     <h3>보유 NPC</h3>
-    <ul class="builder-palette-list">
+    <div class="builder-item-groups">
       ${
-        ctx.npcTemplates
-          .map(
-            (npc) => `
-              <li>
-                <span class="builder-palette-name">${escapeHtml(npc.name)} <span class="builder-palette-qty">x${PLACEHOLDER_OWNED_QTY}</span></span>
-                <div class="builder-palette-actions">
-                  <button type="button" data-place-npc="${npc.id}" ${room ? '' : 'disabled'}>배치</button>
-                </div>
-              </li>
-            `,
-          )
-          .join('') || '<li class="builder-panel-empty">등록된 NPC가 없습니다.</li>'
+        NPC_TYPE_VALUES.map((type) => {
+          const npcs = ctx.npcTemplates.filter((npc) => npc.type === type);
+          if (npcs.length === 0) return '';
+          const expanded = ctx.expandedNpcTypes.has(type);
+          return `
+            <div class="builder-item-group">
+              <button type="button" class="builder-item-group-header" data-toggle-npc-type="${type}">
+                <span class="builder-item-group-caret">${expanded ? '▾' : '▸'}</span>
+                <span>${NPC_TYPE_LABELS[type]}</span>
+                <span class="builder-item-group-count">${npcs.length}</span>
+              </button>
+              ${
+                expanded
+                  ? `<ul class="builder-palette-list">
+                      ${npcs
+                        .map(
+                          (npc) => `
+                            <li>
+                              <span class="builder-palette-name">${escapeHtml(npc.name)} <span class="builder-palette-level">Lv.${npc.level}</span></span>
+                              <div class="builder-palette-actions">
+                                <button type="button" data-place-npc="${npc.id}" ${room ? '' : 'disabled'}>배치</button>
+                              </div>
+                            </li>
+                          `,
+                        )
+                        .join('')}
+                    </ul>`
+                  : ''
+              }
+            </div>
+          `;
+        }).join('') || '<p class="builder-panel-empty">등록된 NPC가 없습니다.</p>'
       }
-    </ul>
+    </div>
   `;
 
   ctx.palette.querySelectorAll<HTMLButtonElement>('[data-toggle-grade]').forEach((button) => {
@@ -133,6 +187,30 @@ export function renderPalette(ctx: BuilderContext): void {
         ctx.expandedItemGrades.delete(grade);
       } else {
         ctx.expandedItemGrades.add(grade);
+      }
+      renderPalette(ctx);
+    });
+  });
+
+  ctx.palette.querySelectorAll<HTMLButtonElement>('[data-toggle-mob-bracket]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const lower = Number(button.dataset.toggleMobBracket);
+      if (ctx.expandedMobLevelBrackets.has(lower)) {
+        ctx.expandedMobLevelBrackets.delete(lower);
+      } else {
+        ctx.expandedMobLevelBrackets.add(lower);
+      }
+      renderPalette(ctx);
+    });
+  });
+
+  ctx.palette.querySelectorAll<HTMLButtonElement>('[data-toggle-npc-type]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const type = button.dataset.toggleNpcType as NpcType;
+      if (ctx.expandedNpcTypes.has(type)) {
+        ctx.expandedNpcTypes.delete(type);
+      } else {
+        ctx.expandedNpcTypes.add(type);
       }
       renderPalette(ctx);
     });

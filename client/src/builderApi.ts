@@ -60,6 +60,8 @@ export interface MobTemplateDto {
   damageType: 'physical' | 'magic';
   expReward: number;
   goldReward: number;
+  level: number;
+  hostile: boolean;
 }
 
 export interface RoomItemDto {

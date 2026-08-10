@@ -9,9 +9,7 @@ import type {
   RoomOptionAllZonesDto,
   ZoneDto,
 } from '../../builderApi';
-import type { ItemGrade } from '@mud/shared';
-
-export const PLACEHOLDER_OWNED_QTY = 9999;
+import type { ItemGrade, NpcType } from '@mud/shared';
 
 export type CardinalDirection = 'north' | 'south' | 'east' | 'west';
 
@@ -71,6 +69,9 @@ export interface BuilderContext {
   npcTemplates: NpcTemplateDto[];
   npcSpawns: NpcSpawnDto[];
   expandedItemGrades: Set<ItemGrade>;
+  /** 몹 레벨 구간(브라켓의 하한값, 예: 1/6/11/...)별 펼침 상태. */
+  expandedMobLevelBrackets: Set<number>;
+  expandedNpcTypes: Set<NpcType>;
 
   livePositions: Map<number, Point>;
   nodeElements: Map<number, SVGGElement>;
@@ -136,6 +137,8 @@ export function createBuilderContext(container: HTMLElement, token: string, onBa
     npcTemplates: [],
     npcSpawns: [],
     expandedItemGrades: new Set(),
+    expandedMobLevelBrackets: new Set(),
+    expandedNpcTypes: new Set(),
 
     livePositions: new Map(),
     nodeElements: new Map(),
