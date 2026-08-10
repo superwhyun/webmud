@@ -77,6 +77,8 @@ function migrate(target: Database.Database): void {
   ensureColumn(target, 'mob_templates', 'level', 'ALTER TABLE mob_templates ADD COLUMN level INTEGER NOT NULL DEFAULT 1');
   ensureColumn(target, 'mob_templates', 'hostile', 'ALTER TABLE mob_templates ADD COLUMN hostile INTEGER NOT NULL DEFAULT 1');
   ensureColumn(target, 'mob_loot_pool', 'weight', 'ALTER TABLE mob_loot_pool ADD COLUMN weight INTEGER NOT NULL DEFAULT 1');
+  ensureColumn(target, 'zones', 'min_level', 'ALTER TABLE zones ADD COLUMN min_level INTEGER');
+  ensureColumn(target, 'zones', 'max_level', 'ALTER TABLE zones ADD COLUMN max_level INTEGER');
 }
 
 interface ExitEdgeRow {
@@ -184,7 +186,9 @@ function backfillProgressionZones(target: Database.Database): void {
   const existing = target.prepare('SELECT id FROM rooms WHERE id = ?').get(LAST_PROGRESSION_ROOM_ID);
   if (existing) return;
 
-  const insertZone = target.prepare('INSERT INTO zones (id, name, description) VALUES (?, ?, ?)');
+  const insertZone = target.prepare(
+    'INSERT INTO zones (id, name, description, min_level, max_level) VALUES (?, ?, ?, ?, ?)',
+  );
   const insertRoom = target.prepare(
     'INSERT INTO rooms (id, name, description, x, y, zone_id) VALUES (?, ?, ?, ?, ?, ?)',
   );
@@ -196,10 +200,25 @@ function backfillProgressionZones(target: Database.Database): void {
   );
 
   const tx = target.transaction(() => {
-    for (const zone of PROGRESSION_ZONES) insertZone.run(zone.id, zone.name, zone.description);
+    for (const zone of PROGRESSION_ZONES) insertZone.run(zone.id, zone.name, zone.description, zone.minLevel, zone.maxLevel);
     for (const room of PROGRESSION_ROOMS) insertRoom.run(room.id, room.name, room.description, room.x, room.y, room.zoneId);
     for (const exit of PROGRESSION_EXITS) insertExit.run(exit.roomId, exit.direction, exit.targetRoomId);
     for (const spawn of PROGRESSION_MOB_SPAWNS) insertMobSpawn.run(spawn.roomId, spawn.mobTemplateId, spawn.respawnSeconds);
+  });
+  tx();
+}
+
+/**
+ * backfillProgressionZones가 이미 적용된 뒤에 min_level/max_level 컬럼이 추가됐으므로,
+ * 기존 존들에도 한 번만 소급해서 채워 넣는다. 이미 값이 있으면(관리자가 직접 고쳤을 수 있으니) 건드리지 않는다.
+ */
+function backfillZoneLevelRanges(target: Database.Database): void {
+  const updateRange = target.prepare(
+    'UPDATE zones SET min_level = ?, max_level = ? WHERE id = ? AND min_level IS NULL',
+  );
+  const ranges: [number, number, number][] = [[1, 1, 5], ...PROGRESSION_ZONES.map((zone): [number, number, number] => [zone.id, zone.minLevel, zone.maxLevel])];
+  const tx = target.transaction(() => {
+    for (const [id, minLevel, maxLevel] of ranges) updateRange.run(minLevel, maxLevel, id);
   });
   tx();
 }
@@ -209,3 +228,4 @@ seed(db);
 backfillMissingItems(db);
 backfillRoomPositions(db);
 backfillProgressionZones(db);
+backfillZoneLevelRanges(db);

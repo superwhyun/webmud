@@ -20,18 +20,19 @@ export async function refreshZones(ctx: BuilderContext): Promise<void> {
 export function renderZoneBar(ctx: BuilderContext): void {
   ctx.zoneBar.innerHTML = `
     ${ctx.zones
-      .map(
-        (zone) => `
+      .map((zone) => {
+        const levelRangeText = zone.minLevel !== null && zone.maxLevel !== null ? ` <span class="zone-tab-level">Lv.${zone.minLevel}-${zone.maxLevel}</span>` : '';
+        return `
           <span class="zone-tab">
             <button
               type="button"
               class="zone-tab-btn${zone.id === ctx.selectedZoneId ? ' zone-tab-btn-active' : ''}"
               data-zone-id="${zone.id}"
-            >${escapeHtml(zone.name)}</button>
+            >${escapeHtml(zone.name)}${levelRangeText}</button>
             <button type="button" class="zone-tab-delete" data-delete-zone-id="${zone.id}" title="존 삭제" aria-label="존 삭제">✕</button>
           </span>
-        `,
-      )
+        `;
+      })
       .join('')}
     <button type="button" id="builder-zone-add-toggle">+ 존 추가</button>
     <span class="builder-zone-add-form" id="builder-zone-add-form" hidden>

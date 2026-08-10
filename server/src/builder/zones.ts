@@ -11,7 +11,20 @@ const zoneCreateSchema = z.object({
 });
 
 builderRouter.get('/zones', (_req, res) => {
-  const zones = db.prepare('SELECT id, name, description FROM zones ORDER BY id').all();
+  const rows = db.prepare('SELECT id, name, description, min_level, max_level FROM zones ORDER BY id').all() as {
+    id: number;
+    name: string;
+    description: string;
+    min_level: number | null;
+    max_level: number | null;
+  }[];
+  const zones = rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    minLevel: row.min_level,
+    maxLevel: row.max_level,
+  }));
   res.json({ zones });
 });
 
@@ -29,7 +42,7 @@ builderRouter.post('/zones', (req, res) => {
   }
 
   const info = db.prepare('INSERT INTO zones (name, description) VALUES (?, ?)').run(name, description);
-  res.status(201).json({ zone: { id: Number(info.lastInsertRowid), name, description } });
+  res.status(201).json({ zone: { id: Number(info.lastInsertRowid), name, description, minLevel: null, maxLevel: null } });
 });
 
 /** Deletes a zone and every room/exit inside it. Refuses if any room can't be safely removed (occupied or a village anchor). */

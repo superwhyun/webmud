@@ -21,6 +21,8 @@ export interface ZoneDto {
   id: number;
   name: string;
   description: string;
+  minLevel: number | null;
+  maxLevel: number | null;
 }
 
 export interface RoomOptionAllZonesDto {
@@ -78,8 +80,10 @@ export interface MobSpawnDto {
   id: number;
   roomId: number;
   roomName: string;
+  zoneId: number;
   mobTemplateId: number;
   mobName: string;
+  mobLevel: number;
   respawnSeconds: number;
 }
 

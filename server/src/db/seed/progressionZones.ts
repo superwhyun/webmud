@@ -189,11 +189,15 @@ interface ProgressionMobSpawn {
   respawnSeconds: number;
 }
 
-export const PROGRESSION_ZONES: { id: number; name: string; description: string }[] = ZONE_BLUEPRINTS.map((zone) => ({
-  id: zone.zoneId,
-  name: zone.zoneName,
-  description: zone.zoneDescription,
-}));
+export const PROGRESSION_ZONES: { id: number; name: string; description: string; minLevel: number; maxLevel: number }[] =
+  ZONE_BLUEPRINTS.map((zone, index) => ({
+    id: zone.zoneId,
+    name: zone.zoneName,
+    description: zone.zoneDescription,
+    // 존 순서(늪지 정글=0)대로 정확히 6-10, 11-15, ..., 46-50 브라켓과 맞물린다.
+    minLevel: index * 5 + 6,
+    maxLevel: index * 5 + 10,
+  }));
 
 export const PROGRESSION_ROOMS: ProgressionRoom[] = ZONE_BLUEPRINTS.flatMap((zone) =>
   zone.rooms.map((room, index) => ({

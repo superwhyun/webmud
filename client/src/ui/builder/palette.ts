@@ -309,7 +309,7 @@ function renderPlacedInRoom(ctx: BuilderContext, room: BuilderRoomDto | undefine
           .map(
             (row) => `
                   <li>
-                    <span>${escapeHtml(row.mobName)} (리스폰 ${row.respawnSeconds}초)</span>
+                    <span>${escapeHtml(row.mobName)} <span class="builder-palette-level">Lv.${row.mobLevel}</span> (리스폰 ${row.respawnSeconds}초)</span>
                     <button type="button" class="builder-exit-delete" data-remove-mob="${row.id}">제거</button>
                   </li>
                 `,
