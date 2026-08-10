@@ -101,7 +101,7 @@ export function defeatCharacter(ctx: CommandContext): void {
     ctx.session.ws,
   );
 
-  db.prepare('UPDATE characters SET hp = max_hp, room_id = ? WHERE id = ?').run(
+  db.prepare('UPDATE characters SET hp = max_hp, mp = max_mp, room_id = ? WHERE id = ?').run(
     respawnRoomId,
     ctx.session.characterId,
   );
