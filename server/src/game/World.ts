@@ -66,6 +66,16 @@ export function getAllRooms(): RoomData[] {
   return [...rooms.values()];
 }
 
+/** 존의 "입구방"을 그 존 안에서 id가 가장 작은 방으로 정의한다 — 존을 만들 때 항상 입구를 먼저 만들기 때문에 별도 플래그 없이도 성립한다. */
+export function getZoneEntranceRoomId(zoneId: number): number | undefined {
+  let entranceId: number | undefined;
+  for (const room of rooms.values()) {
+    if (room.zoneId !== zoneId) continue;
+    if (entranceId === undefined || room.id < entranceId) entranceId = room.id;
+  }
+  return entranceId;
+}
+
 /** Registers a room created after startup (e.g. a newly founded village or a builder-created room) without a full reload. */
 export function registerRoom(room: RoomData): void {
   rooms.set(room.id, room);

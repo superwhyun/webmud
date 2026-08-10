@@ -9,7 +9,7 @@ import { computeMobExpReward } from '../mobExp.js';
 import { broadcastRoomSnapshot } from '../roomSnapshot.js';
 import { broadcastToRoom } from '../sessionRegistry.js';
 import { applyGoldEarnings } from '../village/VillageService.js';
-import { getRoom } from '../World.js';
+import { getRoom, getZoneEntranceRoomId } from '../World.js';
 
 /** 몹이 죽었을 때 들고 있던 아이템을 현재 방에 떨어뜨린다. */
 function dropMobLoot(ctx: CommandContext, mob: MobInstance): void {
@@ -87,8 +87,12 @@ export function handleMobDefeat(ctx: CommandContext, mob: MobInstance, character
   if (state) ctx.send({ type: 'state', character: state });
 }
 
+/** 사망한 방이 속한 존의 입구방으로 되살아난다. 존을 찾지 못하면(이상 상황) 최초 마을로 대신 보낸다. */
 export function defeatCharacter(ctx: CommandContext): void {
   const oldRoomId = ctx.session.roomId;
+  const diedInRoom = getRoom(oldRoomId);
+  const respawnRoomId =
+    (diedInRoom && getZoneEntranceRoomId(diedInRoom.zoneId)) ?? STARTING_ROOM_ID;
 
   ctx.send({ type: 'text', text: '당신은 쓰러졌습니다...' });
   broadcastToRoom(
@@ -98,17 +102,17 @@ export function defeatCharacter(ctx: CommandContext): void {
   );
 
   db.prepare('UPDATE characters SET hp = max_hp, room_id = ? WHERE id = ?').run(
-    STARTING_ROOM_ID,
+    respawnRoomId,
     ctx.session.characterId,
   );
-  ctx.session.roomId = STARTING_ROOM_ID;
+  ctx.session.roomId = respawnRoomId;
 
   const state = loadCharacterState(ctx.session.characterId);
   if (state) ctx.send({ type: 'state', character: state });
 
-  const room = getRoom(STARTING_ROOM_ID);
+  const room = getRoom(respawnRoomId);
   if (room) ctx.send({ type: 'text', text: `정신을 차려보니 ${room.name}입니다.` });
 
   broadcastRoomSnapshot(oldRoomId);
-  broadcastRoomSnapshot(STARTING_ROOM_ID);
+  broadcastRoomSnapshot(respawnRoomId);
 }
