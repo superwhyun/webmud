@@ -7,7 +7,6 @@ function fillNpcForm(ctx: AdminContext, npc: NpcTemplateDto): void {
   ctx.container.querySelector<HTMLInputElement>('#admin-npc-name')!.value = npc.name;
   ctx.container.querySelector<HTMLInputElement>('#admin-npc-desc')!.value = npc.description;
   ctx.container.querySelector<HTMLSelectElement>('#admin-npc-type')!.value = npc.type;
-  ctx.container.querySelector<HTMLInputElement>('#admin-npc-level')!.value = String(npc.level);
   ctx.container.querySelector<HTMLSelectElement>('#admin-npc-deal-type')!.value = npc.dealType;
 }
 
@@ -18,7 +17,6 @@ function resetNpcForm(ctx: AdminContext): void {
   ctx.npcError.textContent = '';
   ctx.container.querySelector<HTMLInputElement>('#admin-npc-name')!.value = '';
   ctx.container.querySelector<HTMLInputElement>('#admin-npc-desc')!.value = '';
-  ctx.container.querySelector<HTMLInputElement>('#admin-npc-level')!.value = '1';
 }
 
 export async function refreshNpcs(ctx: AdminContext): Promise<void> {
@@ -30,7 +28,7 @@ export async function refreshNpcs(ctx: AdminContext): Promise<void> {
       .map(
         (npc) => `
           <li>
-            <span>${escapeHtml(npc.name)} (${NPC_TYPE_LABELS[npc.type]}, Lv.${npc.level}, ${NPC_DEAL_TYPE_LABELS[npc.dealType]})</span>
+            <span>${escapeHtml(npc.name)} (${NPC_TYPE_LABELS[npc.type]}, ${NPC_DEAL_TYPE_LABELS[npc.dealType]})</span>
             <span class="admin-row-actions">
               <button type="button" class="admin-edit-btn" data-npc-id="${npc.id}">수정</button>
               <button type="button" class="admin-delete-btn" data-npc-id="${npc.id}">삭제</button>
@@ -82,7 +80,6 @@ export function wireNpcForm(ctx: AdminContext): void {
       name,
       description,
       type: ctx.container.querySelector<HTMLSelectElement>('#admin-npc-type')!.value as NpcType,
-      level: Number(ctx.container.querySelector<HTMLInputElement>('#admin-npc-level')!.value),
       dealType: ctx.container.querySelector<HTMLSelectElement>('#admin-npc-deal-type')!.value as NpcDealType,
     };
     const request = ctx.editingNpcId ? updateNpcTemplate(ctx.token, ctx.editingNpcId, data) : createNpcTemplate(ctx.token, data);

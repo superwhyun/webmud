@@ -320,17 +320,6 @@ function renderShellHtml(): string {
               </select>
             </div>
             <div class="admin-field">
-              <label for="admin-npc-level">레벨</label>
-              <input
-                id="admin-npc-level"
-                type="number"
-                placeholder="레벨"
-                value="1"
-                min="1"
-                title="이 레벨 이하의 아이템만 취급합니다 (상인일 경우)."
-              />
-            </div>
-            <div class="admin-field">
               <label for="admin-npc-deal-type">취급 품목</label>
               <select id="admin-npc-deal-type" title="상인일 경우 이 종류의 아이템만 사고팝니다.">
                 ${NPC_DEAL_TYPE_VALUES.map((type) => `<option value="${type}">${NPC_DEAL_TYPE_LABELS[type]}</option>`).join('')}
@@ -340,7 +329,10 @@ function renderShellHtml(): string {
             <button type="button" id="admin-npc-cancel" hidden>취소</button>
           </div>
           <p class="admin-error" id="admin-npc-error"></p>
-          <p class="admin-panel-empty">NPC 배치는 맵 빌더에서 할 수 있습니다. 상인 종류만 실제로 거래(buy/sell) 기능이 동작합니다.</p>
+          <p class="admin-panel-empty">
+            NPC 배치는 맵 빌더에서 할 수 있습니다. 상인 종류만 실제로 거래(buy/sell) 기능이 동작합니다.
+            NPC의 레벨은 별도로 지정하지 않으며, 배치된 방이 속한 존의 최대 레벨을 그대로 따릅니다.
+          </p>
         </section>
 
         <section class="admin-section" data-admin-tab-panel="backup">

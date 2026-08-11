@@ -175,7 +175,6 @@ CREATE TABLE IF NOT EXISTS npc_templates (
   name TEXT NOT NULL,
   description TEXT NOT NULL,
   type TEXT NOT NULL DEFAULT 'merchant',
-  level INTEGER NOT NULL DEFAULT 1,
   deal_type TEXT NOT NULL DEFAULT 'all'
 );
 

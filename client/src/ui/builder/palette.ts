@@ -162,7 +162,7 @@ export function renderPalette(ctx: BuilderContext): void {
                         .map(
                           (npc) => `
                             <li>
-                              <span class="builder-palette-name">${escapeHtml(npc.name)} <span class="builder-palette-level">Lv.${npc.level}</span></span>
+                              <span class="builder-palette-name">${escapeHtml(npc.name)}</span>
                               <div class="builder-palette-actions">
                                 <button type="button" data-place-npc="${npc.id}" ${room ? '' : 'disabled'}>배치</button>
                               </div>

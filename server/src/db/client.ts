@@ -39,6 +39,12 @@ function ensureColumn(target: Database.Database, table: string, column: string, 
   if (!columns.some((c) => c.name === column)) target.exec(ddl);
 }
 
+/** NPC 레벨은 더 이상 템플릿 고정값이 아니라 배치된 방의 존 최대 레벨에서 계산되므로, 남아있는 컬럼은 제거한다. */
+function dropColumnIfExists(target: Database.Database, table: string, column: string): void {
+  const columns = target.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  if (columns.some((c) => c.name === column)) target.exec(`ALTER TABLE ${table} DROP COLUMN ${column}`);
+}
+
 function migrate(target: Database.Database): void {
   target.prepare("INSERT OR IGNORE INTO zones (id, name, description) VALUES (1, '구대륙', '')").run();
 
@@ -98,6 +104,7 @@ function migrate(target: Database.Database): void {
   ensureColumn(target, 'zones', 'max_level', 'ALTER TABLE zones ADD COLUMN max_level INTEGER');
   ensureColumn(target, 'mob_spawns', 'min_level', 'ALTER TABLE mob_spawns ADD COLUMN min_level INTEGER');
   ensureColumn(target, 'mob_spawns', 'max_level', 'ALTER TABLE mob_spawns ADD COLUMN max_level INTEGER');
+  dropColumnIfExists(target, 'npc_templates', 'level');
 }
 
 interface ExitEdgeRow {

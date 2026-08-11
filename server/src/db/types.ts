@@ -125,6 +125,5 @@ export interface NpcTemplateRow {
   name: string;
   description: string;
   type: NpcType;
-  level: number;
   deal_type: NpcDealType;
 }

@@ -45,7 +45,6 @@ export function toNpcTemplateDto(row: NpcTemplateRow) {
     name: row.name,
     description: row.description,
     type: row.type,
-    level: row.level,
     dealType: row.deal_type,
   };
 }

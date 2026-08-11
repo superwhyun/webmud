@@ -14,7 +14,6 @@ const npcTemplateSchema = z.object({
   name: z.string().min(1, '이름을 입력하세요.').max(30, '이름은 30자 이하여야 합니다.'),
   description: z.string().min(1, '설명을 입력하세요.').max(200, '설명은 200자 이하여야 합니다.'),
   type: z.enum(NPC_TYPE_VALUES as [string, ...string[]], { message: '올바른 종류가 아닙니다.' }),
-  level: z.number().int().min(1, '레벨은 1 이상이어야 합니다.').default(1),
   dealType: z.enum(NPC_DEAL_TYPE_VALUES as [string, ...string[]], { message: '올바른 취급 품목이 아닙니다.' }),
 });
 
@@ -27,8 +26,8 @@ adminRouter.post('/npc-templates', (req, res) => {
 
   const d = parsed.data;
   const info = db
-    .prepare('INSERT INTO npc_templates (name, description, type, level, deal_type) VALUES (?, ?, ?, ?, ?)')
-    .run(d.name, d.description, d.type, d.level, d.dealType);
+    .prepare('INSERT INTO npc_templates (name, description, type, deal_type) VALUES (?, ?, ?, ?)')
+    .run(d.name, d.description, d.type, d.dealType);
 
   const row = db.prepare('SELECT * FROM npc_templates WHERE id = ?').get(Number(info.lastInsertRowid)) as NpcTemplateRow;
   res.status(201).json({ npcTemplate: toNpcTemplateDto(row) });
@@ -48,11 +47,10 @@ adminRouter.patch('/npc-templates/:id', (req, res) => {
   }
 
   const d = parsed.data;
-  db.prepare('UPDATE npc_templates SET name = ?, description = ?, type = ?, level = ?, deal_type = ? WHERE id = ?').run(
+  db.prepare('UPDATE npc_templates SET name = ?, description = ?, type = ?, deal_type = ? WHERE id = ?').run(
     d.name,
     d.description,
     d.type,
-    d.level,
     d.dealType,
     id,
   );
