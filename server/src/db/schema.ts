@@ -120,7 +120,9 @@ CREATE TABLE IF NOT EXISTS mob_spawns (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   room_id INTEGER NOT NULL REFERENCES rooms(id),
   mob_template_id INTEGER NOT NULL REFERENCES mob_templates(id),
-  respawn_seconds INTEGER NOT NULL
+  respawn_seconds INTEGER NOT NULL,
+  min_level INTEGER,
+  max_level INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS mob_loot_pool (

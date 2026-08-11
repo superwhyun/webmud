@@ -1,5 +1,5 @@
 import { FRONTIER_ROOM_ID } from './index.js';
-import { mobTemplateIdForLevel } from './mobs/interpolated.js';
+import { speciesAnchorId } from './mobs/interpolated.js';
 
 interface RoomText {
   name: string;
@@ -255,6 +255,8 @@ interface ProgressionMobSpawn {
   roomId: number;
   mobTemplateId: number;
   respawnSeconds: number;
+  minLevel: number;
+  maxLevel: number;
 }
 
 export const PROGRESSION_ZONES: { id: number; name: string; description: string; minLevel: number; maxLevel: number }[] =
@@ -277,19 +279,19 @@ export const PROGRESSION_ROOMS: ProgressionRoom[] = ZONE_BLUEPRINTS.flatMap((zon
 );
 
 /**
- * 전투방(rooms[1]~rooms[5])마다 테마에 맞는 종을 하나씩 고정 배치하되(예: 덩굴숲엔 덩굴괴수),
- * 방을 따라 남쪽으로 내려갈수록 레벨이 브라켓 최소~최대로 한 단계씩 올라간다 — 일직선 자체가
- * 자연스러운 난이도 곡선이 되도록.
+ * 전투방(rooms[1]~rooms[5])마다 테마에 맞는 종을 하나씩 고정 배치한다(예: 덩굴숲엔 덩굴괴수).
+ * 실제 레벨은 고정하지 않고 존의 레벨 범위만 저장 — 스폰될 때(최초 배치+리스폰마다) 그 범위
+ * 안에서 매번 새로 굴려 레벨과 스탯을 정한다.
  */
-export const PROGRESSION_MOB_SPAWNS: ProgressionMobSpawn[] = ZONE_BLUEPRINTS.flatMap((zone, zoneIndex) => {
-  const { minLevel } = zoneLevelRange(zoneIndex);
-  return zone.rooms.slice(1, 6).map((_, index) => ({
+export const PROGRESSION_MOB_SPAWNS: ProgressionMobSpawn[] = ZONE_BLUEPRINTS.flatMap((zone, zoneIndex) =>
+  zone.rooms.slice(1, 6).map((_, index) => ({
     // 전투방은 입구(+1) 다음인 +2 ~ +6.
     roomId: zone.roomBase + index + 2,
-    mobTemplateId: mobTemplateIdForLevel(index, minLevel + index),
+    mobTemplateId: speciesAnchorId(index),
     respawnSeconds: RESPAWN_SECONDS,
-  }));
-});
+    ...zoneLevelRange(zoneIndex),
+  })),
+);
 
 function inZoneChainExits(zone: ZoneBlueprint): ProgressionExit[] {
   const exits: ProgressionExit[] = [];
@@ -368,8 +370,6 @@ export const PROGRESSION_BRANCH_BLUEPRINTS: BranchBlueprint[] = ZONE_BLUEPRINTS.
     respawnSeconds: RESPAWN_SECONDS,
   })),
 );
-
-export { mobTemplateIdForLevel, randomMobSelection } from './mobs/interpolated.js';
 
 /** 기존 전투방(스핀)에 몹을 추가로 채울 때 쓸, 존별 레벨 범위와 전투방 id 목록. */
 export const ZONE_MOB_POOLS: { zoneId: number; minLevel: number; maxLevel: number; combatRoomIds: number[] }[] =
