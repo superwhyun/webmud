@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { db } from '../db/client.js';
-import { grantGold } from './moderation.js';
+import { grantGold, placeAccountCharacter } from './moderation.js';
 import { adminRouter } from './router.js';
 
 interface AccountRow {
@@ -9,7 +9,14 @@ interface AccountRow {
   is_builder: number;
   is_admin: number;
   gold: number | null;
+  room_id: number | null;
+  room_name: string | null;
 }
+
+const accountsQuery = `SELECT a.id, a.username, a.is_builder, a.is_admin, c.gold as gold, c.room_id as room_id, r.name as room_name
+       FROM accounts a
+       LEFT JOIN characters c ON c.account_id = a.id
+       LEFT JOIN rooms r ON r.id = c.room_id`;
 
 function toAccountDto(row: AccountRow) {
   return {
@@ -18,18 +25,13 @@ function toAccountDto(row: AccountRow) {
     isBuilder: Boolean(row.is_builder),
     isAdmin: Boolean(row.is_admin),
     gold: row.gold,
+    roomId: row.room_id,
+    roomName: row.room_name,
   };
 }
 
 adminRouter.get('/accounts', (_req, res) => {
-  const rows = db
-    .prepare(
-      `SELECT a.id, a.username, a.is_builder, a.is_admin, c.gold as gold
-       FROM accounts a
-       LEFT JOIN characters c ON c.account_id = a.id
-       ORDER BY a.username`,
-    )
-    .all() as AccountRow[];
+  const rows = db.prepare(`${accountsQuery} ORDER BY a.username`).all() as AccountRow[];
   res.json({ accounts: rows.map(toAccountDto) });
 });
 
@@ -70,14 +72,7 @@ adminRouter.patch('/accounts/:id', (req, res) => {
   values.push(id);
 
   db.prepare(`UPDATE accounts SET ${fields.join(', ')} WHERE id = ?`).run(...values);
-  const row = db
-    .prepare(
-      `SELECT a.id, a.username, a.is_builder, a.is_admin, c.gold as gold
-       FROM accounts a
-       LEFT JOIN characters c ON c.account_id = a.id
-       WHERE a.id = ?`,
-    )
-    .get(id) as AccountRow;
+  const row = db.prepare(`${accountsQuery} WHERE a.id = ?`).get(id) as AccountRow;
   res.json({ account: toAccountDto(row) });
 });
 
@@ -105,4 +100,30 @@ adminRouter.post('/accounts/:id/grant-gold', (req, res) => {
   }
 
   res.json({ gold: result.gold });
+});
+
+const placeSchema = z.object({
+  targetRoomId: z.number().int(),
+});
+
+adminRouter.post('/accounts/:id/place', (req, res) => {
+  const id = Number(req.params.id);
+  if (!db.prepare('SELECT id FROM accounts WHERE id = ?').get(id)) {
+    res.status(404).json({ error: '계정을 찾을 수 없습니다.' });
+    return;
+  }
+
+  const parsed = placeSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
+    return;
+  }
+
+  const result = placeAccountCharacter(id, parsed.data.targetRoomId);
+  if (!result.ok) {
+    res.status(409).json({ error: result.error });
+    return;
+  }
+
+  res.json({ roomId: result.roomId, roomName: result.roomName });
 });

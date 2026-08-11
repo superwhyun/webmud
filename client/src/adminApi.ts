@@ -7,6 +7,8 @@ export interface AccountDto {
   isBuilder: boolean;
   isAdmin: boolean;
   gold: number | null;
+  roomId: number | null;
+  roomName: string | null;
 }
 
 export interface SessionDto {
@@ -85,6 +87,18 @@ export function grantGold(token: string, accountId: number, amount: number): Pro
     method: 'POST',
     headers: authHeader(token),
     body: JSON.stringify({ amount }),
+  });
+}
+
+export function placeAccount(
+  token: string,
+  accountId: number,
+  targetRoomId: number,
+): Promise<{ roomId: number; roomName: string }> {
+  return apiRequest(`/admin/accounts/${accountId}/place`, {
+    method: 'POST',
+    headers: authHeader(token),
+    body: JSON.stringify({ targetRoomId }),
   });
 }
 

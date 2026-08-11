@@ -70,6 +70,41 @@ export function grantGold(accountId: number, amount: number): GrantGoldResult {
   return { ok: true, gold: row.gold };
 }
 
+export interface PlaceCharacterResult {
+  ok: boolean;
+  error?: string;
+  roomId?: number;
+  roomName?: string;
+}
+
+export function placeAccountCharacter(accountId: number, targetRoomId: number): PlaceCharacterResult {
+  const character = db.prepare('SELECT id FROM characters WHERE account_id = ?').get(accountId) as
+    | { id: number }
+    | undefined;
+  if (!character) {
+    return { ok: false, error: '이 계정에는 캐릭터가 없습니다.' };
+  }
+
+  const targetRoom = getRoom(targetRoomId);
+  if (!targetRoom) {
+    return { ok: false, error: '대상 방을 찾을 수 없습니다.' };
+  }
+
+  const session = getAllSessions().find((s) => s.accountId === accountId);
+  if (session) {
+    if (session.roomId !== targetRoomId) {
+      const result = forceMoveSession(session, targetRoomId);
+      if (!result.ok) {
+        return { ok: false, error: result.error };
+      }
+    }
+    return { ok: true, roomId: targetRoomId, roomName: targetRoom.name };
+  }
+
+  db.prepare('UPDATE characters SET room_id = ? WHERE id = ?').run(targetRoomId, character.id);
+  return { ok: true, roomId: targetRoomId, roomName: targetRoom.name };
+}
+
 export function kickSession(session: Session, reason?: string): void {
   send(session.ws, {
     type: 'error',

@@ -86,7 +86,7 @@ function renderShellHtml(): string {
         <section class="admin-section" data-admin-tab-panel="accounts">
           <h3>유저 권한 관리</h3>
           <table class="admin-table">
-            <thead><tr><th>아이디</th><th>빌더</th><th>어드민</th><th>골드</th><th></th></tr></thead>
+            <thead><tr><th>아이디</th><th>빌더</th><th>어드민</th><th>골드</th><th>위치</th><th></th></tr></thead>
             <tbody id="admin-accounts-body"></tbody>
           </table>
           <p class="admin-error" id="admin-accounts-error"></p>
