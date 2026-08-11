@@ -138,6 +138,25 @@
   font-size: 0.75rem;
 }
 
+.admin-mob-group-row td {
+  background: var(--color-surface);
+}
+
+.admin-mob-group-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-dim);
+  margin-right: 0.3rem;
+  padding: 0;
+  font-size: 0.9rem;
+}
+
+.admin-mob-group-hint {
+  color: var(--color-text-dim);
+  font-size: 0.8rem;
+}
+
 .admin-loot-items {
   flex-direction: row;
   flex-wrap: wrap;

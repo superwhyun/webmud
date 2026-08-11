@@ -47,6 +47,8 @@ export interface AdminContext {
   editingMobId: number | null;
   /** 아직 생성되지 않은 신규 몬스터에 임시로 체크해둔 보유 가능 아이템(itemId -> weight). 생성 성공 후 실제로 반영한다. */
   pendingLootWeights: Map<number, number>;
+  /** 같은 이름+레벨 구간(브라켓)으로 묶인 몹 그룹 중, 펼쳐서 개별 앵커를 보여주고 있는 그룹의 key 집합. */
+  expandedMobGroups: Set<string>;
 
   npcTemplatesList: HTMLUListElement;
   npcError: HTMLParagraphElement;
@@ -401,6 +403,7 @@ export function createAdminContext(container: HTMLElement, token: string, onBack
     mobTemplates: [],
     editingMobId: null,
     pendingLootWeights: new Map(),
+    expandedMobGroups: new Set(),
 
     npcTemplatesList: container.querySelector<HTMLUListElement>('#admin-npc-templates')!,
     npcError: container.querySelector<HTMLParagraphElement>('#admin-npc-error')!,

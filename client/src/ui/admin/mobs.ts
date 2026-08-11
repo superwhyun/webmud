@@ -1,4 +1,4 @@
-import { ELEMENT_LABELS, ITEM_GRADE_DROP_WEIGHT, ITEM_GRADE_LABELS, type ElementType } from '@mud/shared';
+import { ELEMENT_LABELS, ITEM_GRADE_DROP_WEIGHT, ITEM_GRADE_LABELS, mobLevelBracket, type ElementType } from '@mud/shared';
 import {
   addMobLootPoolItem,
   createMobTemplate,
@@ -66,6 +66,58 @@ function resetMobForm(ctx: AdminContext): void {
   ctx.pendingLootWeights = new Map();
 }
 
+/** 같은 이름을 가진 몹들을 레벨 구간(브라켓)별로 묶는다 — 같은 브라켓이면 '+' 개수도 같은 하나의 몹으로 취급한다. */
+interface MobDisplayGroup {
+  key: string;
+  displayName: string;
+  levelLabel: string;
+  mobs: MobTemplateDto[];
+}
+
+function buildMobDisplayGroups(mobTemplates: MobTemplateDto[]): MobDisplayGroup[] {
+  const nameCounts = new Map<string, number>();
+  for (const mob of mobTemplates) nameCounts.set(mob.name, (nameCounts.get(mob.name) ?? 0) + 1);
+
+  const groups: MobDisplayGroup[] = [];
+  const groupByKey = new Map<string, MobDisplayGroup>();
+
+  for (const mob of mobTemplates) {
+    if ((nameCounts.get(mob.name) ?? 0) <= 1) {
+      groups.push({ key: `mob-${mob.id}`, displayName: mob.name, levelLabel: String(mob.level), mobs: [mob] });
+      continue;
+    }
+    const { suffix, min, max } = mobLevelBracket(mob.level);
+    const key = `${mob.name}${suffix}`;
+    let group = groupByKey.get(key);
+    if (!group) {
+      group = { key, displayName: `${mob.name}${suffix}`, levelLabel: `${min}-${max}`, mobs: [] };
+      groupByKey.set(key, group);
+      groups.push(group);
+    }
+    group.mobs.push(mob);
+  }
+  return groups;
+}
+
+function renderMobRowHtml(mob: MobTemplateDto, lootText: string): string {
+  return `
+    <tr data-mob-id="${mob.id}">
+      <td>${escapeHtml(mob.name)}${mob.hostile ? '' : ' <span class="admin-mob-passive-tag">비전투</span>'}</td>
+      <td>${mob.level}</td>
+      <td>${mob.hp}</td>
+      <td>${ELEMENT_LABELS[mob.element]}</td>
+      <td>${DAMAGE_TYPE_LABELS[mob.damageType]}</td>
+      <td class="admin-mob-loot-cell">${lootText || '-'}</td>
+      <td>
+        <span class="admin-row-actions">
+          <button type="button" class="admin-edit-btn" data-mob-id="${mob.id}">수정</button>
+          <button type="button" class="admin-delete-btn" data-mob-id="${mob.id}">삭제</button>
+        </span>
+      </td>
+    </tr>
+  `;
+}
+
 function renderMobTemplatesList(ctx: AdminContext, lootEntries: MobLootPoolEntryDto[]): void {
   const lootByMobId = new Map<number, MobLootPoolEntryDto[]>();
   for (const entry of lootEntries) {
@@ -73,32 +125,50 @@ function renderMobTemplatesList(ctx: AdminContext, lootEntries: MobLootPoolEntry
     list.push(entry);
     lootByMobId.set(entry.mobTemplateId, list);
   }
+  const lootTextFor = (mobId: number): string =>
+    (lootByMobId.get(mobId) ?? [])
+      .map((entry) => `<span class="item-grade-${entry.grade}">${escapeHtml(entry.name)}</span>(${entry.weight}%)`)
+      .join(', ');
+
+  const groups = buildMobDisplayGroups(ctx.mobTemplates);
+
+  if (ctx.editingMobId !== null) {
+    const editingGroup = groups.find((group) => group.mobs.some((mob) => mob.id === ctx.editingMobId));
+    if (editingGroup && editingGroup.mobs.length > 1) ctx.expandedMobGroups.add(editingGroup.key);
+  }
 
   ctx.mobTemplatesList.innerHTML =
-    ctx.mobTemplates
-      .map((mob) => {
-        const loot = lootByMobId.get(mob.id) ?? [];
-        const lootText = loot
-          .map((entry) => `<span class="item-grade-${entry.grade}">${escapeHtml(entry.name)}</span>(${entry.weight}%)`)
-          .join(', ');
-        return `
-          <tr data-mob-id="${mob.id}">
-            <td>${escapeHtml(mob.name)}${mob.hostile ? '' : ' <span class="admin-mob-passive-tag">비전투</span>'}</td>
-            <td>${mob.level}</td>
-            <td>${mob.hp}</td>
-            <td>${ELEMENT_LABELS[mob.element]}</td>
-            <td>${DAMAGE_TYPE_LABELS[mob.damageType]}</td>
-            <td class="admin-mob-loot-cell">${lootText || '-'}</td>
+    groups
+      .map((group) => {
+        if (group.mobs.length === 1) {
+          const mob = group.mobs[0];
+          return renderMobRowHtml(mob, lootTextFor(mob.id));
+        }
+        const expanded = ctx.expandedMobGroups.has(group.key);
+        const summaryRow = `
+          <tr class="admin-mob-group-row" data-group-key="${escapeHtml(group.key)}">
             <td>
-              <span class="admin-row-actions">
-                <button type="button" class="admin-edit-btn" data-mob-id="${mob.id}">수정</button>
-                <button type="button" class="admin-delete-btn" data-mob-id="${mob.id}">삭제</button>
-              </span>
+              <button type="button" class="admin-mob-group-toggle" data-group-key="${escapeHtml(group.key)}">${expanded ? '▾' : '▸'}</button>
+              ${escapeHtml(group.displayName)}
             </td>
+            <td>${group.levelLabel}</td>
+            <td colspan="4" class="admin-mob-group-hint">앵커 ${group.mobs.length}개 — 펼쳐서 개별 수정</td>
+            <td></td>
           </tr>
         `;
+        const detailRows = expanded ? group.mobs.map((mob) => renderMobRowHtml(mob, lootTextFor(mob.id))).join('') : '';
+        return summaryRow + detailRows;
       })
       .join('') || '<tr><td colspan="7" class="admin-panel-empty">없음</td></tr>';
+
+  ctx.mobTemplatesList.querySelectorAll<HTMLButtonElement>('.admin-mob-group-toggle').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.groupKey!;
+      if (ctx.expandedMobGroups.has(key)) ctx.expandedMobGroups.delete(key);
+      else ctx.expandedMobGroups.add(key);
+      renderMobTemplatesList(ctx, lootEntries);
+    });
+  });
 
   ctx.mobTemplatesList.querySelectorAll<HTMLButtonElement>('.admin-edit-btn').forEach((btn) => {
     btn.addEventListener('click', () => {

@@ -1,4 +1,4 @@
-import type { ElementType } from '@mud/shared';
+import { suffixForLevel, type ElementType } from '@mud/shared';
 import type { MobTemplateSeed } from '../types.js';
 import { MOB_TEMPLATES_TIER1 } from './tier1.js';
 import { MOB_TEMPLATES_TIER2 } from './tier2.js';
@@ -24,15 +24,6 @@ function interpolateStat(lower: number, upper: number, ratio: number): number {
 
 function nearestAnchorLevel(level: number): number {
   return ANCHOR_LEVELS.reduce((closest, anchor) => (Math.abs(anchor - level) < Math.abs(closest - level) ? anchor : closest));
-}
-
-/** 절대 레벨 1~50을 5단계로 나눠 이름에 붙일 접미사를 정한다: 1-10 없음, 11-20 +, 21-30 ++, 31-40 +++, 41-50 ++++. */
-export function suffixForLevel(level: number): string {
-  if (level <= 10) return '';
-  if (level <= 20) return '+';
-  if (level <= 30) return '++';
-  if (level <= 40) return '+++';
-  return '++++';
 }
 
 export interface ComputedMobStats {

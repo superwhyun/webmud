@@ -7,11 +7,11 @@ import { MOB_LOOT_POOL_BASE } from './lootPool.js';
 export const MOB_TEMPLATES: MobTemplateSeed[] = [...MOB_TEMPLATES_TIER1, ...MOB_TEMPLATES_TIER2, ...MOB_TEMPLATES_TIER3];
 export { MOB_SPAWNS } from './spawns.js';
 export const MOB_LOOT_POOL = MOB_LOOT_POOL_BASE;
+export { suffixForLevel } from '@mud/shared';
 export {
   computeMobStatsForLevel,
   randomLevelInRange,
   randomSpeciesSelection,
   SPECIES_NAMES,
   speciesAnchorId,
-  suffixForLevel,
 } from './interpolated.js';
