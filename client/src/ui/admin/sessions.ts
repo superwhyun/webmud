@@ -6,8 +6,13 @@ export async function refreshRooms(ctx: AdminContext): Promise<void> {
   ctx.rooms = (await fetchAdminRooms(ctx.token)).rooms;
 }
 
-function roomOptionsHtml(ctx: AdminContext): string {
-  return ctx.rooms.map((room) => `<option value="${room.id}">${escapeHtml(room.name)}</option>`).join('');
+export function roomOptionsHtml(ctx: AdminContext, selectedRoomId?: number | null): string {
+  return ctx.rooms
+    .map(
+      (room) =>
+        `<option value="${room.id}" ${room.id === selectedRoomId ? 'selected' : ''}>${escapeHtml(room.name)}</option>`,
+    )
+    .join('');
 }
 
 export async function refreshSessions(ctx: AdminContext): Promise<void> {

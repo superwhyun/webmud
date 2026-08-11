@@ -1,6 +1,7 @@
-import { fetchAccounts, grantGold, updateAccount } from '../../adminApi';
+import { fetchAccounts, grantGold, placeAccount, updateAccount } from '../../adminApi';
 import { escapeHtml } from '../../domUtils';
 import type { AdminContext } from './context';
+import { roomOptionsHtml } from './sessions';
 
 export async function refreshAccounts(ctx: AdminContext): Promise<void> {
   const { accounts } = await fetchAccounts(ctx.token);
@@ -12,6 +13,19 @@ export async function refreshAccounts(ctx: AdminContext): Promise<void> {
           <td><input type="checkbox" class="admin-role-toggle" data-account-id="${account.id}" data-field="isBuilder" ${account.isBuilder ? 'checked' : ''} /></td>
           <td><input type="checkbox" class="admin-role-toggle" data-account-id="${account.id}" data-field="isAdmin" ${account.isAdmin ? 'checked' : ''} /></td>
           <td>${account.gold !== null ? account.gold : '-'}</td>
+          <td>
+            ${
+              account.roomId !== null
+                ? `
+                  <span class="admin-row-actions">
+                    <span>${escapeHtml(account.roomName ?? '-')}</span>
+                    <select class="admin-place-target" data-account-id="${account.id}">${roomOptionsHtml(ctx, account.roomId)}</select>
+                    <button type="button" class="admin-place-btn" data-account-id="${account.id}">이동</button>
+                  </span>
+                `
+                : '<span class="admin-panel-empty">캐릭터 없음</span>'
+            }
+          </td>
           <td>
             ${
               account.gold !== null
@@ -37,6 +51,20 @@ export async function refreshAccounts(ctx: AdminContext): Promise<void> {
         ctx.accountsError.textContent = error instanceof Error ? error.message : '권한 변경에 실패했습니다.';
         checkbox.checked = !checkbox.checked;
       });
+    });
+  });
+
+  ctx.accountsBody.querySelectorAll<HTMLButtonElement>('.admin-place-btn').forEach((button) => {
+    button.addEventListener('click', () => {
+      const accountId = Number(button.dataset.accountId);
+      const select = ctx.accountsBody.querySelector<HTMLSelectElement>(`.admin-place-target[data-account-id="${accountId}"]`)!;
+      const targetRoomId = Number(select.value);
+      ctx.accountsError.textContent = '';
+      placeAccount(ctx.token, accountId, targetRoomId)
+        .then(() => refreshAccounts(ctx))
+        .catch((error: unknown) => {
+          ctx.accountsError.textContent = error instanceof Error ? error.message : '위치 이동에 실패했습니다.';
+        });
     });
   });
 
