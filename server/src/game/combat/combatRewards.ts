@@ -49,10 +49,11 @@ export function handleMobDefeat(ctx: CommandContext, mob: MobInstance, character
   ctx.send({
     type: 'text',
     text: `${mob.name}를 물리쳤습니다! (경험치 +${expReward}, 골드 +${mob.goldReward})`,
+    channel: 'combat-victory',
   });
   broadcastToRoom(
     ctx.session.roomId,
-    { type: 'text', text: `${ctx.session.characterName}님이 ${mob.name}를 물리쳤습니다.` },
+    { type: 'text', text: `${ctx.session.characterName}님이 ${mob.name}를 물리쳤습니다.`, channel: 'combat-victory' },
     ctx.session.ws,
   );
 

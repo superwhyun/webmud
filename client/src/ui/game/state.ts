@@ -1,4 +1,4 @@
-import { ELEMENT_LABELS, JOB_LABELS, type CharacterState, type ClientMessage } from '@mud/shared';
+import { ELEMENT_LABELS, expThresholdForLevel, JOB_LABELS, type CharacterState, type ClientMessage } from '@mud/shared';
 import { escapeHtml } from '../../domUtils';
 import { hpLevel, type GameContext } from './context';
 import { renderSkillModal } from './skills';
@@ -11,6 +11,23 @@ const STAT_ALLOC_ENTRIES: { key: string; label: string; pick: (c: CharacterState
   { key: 'wis', label: '지혜', pick: (c) => c.wisdom },
   { key: 'luk', label: '행운', pick: (c) => c.luck },
 ];
+
+const EXP_UNIT_SUFFIXES: [number, string][] = [
+  [1_000_000_000, 'G'],
+  [1_000_000, 'M'],
+  [1_000, 'K'],
+];
+
+/** 숫자가 커지면 K/M/G로 줄여서 사이드바가 넘치지 않게 한다 (예: 1500 → 1.5K). */
+function formatExpAmount(value: number): string {
+  for (const [threshold, suffix] of EXP_UNIT_SUFFIXES) {
+    if (value >= threshold) {
+      const scaled = (value / threshold).toFixed(1);
+      return `${scaled.endsWith('.0') ? scaled.slice(0, -2) : scaled}${suffix}`;
+    }
+  }
+  return String(value);
+}
 
 export function renderCooldownPanel(ctx: GameContext): void {
   const now = Date.now();
@@ -44,6 +61,11 @@ export function renderState(ctx: GameContext, character: CharacterState): void {
   const level = hpLevel(hpRatio);
   const jobLabel = character.job ? JOB_LABELS[character.job] : '미정';
   const canAllocate = character.unallocatedStatPoints > 0;
+  const currentLevelExp = expThresholdForLevel(character.level);
+  const nextLevelExp = expThresholdForLevel(character.level + 1);
+  const expProgress = character.exp - currentLevelExp;
+  const expNeeded = nextLevelExp - currentLevelExp;
+  const expRatio = expNeeded > 0 ? expProgress / expNeeded : 0;
   ctx.sidebarStats.innerHTML = `
     <div class="stat stat-name">${character.name}</div>
     <div class="stat">HP ${character.hp}/${character.maxHp}</div>
@@ -54,7 +76,11 @@ export function renderState(ctx: GameContext, character: CharacterState): void {
     <div class="mp-bar" role="progressbar" aria-valuenow="${character.mp}" aria-valuemin="0" aria-valuemax="${character.maxMp}">
       <div class="mp-bar-fill" style="width: ${Math.max(0, mpRatio * 100)}%"></div>
     </div>
-    <div class="stat">Lv.${character.level} ${jobLabel} (EXP ${character.exp}) · gold ${character.gold}</div>
+    <div class="stat">EXP ${formatExpAmount(expProgress)}/${formatExpAmount(expNeeded)}</div>
+    <div class="exp-bar" role="progressbar" aria-valuenow="${expProgress}" aria-valuemin="0" aria-valuemax="${expNeeded}">
+      <div class="exp-bar-fill" style="width: ${Math.max(0, Math.min(100, expRatio * 100))}%"></div>
+    </div>
+    <div class="stat">Lv.${character.level} ${jobLabel} · gold ${character.gold}</div>
     <div class="stat-grid">
       ${STAT_ALLOC_ENTRIES.map(
         (entry) => `

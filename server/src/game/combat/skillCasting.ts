@@ -122,7 +122,7 @@ export function handleCast(ctx: CommandContext, rest: string): void {
         ctx.send({ type: 'text', text: '그런 대상이 이곳에 없습니다.' });
         return;
       }
-      ctx.send({ type: 'text', text: `${targetMob.name}에게 싸움을 겁니다!` });
+      ctx.send({ type: 'text', text: `${targetMob.name}에게 싸움을 겁니다!`, channel: 'combat-engage' });
       combat = startCombatInterval(ctx, [targetMob]);
     }
     const mob = (targetHint && combat.mobs.find((m) => m.name.includes(targetHint))) || combat.mobs[0];
@@ -141,6 +141,7 @@ export function handleCast(ctx: CommandContext, rest: string): void {
     ctx.send({
       type: 'text',
       text: `${skill.name}! ${mob.name}에게 ${damage}의 피해를 입혔습니다. (${mob.hp}/${mob.maxHp})`,
+      channel: 'combat-hit',
     });
 
     if (mob.hp <= 0) {

@@ -1,3 +1,4 @@
+import type { ChatChannel } from '@mud/shared';
 import type { WebSocket } from 'ws';
 import { db } from '../../db/client.js';
 import { getEffectiveStats } from '../combatStats.js';
@@ -58,12 +59,12 @@ export function startCombat(ctx: CommandContext, mob: MobInstance): void {
       return;
     }
     existing.mobs.push(mob);
-    ctx.send({ type: 'text', text: `${mob.name}에게도 싸움을 겁니다!` });
+    ctx.send({ type: 'text', text: `${mob.name}에게도 싸움을 겁니다!`, channel: 'combat-engage' });
     sendCombatStatus(ctx, existing);
     return;
   }
 
-  ctx.send({ type: 'text', text: `${mob.name}에게 싸움을 겁니다!` });
+  ctx.send({ type: 'text', text: `${mob.name}에게 싸움을 겁니다!`, channel: 'combat-engage' });
   const combat = startCombatInterval(ctx, [mob]);
   sendCombatStatus(ctx, combat);
   performRound(ctx);
@@ -90,7 +91,7 @@ export function triggerAggro(ctx: CommandContext): void {
   combat.mobs.push(...newMobs);
 
   const names = newMobs.map((mob) => mob.name).join(', ');
-  ctx.send({ type: 'text', text: `${names}이(가) 상성 우위를 노리고 달려듭니다!` });
+  ctx.send({ type: 'text', text: `${names}이(가) 상성 우위를 노리고 달려듭니다!`, channel: 'combat-engage' });
   sendCombatStatus(ctx, combat);
   performRound(ctx);
 }
@@ -131,12 +132,13 @@ function performRound(ctx: CommandContext): void {
 
   const playerAttack = resolveAttack(playerStats, targetStats, 'physical');
   if (playerAttack.evaded) {
-    ctx.send({ type: 'text', text: `${target.name}가 당신의 공격을 회피했습니다!` });
+    ctx.send({ type: 'text', text: `${target.name}가 당신의 공격을 회피했습니다!`, channel: 'combat-evade' });
   } else {
     target.hp = Math.max(0, target.hp - playerAttack.damage);
     ctx.send({
       type: 'text',
       text: `당신이 ${target.name}에게 ${playerAttack.damage}의 피해를 입혔습니다. (${target.hp}/${target.maxHp})`,
+      channel: 'combat-hit',
     });
   }
 
@@ -155,21 +157,24 @@ function performRound(ctx: CommandContext): void {
 
   // 전투 중인 모든 몹이(상성 우위로 가세한 몹 포함) 매 라운드 동시에 반격한다.
   let hp = character.hp;
-  const attackMessages: string[] = [];
+  const attackMessages: { text: string; channel: ChatChannel }[] = [];
   for (const attacker of combat.mobs) {
     if (hp <= 0) break;
     const attackerStats = mobCombatantStats(attacker);
     const mobAttack = resolveAttack(attackerStats, playerStats, attacker.damageType);
     if (mobAttack.evaded) {
-      attackMessages.push(`당신이 ${attacker.name}의 공격을 회피했습니다!`);
+      attackMessages.push({ text: `당신이 ${attacker.name}의 공격을 회피했습니다!`, channel: 'combat-evade' });
       continue;
     }
     hp = Math.max(0, hp - mobAttack.damage);
-    attackMessages.push(`${attacker.name}가 당신에게 ${mobAttack.damage}의 피해를 입혔습니다. (${hp}/${character.max_hp})`);
+    attackMessages.push({
+      text: `${attacker.name}가 당신에게 ${mobAttack.damage}의 피해를 입혔습니다. (${hp}/${character.max_hp})`,
+      channel: 'combat-hurt',
+    });
   }
 
   db.prepare('UPDATE characters SET hp = ? WHERE id = ?').run(hp, character.id);
-  for (const message of attackMessages) ctx.send({ type: 'text', text: message });
+  for (const message of attackMessages) ctx.send({ type: 'text', text: message.text, channel: message.channel });
 
   const state = loadCharacterState(character.id);
   if (state) ctx.send({ type: 'state', character: state });

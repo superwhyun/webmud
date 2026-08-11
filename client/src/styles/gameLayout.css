@@ -146,6 +146,29 @@
   font-weight: bold;
 }
 
+.line-combat-victory {
+  color: var(--color-exp);
+  font-weight: bold;
+  text-shadow: 0 0 6px rgba(217, 164, 65, 0.5);
+}
+
+.line-combat-hit {
+  color: var(--color-accent);
+}
+
+.line-combat-hurt {
+  color: var(--color-danger);
+}
+
+.line-combat-evade {
+  color: var(--color-mana);
+}
+
+.line-combat-engage {
+  color: var(--color-text-dim);
+  font-style: italic;
+}
+
 .line-death {
   display: block;
   margin: 0.3rem 0;

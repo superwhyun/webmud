@@ -118,7 +118,16 @@ export type ClientMessage =
   | { type: 'unequipItem'; slot: EquipmentSlot }
   | { type: 'chooseJob'; job: JobType };
 
-export type ChatChannel = 'say' | 'shout' | 'admin' | 'death';
+export type ChatChannel =
+  | 'say'
+  | 'shout'
+  | 'admin'
+  | 'death'
+  | 'combat-victory'
+  | 'combat-hit'
+  | 'combat-hurt'
+  | 'combat-evade'
+  | 'combat-engage';
 
 export type ServerMessage =
   | { type: 'text'; text: string; channel?: ChatChannel }

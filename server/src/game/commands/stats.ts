@@ -22,6 +22,9 @@ const STAT_LABELS: Record<StatKey, string> = {
   luk: '행운',
 };
 
+/** 전사/사제의 레벨업 성장 비율(HP+4당 체력+1)과 맞춘 값 — 체력 분배도 같은 비율로 최대HP를 올린다. */
+const HP_PER_VITALITY_POINT = 4;
+
 export function handleStat(ctx: CommandContext, rest: string): void {
   const [statArg, amountArg] = rest.trim().split(/\s+/);
   const statKey = statArg?.toLowerCase() as StatKey | undefined;
@@ -52,9 +55,16 @@ export function handleStat(ctx: CommandContext, rest: string): void {
   }
 
   const column = STAT_COLUMNS[statKey];
-  db.prepare(
-    `UPDATE characters SET ${column} = ${column} + ?, unallocated_stat_points = unallocated_stat_points - ? WHERE id = ?`,
-  ).run(amount, amount, character.id);
+  if (statKey === 'vit') {
+    const hpGain = amount * HP_PER_VITALITY_POINT;
+    db.prepare(
+      `UPDATE characters SET vitality = vitality + ?, max_hp = max_hp + ?, hp = hp + ?, unallocated_stat_points = unallocated_stat_points - ? WHERE id = ?`,
+    ).run(amount, hpGain, hpGain, amount, character.id);
+  } else {
+    db.prepare(
+      `UPDATE characters SET ${column} = ${column} + ?, unallocated_stat_points = unallocated_stat_points - ? WHERE id = ?`,
+    ).run(amount, amount, character.id);
+  }
 
   ctx.send({ type: 'text', text: `${STAT_LABELS[statKey]}에 스탯 포인트 ${amount}을(를) 분배했습니다.` });
 
