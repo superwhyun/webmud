@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SCHEMA_SQL } from './schema.js';
 import { ITEMS, seed } from './seed/index.js';
-import { MOB_TEMPLATES } from './seed/mobs/index.js';
+import { MOB_LOOT_POOL, MOB_TEMPLATES } from './seed/mobs/index.js';
 import {
   LAST_BRANCH_ROOM_ID,
   LAST_PROGRESSION_ROOM_ID,
@@ -504,6 +504,34 @@ function backfillNarrowLevelingSpeciesTier1(target: Database.Database): void {
   tx();
 }
 
+/** MOB_LOOT_POOL에서 쥐/고블린 + 레벨링 존 5계열×5단계(id 1~27) 몹의 루팅 풀만 추린다. */
+const LEVEL_SCALED_LOOT_MOB_TEMPLATE_IDS = Array.from({ length: 27 }, (_, i) => i + 1);
+
+/**
+ * mob_loot_pool.weight를 "상대 가중치"에서 "레벨 배수(1~10배)가 곱해지는 기본 확률(%)"로
+ * 재해석하면서, 1~10레벨 5종(id 3~7)의 루팅 풀을 리셋하고 계열별로 겹치지 않는 장비로
+ * 재배정한다. 아직 루팅 풀이 없던 나머지 진화형(id 8~27)도 이때 함께 채운다. id 3의 루팅
+ * 풀이 이미 새 목록(아이템1 weight3)과 일치하면(=한 번 적용됐으면) 건너뛴다.
+ */
+function backfillLevelScaledLootPool(target: Database.Database): void {
+  const alreadyApplied = target
+    .prepare('SELECT id FROM mob_loot_pool WHERE mob_template_id = 3 AND item_id = 1 AND weight = 3')
+    .get();
+  if (alreadyApplied) return;
+
+  const deleteLoot = target.prepare('DELETE FROM mob_loot_pool WHERE mob_template_id = ?');
+  const insertLoot = target.prepare('INSERT INTO mob_loot_pool (mob_template_id, item_id, weight) VALUES (?, ?, ?)');
+
+  const tx = target.transaction(() => {
+    for (const templateId of LEVEL_SCALED_LOOT_MOB_TEMPLATE_IDS) deleteLoot.run(templateId);
+    for (const entry of MOB_LOOT_POOL) {
+      if (!LEVEL_SCALED_LOOT_MOB_TEMPLATE_IDS.includes(entry.mobTemplateId)) continue;
+      insertLoot.run(entry.mobTemplateId, entry.itemId, entry.weight);
+    }
+  });
+  tx();
+}
+
 /** id 상수 — mob_template_id로 저장되는 종 앵커(1~57)보다 위, 예전에 만들었던 레벨별 보간 템플릿(1000~) 구간. */
 const LEGACY_INTERPOLATED_MOB_TEMPLATE_ID_FLOOR = 1000;
 
@@ -536,4 +564,5 @@ backfillZoneEnrichment(db);
 collapseLevelingSpeciesAnchors(db);
 backfillNarrowLevelingSpeciesTier1(db);
 backfillZoneSpeciesTiers(db);
+backfillLevelScaledLootPool(db);
 backfillRemoveLegacyInterpolatedMobTemplates(db);

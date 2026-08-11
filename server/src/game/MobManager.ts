@@ -5,8 +5,6 @@ import type { MobTemplateRow } from '../db/types.js';
 export type DamageType = 'physical' | 'magic';
 
 const GARRISON_RESPAWN_SECONDS = 120;
-const MAX_CARRIED_ITEMS = 2;
-const CARRY_ROLL_CHANCE = 0.5;
 
 export interface MobInstance {
   spawnId: number;
@@ -50,31 +48,31 @@ interface LootPoolItemRow {
   weight: number;
 }
 
-/** 몹 템플릿이 보유 가능한 아이템 풀에서, admin이 지정한 가중치(weight)에 비례해 몇 개를 뽑아 들려준다. */
-export function rollMobLoot(templateId: number): number[] {
+/**
+ * mob_loot_pool.weight는 이제 "기본 등장확률(%)"이고, 몹이 지금 굴린 레벨이 자기 템플릿의
+ * min~max 구간에서 몇 번째냐(최소=1배, 최대=10배)에 따라 배수를 곱한 뒤 아이템마다 독립적으로
+ * 굴린다 — 같은 풀 안에서 서로 배타적으로 하나만 뽑는 방식이 아니라, 여러 개가 동시에 나올 수 있다.
+ */
+function lootLevelMultiplier(level: number, minLevel: number, maxLevel: number): number {
+  if (maxLevel <= minLevel) return 1;
+  return Math.max(1, level - minLevel + 1);
+}
+
+/** 몹 템플릿이 보유 가능한 아이템 풀에서, 레벨 배수를 반영한 확률(%)로 아이템마다 독립적으로 굴려서 들려준다. */
+export function rollMobLoot(templateId: number, level: number, minLevel: number, maxLevel: number): number[] {
   const pool = db
     .prepare(`SELECT item_id, weight FROM mob_loot_pool WHERE mob_template_id = ?`)
     .all(templateId) as LootPoolItemRow[];
   if (pool.length === 0) return [];
 
-  const totalWeight = pool.reduce((sum, entry) => sum + entry.weight, 0);
-  const carried = new Set<number>();
-
-  for (let i = 0; i < MAX_CARRIED_ITEMS; i++) {
-    if (Math.random() >= CARRY_ROLL_CHANCE) continue;
-    if (totalWeight <= 0) continue;
-
-    let roll = Math.random() * totalWeight;
-    for (const entry of pool) {
-      roll -= entry.weight;
-      if (roll <= 0) {
-        carried.add(entry.item_id);
-        break;
-      }
-    }
+  const multiplier = lootLevelMultiplier(level, minLevel, maxLevel);
+  const carried: number[] = [];
+  for (const entry of pool) {
+    const chancePercent = Math.min(100, entry.weight * multiplier);
+    if (Math.random() * 100 < chancePercent) carried.push(entry.item_id);
   }
 
-  return [...carried];
+  return carried;
 }
 
 const mobs = new Map<number, MobInstance>();
@@ -177,7 +175,7 @@ function toMobInstance(params: {
     respawnSeconds: params.respawnSeconds,
     level: resolved.level,
     hostile: Boolean(template.hostile),
-    carriedItemIds: rollMobLoot(template.id),
+    carriedItemIds: rollMobLoot(template.id, resolved.level, template.min_level, template.max_level),
     alive: true,
     respawnAt: null,
   };
@@ -328,7 +326,7 @@ export function tickRespawns(): number[] {
       mob.alive = true;
       mob.hp = mob.maxHp;
       mob.respawnAt = null;
-      mob.carriedItemIds = rollMobLoot(mob.templateId);
+      mob.carriedItemIds = rollMobLoot(mob.templateId, mob.level, template?.min_level ?? mob.level, template?.max_level ?? mob.level);
       respawnedRoomIds.push(mob.roomId);
     }
   }
