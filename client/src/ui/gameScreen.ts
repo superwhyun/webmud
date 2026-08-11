@@ -12,6 +12,7 @@ import {
   renderEquipmentPanel,
   renderInventoryCount,
   renderInventoryModal,
+  renderPotionSummary,
 } from './game/equipment';
 import { closeMacroModal, openMacroModal } from './game/macroPanel';
 import { recordRoomVisit, renderMinimap } from './game/minimap';
@@ -67,6 +68,7 @@ export function renderGameScreen(
     } else if (message.type === 'inventory') {
       ctx.inventoryState = message.items;
       renderInventoryCount(ctx);
+      renderPotionSummary(ctx);
       if (!ctx.inventoryModal.hidden) renderInventoryModal(ctx);
       if (!ctx.equipModal.hidden) renderEquipModal(ctx);
     } else if (message.type === 'skills') {
@@ -96,6 +98,7 @@ export function renderGameScreen(
 
   renderEquipmentPanel(ctx);
   renderInventoryCount(ctx);
+  renderPotionSummary(ctx);
 
   attachCommandBarListeners(ctx);
 

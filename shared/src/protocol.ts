@@ -100,6 +100,8 @@ export interface InventoryItemInfo {
   equipped: boolean;
   slot: EquipmentSlot | null;
   grade: ItemGrade;
+  healAmount: number;
+  manaAmount: number;
 }
 
 export type EquipmentSnapshot = Partial<Record<EquipmentSlot, InventoryItemInfo>>;
@@ -116,6 +118,7 @@ export type ClientMessage =
   | { type: 'command'; text: string }
   | { type: 'equipItem'; inventoryId: number }
   | { type: 'unequipItem'; slot: EquipmentSlot }
+  | { type: 'dropItem'; inventoryId: number }
   | { type: 'chooseJob'; job: JobType };
 
 export type ChatChannel =

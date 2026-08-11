@@ -35,6 +35,7 @@ export interface GameContext {
   combatPanel: HTMLDivElement;
   terminal: HTMLDivElement;
   sidebarStats: HTMLDivElement;
+  sidebarPotions: HTMLDivElement;
   equipmentPanel: HTMLDivElement;
   cooldownPanel: HTMLDivElement;
   minimap: HTMLDivElement;
@@ -99,6 +100,7 @@ function renderShellHtml(isBuilder: boolean, isAdmin: boolean): string {
       <div class="terminal" id="terminal"></div>
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-stats" id="sidebar-stats"></div>
+        <div class="sidebar-potions" id="sidebar-potions"></div>
         <div class="equipment-panel" id="equipment-panel"></div>
         <div class="cooldown-panel" id="cooldown-panel"></div>
       </aside>
@@ -202,6 +204,7 @@ export function createGameContext(
     combatPanel: container.querySelector<HTMLDivElement>('#combat-panel')!,
     terminal: container.querySelector<HTMLDivElement>('#terminal')!,
     sidebarStats: container.querySelector<HTMLDivElement>('#sidebar-stats')!,
+    sidebarPotions: container.querySelector<HTMLDivElement>('#sidebar-potions')!,
     equipmentPanel: container.querySelector<HTMLDivElement>('#equipment-panel')!,
     cooldownPanel: container.querySelector<HTMLDivElement>('#cooldown-panel')!,
     minimap: container.querySelector<HTMLDivElement>('#minimap')!,

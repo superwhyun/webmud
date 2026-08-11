@@ -7,6 +7,7 @@ import { cleanupCombatForSession, sendSkillCooldowns } from './combat/CombatMana
 import { getEffectiveStats } from './combatStats.js';
 import { dispatchCommand } from './commands/index.js';
 import { handleEquipItemMessage, handleUnequipItemMessage, sendEquipmentAndInventory } from './commands/equipment.js';
+import { handleDropItemMessage } from './commands/items.js';
 import { sendSkills } from './commands/skills.js';
 import { assignJobToLegacyCharacter, isValidJob } from './jobSelection.js';
 import { broadcastRoomSnapshot, sendRoomSnapshot } from './roomSnapshot.js';
@@ -140,6 +141,9 @@ export function handleConnection(ws: WebSocket): void {
     } else if (message.type === 'unequipItem') {
       const session = requireSession(ws);
       if (session) handleUnequipItemMessage({ session, send: (m) => send(ws, m) }, message.slot);
+    } else if (message.type === 'dropItem') {
+      const session = requireSession(ws);
+      if (session) handleDropItemMessage({ session, send: (m) => send(ws, m) }, message.inventoryId);
     } else if (message.type === 'chooseJob') {
       handleChooseJob(ws, message.job);
     }

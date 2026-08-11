@@ -17,12 +17,14 @@ interface InventoryQueryRow {
   equipped: number;
   slot: string | null;
   grade: ItemGrade;
+  heal_amount: number;
+  mana_amount: number;
 }
 
 function loadInventoryRows(characterId: number): InventoryQueryRow[] {
   return db
     .prepare(
-      `SELECT inv.id, i.name, inv.quantity, inv.equipped, i.slot, i.grade
+      `SELECT inv.id, i.name, inv.quantity, inv.equipped, i.slot, i.grade, i.heal_amount, i.mana_amount
        FROM inventory_items inv
        JOIN items i ON i.id = inv.item_id
        WHERE inv.character_id = ?`,
@@ -38,6 +40,8 @@ function toInventoryItemInfo(row: InventoryQueryRow): InventoryItemInfo {
     equipped: Boolean(row.equipped),
     slot: (row.slot as EquipmentSlot | null) ?? null,
     grade: row.grade,
+    healAmount: row.heal_amount,
+    manaAmount: row.mana_amount,
   };
 }
 

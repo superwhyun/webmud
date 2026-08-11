@@ -25,11 +25,12 @@ interface RoomItemRow {
   item_id: number;
   quantity: number;
   name: string;
+  type: string;
   grade: ItemGrade;
 }
 
-function findInventoryItem(characterId: number, nameQuery: string): InventoryRow | undefined {
-  const rows = db
+function loadInventoryItemRows(characterId: number): InventoryRow[] {
+  return db
     .prepare(
       `SELECT inv.id, inv.item_id, inv.quantity, inv.equipped, i.name, i.type, i.slot, i.level, i.grade, i.heal_amount, i.mana_amount
        FROM inventory_items inv
@@ -37,14 +38,21 @@ function findInventoryItem(characterId: number, nameQuery: string): InventoryRow
        WHERE inv.character_id = ?`,
     )
     .all(characterId) as InventoryRow[];
+}
+
+function findInventoryItem(characterId: number, nameQuery: string): InventoryRow | undefined {
   const lower = nameQuery.toLowerCase();
-  return rows.find((row) => row.name.toLowerCase().includes(lower));
+  return loadInventoryItemRows(characterId).find((row) => row.name.toLowerCase().includes(lower));
+}
+
+function findInventoryItemById(characterId: number, inventoryId: number): InventoryRow | undefined {
+  return loadInventoryItemRows(characterId).find((row) => row.id === inventoryId);
 }
 
 function findRoomItem(roomId: number, nameQuery: string): RoomItemRow | undefined {
   const rows = db
     .prepare(
-      `SELECT ri.id, ri.item_id, ri.quantity, i.name, i.grade
+      `SELECT ri.id, ri.item_id, ri.quantity, i.name, i.type, i.grade
        FROM room_items ri
        JOIN items i ON i.id = ri.item_id
        WHERE ri.room_id = ?`,
@@ -71,9 +79,14 @@ export function handleGet(ctx: CommandContext, itemName: string): void {
     .prepare('SELECT id FROM inventory_items WHERE character_id = ? AND item_id = ? AND equipped = 0')
     .get(ctx.session.characterId, roomItem.item_id) as { id: number } | undefined;
 
-  if (!existing) {
+  // 물약 등 소모품은 인벤토리 칸을 차지하지 않는다.
+  if (!existing && roomItem.type !== 'consumable') {
     const { count } = db
-      .prepare('SELECT COUNT(*) as count FROM inventory_items WHERE character_id = ?')
+      .prepare(
+        `SELECT COUNT(*) as count FROM inventory_items inv
+         JOIN items i ON i.id = inv.item_id
+         WHERE inv.character_id = ? AND i.type != 'consumable'`,
+      )
       .get(ctx.session.characterId) as { count: number };
     if (count >= MAX_INVENTORY_SLOTS) {
       ctx.send({ type: 'text', text: `인벤토리가 가득 찼습니다. (${MAX_INVENTORY_SLOTS}/${MAX_INVENTORY_SLOTS})` });
@@ -109,19 +122,7 @@ export function handleGet(ctx: CommandContext, itemName: string): void {
   sendEquipmentAndInventory(ctx);
 }
 
-export function handleDrop(ctx: CommandContext, itemName: string): void {
-  const trimmed = itemName.trim();
-  if (!trimmed) {
-    ctx.send({ type: 'error', text: '무엇을 버리시겠습니까? 사용법: drop <아이템>' });
-    return;
-  }
-
-  const item = findInventoryItem(ctx.session.characterId, trimmed);
-  if (!item) {
-    ctx.send({ type: 'text', text: '그런 아이템을 가지고 있지 않습니다.' });
-    return;
-  }
-
+function performDrop(ctx: CommandContext, item: InventoryRow): void {
   const moveTx = db.transaction(() => {
     if (item.quantity > 1) {
       db.prepare('UPDATE inventory_items SET quantity = quantity - 1 WHERE id = ?').run(item.id);
@@ -153,6 +154,32 @@ export function handleDrop(ctx: CommandContext, itemName: string): void {
   );
   broadcastRoomSnapshot(ctx.session.roomId);
   sendEquipmentAndInventory(ctx);
+}
+
+export function handleDrop(ctx: CommandContext, itemName: string): void {
+  const trimmed = itemName.trim();
+  if (!trimmed) {
+    ctx.send({ type: 'error', text: '무엇을 버리시겠습니까? 사용법: drop <아이템>' });
+    return;
+  }
+
+  const item = findInventoryItem(ctx.session.characterId, trimmed);
+  if (!item) {
+    ctx.send({ type: 'text', text: '그런 아이템을 가지고 있지 않습니다.' });
+    return;
+  }
+
+  performDrop(ctx, item);
+}
+
+export function handleDropItemMessage(ctx: CommandContext, inventoryId: number): void {
+  const item = findInventoryItemById(ctx.session.characterId, inventoryId);
+  if (!item) {
+    ctx.send({ type: 'error', text: '그런 아이템을 가지고 있지 않습니다.' });
+    return;
+  }
+
+  performDrop(ctx, item);
 }
 
 export function handleInventory(ctx: CommandContext): void {
