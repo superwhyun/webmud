@@ -1,7 +1,24 @@
 import { FRONTIER_ROOM_ID } from './index.js';
 
-/** 5종 몹의 mob_templates id — server/src/db/seed/mobs/base.ts에서 고정 배정한 id(3~7)와 맞아야 한다. */
-const LEVELING_SPECIES_TEMPLATE_IDS = [3, 4, 5, 6, 7];
+/**
+ * 5계열(덩굴괴수/불도마뱀/바위골렘/강철전갈/늪지악어) × 5단계 진화형의 mob_templates id —
+ * server/src/db/seed/mobs/base.ts에서 고정 배정한 id와 맞아야 한다. 행 순서는 레벨 구간
+ * (1-10/11-20/21-30/31-40/41-50), 열 순서는 계열(전투방 테마 순서)과 같다.
+ */
+const SPECIES_TIER_TEMPLATE_IDS = [
+  [3, 4, 5, 6, 7],
+  [8, 12, 16, 20, 24],
+  [9, 13, 17, 21, 25],
+  [10, 14, 18, 22, 26],
+  [11, 15, 19, 23, 27],
+];
+
+/** 존의 최대 레벨이 속한 10단위 구간에 맞는 5계열 몹 id 세트를 고른다. */
+function speciesTemplateIdsForZone(zoneIndex: number): number[] {
+  const { maxLevel } = zoneLevelRange(zoneIndex);
+  const tierIndex = Math.min(SPECIES_TIER_TEMPLATE_IDS.length - 1, Math.floor((maxLevel - 1) / 10));
+  return SPECIES_TIER_TEMPLATE_IDS[tierIndex];
+}
 
 interface RoomText {
   name: string;
@@ -281,19 +298,21 @@ export const PROGRESSION_ROOMS: ProgressionRoom[] = ZONE_BLUEPRINTS.flatMap((zon
 );
 
 /**
- * 전투방(rooms[1]~rooms[5])마다 테마에 맞는 종을 하나씩 고정 배치한다(예: 덩굴숲엔 덩굴괴수).
- * 실제 레벨은 고정하지 않고 존의 레벨 범위만 저장 — 스폰될 때(최초 배치+리스폰마다) 그 범위
- * 안에서 매번 새로 굴려 레벨과 스탯을 정한다.
+ * 전투방(rooms[1]~rooms[5])마다 테마에 맞는 계열을 하나씩 고정 배치한다(예: 덩굴숲엔 덩굴괴수
+ * 계열). 존의 레벨 구간에 맞는 진화형 id를 쓰므로, 늪지 정글(Lv6-10)은 '덩굴괴수'가, 지하
+ * 대동굴(Lv26-30)은 그 3단계 진화형인 '맹독가시괴수'가 나온다. mob_spawns의 min/max는 존의
+ * 5레벨 브라켓으로 좁혀서, 스폰될 때(최초 배치+리스폰마다) 그 범위 안에서 레벨을 굴린다.
  */
-export const PROGRESSION_MOB_SPAWNS: ProgressionMobSpawn[] = ZONE_BLUEPRINTS.flatMap((zone, zoneIndex) =>
-  zone.rooms.slice(1, 6).map((_, index) => ({
+export const PROGRESSION_MOB_SPAWNS: ProgressionMobSpawn[] = ZONE_BLUEPRINTS.flatMap((zone, zoneIndex) => {
+  const speciesIds = speciesTemplateIdsForZone(zoneIndex);
+  return zone.rooms.slice(1, 6).map((_, index) => ({
     // 전투방은 입구(+1) 다음인 +2 ~ +6.
     roomId: zone.roomBase + index + 2,
-    mobTemplateId: LEVELING_SPECIES_TEMPLATE_IDS[index],
+    mobTemplateId: speciesIds[index],
     respawnSeconds: RESPAWN_SECONDS,
     ...zoneLevelRange(zoneIndex),
-  })),
-);
+  }));
+});
 
 function inZoneChainExits(zone: ZoneBlueprint): ProgressionExit[] {
   const exits: ProgressionExit[] = [];

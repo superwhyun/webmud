@@ -376,10 +376,13 @@ interface AnchorStatRow {
  * 범위형 템플릿(id 3~7, min_level=1/max_level=50)으로 합친다. mob_spawns.mob_template_id는
  * 원래도 항상 각 종의 Lv1 앵커 id(3~7)를 저장해왔으므로, 그 행을 그대로 확장해 재사용하면 기존
  * 스폰 참조가 끊기지 않는다. 나머지 앵커(Lv5~45, 그리고 Lv50)는 루팅 풀을 합친 뒤 삭제한다.
- * 이미 합쳐졌으면(8~57 구간에 남은 행이 없으면) 건너뛴다.
+ * 이미 합쳐졌으면(옛 Lv50 앵커가 하나도 안 남아있으면) 건너뛴다. 8~57 구간은 이후 존별 진화형
+ * 몹(base.ts) id로 영구히 재사용되므로, 그 범위 존재 여부가 아니라 Lv50 앵커 id만 정확히 짚어서 확인한다.
  */
 function collapseLevelingSpeciesAnchors(target: Database.Database): void {
-  const remainingAnchor = target.prepare('SELECT id FROM mob_templates WHERE id BETWEEN 8 AND 57 LIMIT 1').get();
+  const lv50AnchorIds = LEVELING_SPECIES.map((species) => species.lv50AnchorId);
+  const placeholders = lv50AnchorIds.map(() => '?').join(', ');
+  const remainingAnchor = target.prepare(`SELECT id FROM mob_templates WHERE id IN (${placeholders}) LIMIT 1`).get(...lv50AnchorIds);
   if (!remainingAnchor) return;
 
   const getTemplate = target.prepare(
@@ -430,6 +433,77 @@ function collapseLevelingSpeciesAnchors(target: Database.Database): void {
   tx();
 }
 
+/**
+ * PROGRESSION_MOB_SPAWNS가 예전엔 모든 존에 동일한 5개 종 id([3,4,5,6,7])만 배치했는데, 이제
+ * 존의 레벨 구간에 맞는 진화형 id(base.ts의 5단계 계열)를 쓰도록 바뀌었다. 이미 들어간 진행 존
+ * mob_spawns(200~1015번 방)를 한 번만 지우고 새 로직으로 다시 채운다. 지하 대동굴(Lv26-30) 첫
+ * 전투방이 이미 그 구간의 진화형 id를 참조하고 있으면(=한 번 적용됐으면) 건너뛴다.
+ */
+function backfillZoneSpeciesTiers(target: Database.Database): void {
+  const marker = PROGRESSION_MOB_SPAWNS.find((spawn) => spawn.roomId === 602);
+  if (!marker) return;
+  const alreadyApplied = target
+    .prepare('SELECT id FROM mob_spawns WHERE room_id = ? AND mob_template_id = ?')
+    .get(marker.roomId, marker.mobTemplateId);
+  if (alreadyApplied) return;
+
+  const insertMobSpawn = target.prepare(
+    'INSERT INTO mob_spawns (room_id, mob_template_id, respawn_seconds, min_level, max_level) VALUES (?, ?, ?, ?, ?)',
+  );
+  const tx = target.transaction(() => {
+    target.prepare('DELETE FROM mob_spawns WHERE room_id BETWEEN 200 AND 1015').run();
+    for (const spawn of PROGRESSION_MOB_SPAWNS) {
+      insertMobSpawn.run(spawn.roomId, spawn.mobTemplateId, spawn.respawnSeconds, spawn.minLevel, spawn.maxLevel);
+    }
+  });
+  tx();
+}
+
+/**
+ * collapseLevelingSpeciesAnchors가 만들어둔 id 3~7은 그때 min_level=1/max_level=50짜리 범위형
+ * 템플릿이었다. base.ts가 그 뒤 5단계 진화형 체계로 바뀌면서 1~10 구간으로 좁혀졌는데,
+ * backfillMissingMobTemplates는 INSERT OR IGNORE라 이미 있는 이 행들을 갱신하지 못한다.
+ * base.ts의 정의값으로 통째로 덮어써서 맞춘다. 이미 좁혀졌으면(max_level이 50이 아니면) 건너뛴다.
+ */
+function backfillNarrowLevelingSpeciesTier1(target: Database.Database): void {
+  const tier1Templates = MOB_TEMPLATES.filter((template) => [3, 4, 5, 6, 7].includes(template.id));
+  const updateTemplate = target.prepare(
+    `UPDATE mob_templates SET
+       name = ?, hp = ?, hp_max = ?, strength = ?, strength_max = ?, dexterity = ?, dexterity_max = ?,
+       physical_defense = ?, physical_defense_max = ?, magic_defense = ?, magic_defense_max = ?,
+       element = ?, damage_type = ?, exp_reward = ?, exp_reward_max = ?, gold_reward = ?, gold_reward_max = ?,
+       min_level = ?, max_level = ?
+     WHERE id = ? AND max_level = 50`,
+  );
+  const tx = target.transaction(() => {
+    for (const template of tier1Templates) {
+      updateTemplate.run(
+        template.name,
+        template.hp,
+        template.hpMax,
+        template.strength,
+        template.strengthMax,
+        template.dexterity,
+        template.dexterityMax,
+        template.physicalDefense,
+        template.physicalDefenseMax,
+        template.magicDefense,
+        template.magicDefenseMax,
+        template.element,
+        template.damageType,
+        template.expReward,
+        template.expRewardMax,
+        template.goldReward,
+        template.goldRewardMax,
+        template.minLevel,
+        template.maxLevel,
+        template.id,
+      );
+    }
+  });
+  tx();
+}
+
 /** id 상수 — mob_template_id로 저장되는 종 앵커(1~57)보다 위, 예전에 만들었던 레벨별 보간 템플릿(1000~) 구간. */
 const LEGACY_INTERPOLATED_MOB_TEMPLATE_ID_FLOOR = 1000;
 
@@ -460,4 +534,6 @@ backfillProgressionZones(db);
 backfillZoneLevelRanges(db);
 backfillZoneEnrichment(db);
 collapseLevelingSpeciesAnchors(db);
+backfillNarrowLevelingSpeciesTier1(db);
+backfillZoneSpeciesTiers(db);
 backfillRemoveLegacyInterpolatedMobTemplates(db);
