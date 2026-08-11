@@ -1,6 +1,6 @@
 import type { MobLootPoolSeed } from '../types.js';
 
-export const MOB_LOOT_POOL: MobLootPoolSeed[] = [
+export const MOB_LOOT_POOL_BASE: MobLootPoolSeed[] = [
   { mobTemplateId: 1, itemId: 1, weight: 100 },
   { mobTemplateId: 1, itemId: 2, weight: 100 },
   { mobTemplateId: 1, itemId: 3, weight: 100 },
