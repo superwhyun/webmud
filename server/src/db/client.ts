@@ -5,7 +5,6 @@ import { fileURLToPath } from 'node:url';
 import { SCHEMA_SQL } from './schema.js';
 import { ITEMS, seed } from './seed/index.js';
 import { MOB_TEMPLATES } from './seed/mobs/index.js';
-import { randomSpeciesSelection, speciesAnchorId, SPECIES_NAMES } from './seed/mobs/interpolated.js';
 import {
   LAST_BRANCH_ROOM_ID,
   LAST_PROGRESSION_ROOM_ID,
@@ -15,13 +14,7 @@ import {
   PROGRESSION_MOB_SPAWNS,
   PROGRESSION_ROOMS,
   PROGRESSION_ZONES,
-  ZONE_MOB_POOLS,
 } from './seed/progressionZones.js';
-
-/** 구대륙(존1, Lv1-5)의 사냥 가능 방. 시작 마을(1~5)은 제외. */
-const FRONTIER_ZONE_COMBAT_ROOM_IDS = [6, 7, 8, 9];
-const FRONTIER_ZONE_MIN_LEVEL = 1;
-const FRONTIER_ZONE_MAX_LEVEL = 5;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const dataDir = join(__dirname, '..', '..', 'data');
@@ -91,13 +84,35 @@ function migrate(target: Database.Database): void {
     'unallocated_skill_points',
     'ALTER TABLE characters ADD COLUMN unallocated_skill_points INTEGER NOT NULL DEFAULT 0',
   );
-  ensureColumn(target, 'mob_templates', 'level', 'ALTER TABLE mob_templates ADD COLUMN level INTEGER NOT NULL DEFAULT 1');
   ensureColumn(target, 'mob_templates', 'hostile', 'ALTER TABLE mob_templates ADD COLUMN hostile INTEGER NOT NULL DEFAULT 1');
   ensureColumn(target, 'mob_loot_pool', 'weight', 'ALTER TABLE mob_loot_pool ADD COLUMN weight INTEGER NOT NULL DEFAULT 1');
   ensureColumn(target, 'zones', 'min_level', 'ALTER TABLE zones ADD COLUMN min_level INTEGER');
   ensureColumn(target, 'zones', 'max_level', 'ALTER TABLE zones ADD COLUMN max_level INTEGER');
   ensureColumn(target, 'mob_spawns', 'min_level', 'ALTER TABLE mob_spawns ADD COLUMN min_level INTEGER');
   ensureColumn(target, 'mob_spawns', 'max_level', 'ALTER TABLE mob_spawns ADD COLUMN max_level INTEGER');
+  migrateMobTemplateLevelRangeColumns(target);
+}
+
+/**
+ * mob_templates가 고정 레벨 하나(level)만 갖던 것을, 레벨 범위(min_level~max_level)와 그 범위의
+ * 최소/최대 스탯을 갖도록 확장한다. 기존 행은 max_level = min_level, 각 *_max = 그 스탯 그대로
+ * 백필해서 "범위 없음(고정 레벨)" 상태와 완전히 동일하게 유지한다.
+ */
+function migrateMobTemplateLevelRangeColumns(target: Database.Database): void {
+  const columns = target.prepare('PRAGMA table_info(mob_templates)').all() as { name: string }[];
+  const names = new Set(columns.map((c) => c.name));
+
+  if (!names.has('min_level') && names.has('level')) {
+    target.exec('ALTER TABLE mob_templates RENAME COLUMN level TO min_level');
+  }
+  ensureColumn(target, 'mob_templates', 'max_level', 'ALTER TABLE mob_templates ADD COLUMN max_level INTEGER');
+  target.exec('UPDATE mob_templates SET max_level = min_level WHERE max_level IS NULL');
+
+  for (const stat of ['hp', 'strength', 'dexterity', 'physical_defense', 'magic_defense', 'exp_reward', 'gold_reward']) {
+    const maxColumn = `${stat}_max`;
+    ensureColumn(target, 'mob_templates', maxColumn, `ALTER TABLE mob_templates ADD COLUMN ${maxColumn} INTEGER`);
+    target.exec(`UPDATE mob_templates SET ${maxColumn} = ${stat} WHERE ${maxColumn} IS NULL`);
+  }
 }
 
 interface ExitEdgeRow {
@@ -203,23 +218,34 @@ function backfillMissingItems(target: Database.Database): void {
  */
 function backfillMissingMobTemplates(target: Database.Database): void {
   const insertMissingMobTemplate = target.prepare(
-    `INSERT OR IGNORE INTO mob_templates (id, name, hp, strength, dexterity, physical_defense, magic_defense, element, damage_type, exp_reward, gold_reward, level)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT OR IGNORE INTO mob_templates
+       (id, name, hp, hp_max, strength, strength_max, dexterity, dexterity_max, physical_defense, physical_defense_max,
+        magic_defense, magic_defense_max, element, damage_type, exp_reward, exp_reward_max, gold_reward, gold_reward_max,
+        min_level, max_level)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   for (const template of MOB_TEMPLATES) {
     insertMissingMobTemplate.run(
       template.id,
       template.name,
       template.hp,
+      template.hpMax,
       template.strength,
+      template.strengthMax,
       template.dexterity,
+      template.dexterityMax,
       template.physicalDefense,
+      template.physicalDefenseMax,
       template.magicDefense,
+      template.magicDefenseMax,
       template.element,
       template.damageType,
       template.expReward,
+      template.expRewardMax,
       template.goldReward,
-      template.level,
+      template.goldRewardMax,
+      template.minLevel,
+      template.maxLevel,
     );
   }
 }
@@ -271,44 +297,9 @@ function backfillZoneLevelRanges(target: Database.Database): void {
   tx();
 }
 
-const EXISTING_COMBAT_ROOM_RESPAWN_SECONDS = 20;
-
-/** 어떤 방에 이미 배치된 몹의 "종 이름" 집합을 구한다 — 레벨(id)이 달라도 같은 종이면 중복으로 취급한다. */
-function existingSpeciesNamesInRoom(target: Database.Database, roomId: number): Set<string> {
-  const rows = target
-    .prepare(
-      `SELECT mt.name as name FROM mob_spawns ms JOIN mob_templates mt ON mt.id = ms.mob_template_id WHERE ms.room_id = ?`,
-    )
-    .all(roomId) as { name: string }[];
-  return new Set(rows.map((row) => row.name));
-}
-
-const insertRangedMobSpawnSql =
-  'INSERT INTO mob_spawns (room_id, mob_template_id, respawn_seconds, min_level, max_level) VALUES (?, ?, ?, ?, ?)';
-
-/** 이미 몹이 있는 방에, 겹치지 않는 종으로 1~5마리가 될 때까지 무작위로(레벨 범위째) 추가한다. */
-function topUpRoomMobDiversity(
-  target: Database.Database,
-  insertMobSpawn: Database.Statement,
-  roomId: number,
-  minLevel: number,
-  maxLevel: number,
-  respawnSeconds: number,
-): void {
-  const existingSpeciesNames = existingSpeciesNamesInRoom(target, roomId);
-  const targetCount = 1 + Math.floor(Math.random() * SPECIES_NAMES.length);
-  const need = targetCount - existingSpeciesNames.size;
-  if (need <= 0) return;
-
-  const speciesIndexes = randomSpeciesSelection({ excludeSpeciesNames: existingSpeciesNames, count: need });
-  for (const speciesIndex of speciesIndexes) {
-    insertMobSpawn.run(roomId, speciesAnchorId(speciesIndex), respawnSeconds, minLevel, maxLevel);
-  }
-}
-
 /**
- * 각 존의 전투방 옆으로 곁방을 뻗어 좌우로 퍼지는 레이아웃을 만들고, 곁방과 기존 전투방 모두
- * 몹을 1~5마리 무작위로(레벨 범위째) 채운다. 마지막 존의 마지막 곁방 id가 이미 있으면 이전에 적용된 것.
+ * 각 존의 전투방 옆으로 곁방을 뻗어 좌우로 퍼지는 레이아웃을 만든다(방/출구만 — 몹 배치는 맵
+ * 빌더에서 관리자가 직접 한다). 마지막 존의 마지막 곁방 id가 이미 있으면 이전에 적용된 것.
  */
 function backfillZoneEnrichment(target: Database.Database): void {
   const existing = target.prepare('SELECT id FROM rooms WHERE id = ?').get(LAST_BRANCH_ROOM_ID);
@@ -320,7 +311,6 @@ function backfillZoneEnrichment(target: Database.Database): void {
   const insertExit = target.prepare(
     'INSERT INTO room_exits (room_id, direction, target_room_id) VALUES (?, ?, ?)',
   );
-  const insertMobSpawn = target.prepare(insertRangedMobSpawnSql);
   const selectRoomDirections = target.prepare('SELECT direction FROM room_exits WHERE room_id = ?');
   const selectCombatRoomXY = target.prepare('SELECT x, y FROM rooms WHERE id = ?');
 
@@ -343,84 +333,90 @@ function backfillZoneEnrichment(target: Database.Database): void {
       insertRoom.run(branch.roomId, branch.name, branch.description, x, combatRoomXY.y, branch.zoneId);
       insertExit.run(branch.combatRoomId, direction, branch.roomId);
       insertExit.run(branch.roomId, oppositeBranchDirection(direction), branch.combatRoomId);
-      for (const speciesIndex of randomSpeciesSelection()) {
-        insertMobSpawn.run(branch.roomId, speciesAnchorId(speciesIndex), branch.respawnSeconds, branch.minLevel, branch.maxLevel);
-      }
-    }
-
-    for (const pool of ZONE_MOB_POOLS) {
-      for (const roomId of pool.combatRoomIds) {
-        topUpRoomMobDiversity(target, insertMobSpawn, roomId, pool.minLevel, pool.maxLevel, EXISTING_COMBAT_ROOM_RESPAWN_SECONDS);
-      }
     }
   });
   tx();
 }
 
-/**
- * mob_spawns에 min_level/max_level 컬럼이 새로 추가되면서, 그 전에 고정 레벨로 들어간 진행 존
- * 몹들을 한 번만 삭제하고 범위 기반 새 로직으로 다시 채운다. 이미 범위가 들어간 행이 하나라도
- * 있으면 건너뛴다 — 신규 설치는 backfillProgressionZones/backfillZoneEnrichment가 처음부터
- * 범위를 채우므로 항상 여길 건너뛴다.
- */
-function backfillMobLevelDiversity(target: Database.Database): void {
-  const alreadyApplied = target
-    .prepare('SELECT id FROM mob_spawns WHERE room_id BETWEEN 200 AND 1015 AND min_level IS NOT NULL LIMIT 1')
-    .get();
-  if (alreadyApplied) return;
+interface LevelingSpecies {
+  name: string;
+  /** 종을 대표하는 mob_templates id — server/src/db/seed/mobs/base.ts에서 고정 배정한 Lv1 앵커 id. */
+  survivorId: number;
+  /** 예전에 손으로 만들었던 Lv50 앵커 id — 여기서 max 스탯을 가져온 뒤 삭제된다. */
+  lv50AnchorId: number;
+}
 
-  const insertMobSpawn = target.prepare(insertRangedMobSpawnSql);
-  const selectRoomExists = target.prepare('SELECT id FROM rooms WHERE id = ?');
+const LEVELING_SPECIES: LevelingSpecies[] = [
+  { name: '덩굴괴수', survivorId: 3, lv50AnchorId: 53 },
+  { name: '불도마뱀', survivorId: 4, lv50AnchorId: 54 },
+  { name: '바위골렘', survivorId: 5, lv50AnchorId: 55 },
+  { name: '강철전갈', survivorId: 6, lv50AnchorId: 56 },
+  { name: '늪지악어', survivorId: 7, lv50AnchorId: 57 },
+];
 
-  const tx = target.transaction(() => {
-    target.prepare('DELETE FROM mob_spawns WHERE room_id BETWEEN 200 AND 1015').run();
-
-    for (const spawn of PROGRESSION_MOB_SPAWNS) {
-      insertMobSpawn.run(spawn.roomId, spawn.mobTemplateId, spawn.respawnSeconds, spawn.minLevel, spawn.maxLevel);
-    }
-
-    for (const branch of PROGRESSION_BRANCH_BLUEPRINTS) {
-      if (!selectRoomExists.get(branch.roomId)) continue;
-      for (const speciesIndex of randomSpeciesSelection()) {
-        insertMobSpawn.run(branch.roomId, speciesAnchorId(speciesIndex), branch.respawnSeconds, branch.minLevel, branch.maxLevel);
-      }
-    }
-
-    for (const pool of ZONE_MOB_POOLS) {
-      for (const roomId of pool.combatRoomIds) {
-        topUpRoomMobDiversity(target, insertMobSpawn, roomId, pool.minLevel, pool.maxLevel, EXISTING_COMBAT_ROOM_RESPAWN_SECONDS);
-      }
-    }
-  });
-  tx();
+interface AnchorStatRow {
+  hp: number;
+  strength: number;
+  dexterity: number;
+  physical_defense: number;
+  magic_defense: number;
+  exp_reward: number;
+  gold_reward: number;
 }
 
 /**
- * 구대륙(존1, Lv1-5)은 5종 몹 시스템이 아니라 쥐/고블린만 배치돼 있었다. 기존 몹은 그대로 두고,
- * 5종을 레벨 1~5 범위로 추가해 사냥터에 다양성을 더한다. 이미 5종 중 하나라도 배치돼 있으면 건너뛴다.
+ * 예전 5종 앙커 시스템(종당 레벨 1,5,10,...,50에 손으로 만든 템플릿 11개, id 3~57)을 종당 1개의
+ * 범위형 템플릿(id 3~7, min_level=1/max_level=50)으로 합친다. mob_spawns.mob_template_id는
+ * 원래도 항상 각 종의 Lv1 앵커 id(3~7)를 저장해왔으므로, 그 행을 그대로 확장해 재사용하면 기존
+ * 스폰 참조가 끊기지 않는다. 나머지 앵커(Lv5~45, 그리고 Lv50)는 루팅 풀을 합친 뒤 삭제한다.
+ * 이미 합쳐졌으면(8~57 구간에 남은 행이 없으면) 건너뛴다.
  */
-function backfillFrontierZoneMobVariety(target: Database.Database): void {
-  const speciesPlaceholders = SPECIES_NAMES.map(() => '?').join(', ');
-  const alreadyApplied = target
-    .prepare(
-      `SELECT ms.id FROM mob_spawns ms JOIN mob_templates mt ON mt.id = ms.mob_template_id
-       WHERE ms.room_id IN (${FRONTIER_ZONE_COMBAT_ROOM_IDS.map(() => '?').join(', ')}) AND mt.name IN (${speciesPlaceholders})
-       LIMIT 1`,
-    )
-    .get(...FRONTIER_ZONE_COMBAT_ROOM_IDS, ...SPECIES_NAMES);
-  if (alreadyApplied) return;
+function collapseLevelingSpeciesAnchors(target: Database.Database): void {
+  const remainingAnchor = target.prepare('SELECT id FROM mob_templates WHERE id BETWEEN 8 AND 57 LIMIT 1').get();
+  if (!remainingAnchor) return;
 
-  const insertMobSpawn = target.prepare(insertRangedMobSpawnSql);
+  const getTemplate = target.prepare(
+    'SELECT hp, strength, dexterity, physical_defense, magic_defense, exp_reward, gold_reward FROM mob_templates WHERE id = ?',
+  );
+  const updateSurvivor = target.prepare(
+    `UPDATE mob_templates SET max_level = 50, hp_max = ?, strength_max = ?, dexterity_max = ?,
+       physical_defense_max = ?, magic_defense_max = ?, exp_reward_max = ?, gold_reward_max = ?
+     WHERE id = ?`,
+  );
+  const mergeLootPool = target.prepare(
+    `INSERT INTO mob_loot_pool (mob_template_id, item_id, weight)
+     SELECT ?, item_id, MAX(weight) FROM mob_loot_pool WHERE mob_template_id = ? GROUP BY item_id
+     ON CONFLICT(mob_template_id, item_id) DO UPDATE SET weight = MAX(mob_loot_pool.weight, excluded.weight)`,
+  );
+  const repointSpawns = target.prepare('UPDATE mob_spawns SET mob_template_id = ? WHERE mob_template_id = ?');
+  const repointGarrison = target.prepare('UPDATE village_garrison SET mob_template_id = ? WHERE mob_template_id = ?');
+  const deleteLootPool = target.prepare('DELETE FROM mob_loot_pool WHERE mob_template_id = ?');
+  const deleteTemplate = target.prepare('DELETE FROM mob_templates WHERE id = ?');
+  const selectOtherAnchors = target.prepare('SELECT id FROM mob_templates WHERE name = ? AND id != ?');
+
   const tx = target.transaction(() => {
-    for (const roomId of FRONTIER_ZONE_COMBAT_ROOM_IDS) {
-      for (const speciesIndex of randomSpeciesSelection()) {
-        insertMobSpawn.run(
-          roomId,
-          speciesAnchorId(speciesIndex),
-          EXISTING_COMBAT_ROOM_RESPAWN_SECONDS,
-          FRONTIER_ZONE_MIN_LEVEL,
-          FRONTIER_ZONE_MAX_LEVEL,
+    for (const species of LEVELING_SPECIES) {
+      const lv50 = getTemplate.get(species.lv50AnchorId) as AnchorStatRow | undefined;
+      if (lv50) {
+        updateSurvivor.run(
+          lv50.hp,
+          lv50.strength,
+          lv50.dexterity,
+          lv50.physical_defense,
+          lv50.magic_defense,
+          lv50.exp_reward,
+          lv50.gold_reward,
+          species.survivorId,
         );
+      }
+
+      const otherAnchors = selectOtherAnchors.all(species.name, species.survivorId) as { id: number }[];
+      for (const anchor of otherAnchors) {
+        mergeLootPool.run(species.survivorId, anchor.id);
+        repointSpawns.run(species.survivorId, anchor.id);
+        repointGarrison.run(species.survivorId, anchor.id);
+        deleteLootPool.run(anchor.id);
+        deleteTemplate.run(anchor.id);
       }
     }
   });
@@ -433,7 +429,6 @@ const LEGACY_INTERPOLATED_MOB_TEMPLATE_ID_FLOOR = 1000;
 /**
  * 예전엔 종*레벨마다 mob_templates 행을 245개 미리 만들어뒀는데, 이제 스폰 시점에 즉석으로 계산하는
  * 방식으로 바꾸면서 필요 없어졌다. 남아있으면 관리자 몹 목록만 지저분해지므로 정리한다.
- * mob_spawns가 이미 이 id들을 참조하지 않아야 하므로 backfillMobLevelDiversity 이후에 실행한다.
  */
 function backfillRemoveLegacyInterpolatedMobTemplates(target: Database.Database): void {
   const existing = target
@@ -457,6 +452,5 @@ backfillRoomPositions(db);
 backfillProgressionZones(db);
 backfillZoneLevelRanges(db);
 backfillZoneEnrichment(db);
-backfillMobLevelDiversity(db);
-backfillFrontierZoneMobVariety(db);
+collapseLevelingSpeciesAnchors(db);
 backfillRemoveLegacyInterpolatedMobTemplates(db);

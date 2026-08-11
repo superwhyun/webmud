@@ -36,7 +36,7 @@ export interface AdminContext {
   mobTemplatesList: HTMLTableSectionElement;
   mobError: HTMLParagraphElement;
   mobElementSelect: HTMLSelectElement;
-  mobLevelInput: HTMLInputElement;
+  mobMaxLevelInput: HTMLInputElement;
   mobLootItemsList: HTMLUListElement;
   mobLootError: HTMLParagraphElement;
   mobCreateBtn: HTMLButtonElement;
@@ -47,8 +47,6 @@ export interface AdminContext {
   editingMobId: number | null;
   /** 아직 생성되지 않은 신규 몬스터에 임시로 체크해둔 보유 가능 아이템(itemId -> weight). 생성 성공 후 실제로 반영한다. */
   pendingLootWeights: Map<number, number>;
-  /** 같은 이름+레벨 구간(브라켓)으로 묶인 몹 그룹 중, 펼쳐서 개별 앵커를 보여주고 있는 그룹의 key 집합. */
-  expandedMobGroups: Set<string>;
 
   npcTemplatesList: HTMLUListElement;
   npcError: HTMLParagraphElement;
@@ -208,83 +206,93 @@ function renderShellHtml(): string {
           </table>
           <div id="admin-mob-form-slot"></div>
           <div id="admin-mob-form-container">
+          <p class="admin-panel-empty">
+            각 스탯을 최소 레벨일 때 값 / 최대 레벨일 때 값으로 입력하면, 이 몹이 스폰될 때마다 그 사이에서 레벨과
+            스탯이 무작위로 정해집니다(선형 보간). 범위 없이 항상 같은 값으로 스폰하려면 최소=최대로 입력하세요.
+          </p>
           <div class="admin-form-row">
             <input id="admin-mob-name" placeholder="이름" maxlength="30" title="몬스터 이름" />
-            <input
-              id="admin-mob-hp"
-              type="number"
-              placeholder="HP"
-              value="10"
-              min="1"
-              title="최대 체력. 0이 되면 몬스터가 처치됩니다."
-            />
             <select id="admin-mob-element" title="속성. 오행 상성(목→토→수→화→금→목 순으로 상극)에 따라 전투 시 데미지 배율이 달라집니다."></select>
             <select id="admin-mob-damage-type" title="공격 시 물리방어/마법방어 중 어느 방어력으로 피해를 계산할지 결정합니다.">
               <option value="physical">물리</option>
               <option value="magic">마법</option>
             </select>
-            <input
-              id="admin-mob-level"
-              type="number"
-              placeholder="레벨"
-              value="1"
-              min="1"
-              title="몬스터 레벨. 몹이 들 수 있는 아이템 풀을 설계할 때 난이도 기준으로 참고합니다."
-            />
             <label class="admin-checkbox-label" title="켜두면 상성 우위를 가진 플레이어가 방에 들어올 때 이 몹이 자동으로 공격합니다. 끄면 상점 주인처럼 절대 먼저 공격하지 않는 비전투 NPC로 동작합니다.">
               <input id="admin-mob-hostile" type="checkbox" checked />
               적대적(자동 공격)
             </label>
           </div>
           <div class="admin-form-row">
-            <input
-              id="admin-mob-str"
-              type="number"
-              placeholder="힘"
-              value="1"
-              min="0"
-              title="힘. 물리 공격력(가한 피해량)의 기준치입니다."
-            />
-            <input
-              id="admin-mob-dex"
-              type="number"
-              placeholder="민첩"
-              value="1"
-              min="0"
-              title="민첩. 공격 명중률/회피율에 영향을 줍니다."
-            />
-            <input
-              id="admin-mob-pdef"
-              type="number"
-              placeholder="물리방어"
-              value="0"
-              min="0"
-              title="물리방어. 상대의 물리 공격으로 받는 피해를 줄입니다."
-            />
-            <input
-              id="admin-mob-mdef"
-              type="number"
-              placeholder="마법방어"
-              value="0"
-              min="0"
-              title="마법방어. 상대의 마법 공격으로 받는 피해를 줄입니다."
-            />
-            <input
-              id="admin-mob-exp"
-              type="number"
-              placeholder="경험치"
-              value="5"
-              min="0"
-              title="처치 시 플레이어가 얻는 경험치량입니다."
-            />
-            <input
-              id="admin-mob-gold"
-              type="number"
-              placeholder="골드"
-              value="1"
-              min="0"
-              title="처치 시 플레이어가 얻는 골드량입니다."
-            />
+            <div class="admin-field">
+              <label for="admin-mob-min-level">최소 레벨</label>
+              <input id="admin-mob-min-level" type="number" value="1" min="1" title="이 몹이 가질 수 있는 최소 레벨." />
+            </div>
+            <div class="admin-field">
+              <label for="admin-mob-max-level">최대 레벨</label>
+              <input id="admin-mob-max-level" type="number" value="1" min="1" title="이 몹이 가질 수 있는 최대 레벨." />
+            </div>
+            <div class="admin-field">
+              <label for="admin-mob-hp">HP (최소)</label>
+              <input id="admin-mob-hp" type="number" value="10" min="1" title="최소 레벨일 때 최대 체력." />
+            </div>
+            <div class="admin-field">
+              <label for="admin-mob-hp-max">HP (최대)</label>
+              <input id="admin-mob-hp-max" type="number" value="10" min="1" title="최대 레벨일 때 최대 체력." />
+            </div>
+          </div>
+          <div class="admin-form-row">
+            <div class="admin-field">
+              <label for="admin-mob-str">힘 (최소)</label>
+              <input id="admin-mob-str" type="number" value="1" min="0" title="최소 레벨일 때 힘(물리 공격력 기준치)." />
+            </div>
+            <div class="admin-field">
+              <label for="admin-mob-str-max">힘 (최대)</label>
+              <input id="admin-mob-str-max" type="number" value="1" min="0" title="최대 레벨일 때 힘." />
+            </div>
+            <div class="admin-field">
+              <label for="admin-mob-dex">민첩 (최소)</label>
+              <input id="admin-mob-dex" type="number" value="1" min="0" title="최소 레벨일 때 민첩(명중률/회피율)." />
+            </div>
+            <div class="admin-field">
+              <label for="admin-mob-dex-max">민첩 (최대)</label>
+              <input id="admin-mob-dex-max" type="number" value="1" min="0" title="최대 레벨일 때 민첩." />
+            </div>
+          </div>
+          <div class="admin-form-row">
+            <div class="admin-field">
+              <label for="admin-mob-pdef">물리방어 (최소)</label>
+              <input id="admin-mob-pdef" type="number" value="0" min="0" title="최소 레벨일 때 물리방어." />
+            </div>
+            <div class="admin-field">
+              <label for="admin-mob-pdef-max">물리방어 (최대)</label>
+              <input id="admin-mob-pdef-max" type="number" value="0" min="0" title="최대 레벨일 때 물리방어." />
+            </div>
+            <div class="admin-field">
+              <label for="admin-mob-mdef">마법방어 (최소)</label>
+              <input id="admin-mob-mdef" type="number" value="0" min="0" title="최소 레벨일 때 마법방어." />
+            </div>
+            <div class="admin-field">
+              <label for="admin-mob-mdef-max">마법방어 (최대)</label>
+              <input id="admin-mob-mdef-max" type="number" value="0" min="0" title="최대 레벨일 때 마법방어." />
+            </div>
+          </div>
+          <div class="admin-form-row">
+            <div class="admin-field">
+              <label for="admin-mob-exp">경험치 (최소)</label>
+              <input id="admin-mob-exp" type="number" value="5" min="0" title="최소 레벨일 때 처치 경험치." />
+            </div>
+            <div class="admin-field">
+              <label for="admin-mob-exp-max">경험치 (최대)</label>
+              <input id="admin-mob-exp-max" type="number" value="5" min="0" title="최대 레벨일 때 처치 경험치." />
+            </div>
+            <div class="admin-field">
+              <label for="admin-mob-gold">골드 (최소)</label>
+              <input id="admin-mob-gold" type="number" value="1" min="0" title="최소 레벨일 때 처치 골드." />
+            </div>
+            <div class="admin-field">
+              <label for="admin-mob-gold-max">골드 (최대)</label>
+              <input id="admin-mob-gold-max" type="number" value="1" min="0" title="최대 레벨일 때 처치 골드." />
+            </div>
             <button type="button" id="admin-mob-create">몬스터 생성</button>
             <button type="button" id="admin-mob-cancel" hidden>취소</button>
           </div>
@@ -294,7 +302,7 @@ function renderShellHtml(): string {
           <ul class="admin-list admin-loot-items" id="admin-mob-loot-items"></ul>
           <p class="admin-panel-empty">
             체크한 아이템 중 몹이 무작위로 최대 2개를 들고 스폰되며, 처치되면 그 아이템을 떨어뜨립니다. 등급이 높을수록 보유 확률이 낮습니다.
-            현재 레벨 입력값 기준으로 걸 수 있는 아이템만 표시됩니다.
+            현재 최대 레벨 입력값 기준으로 걸 수 있는 아이템만 표시됩니다.
           </p>
           <p class="admin-error" id="admin-mob-loot-error"></p>
           </div>
@@ -393,7 +401,7 @@ export function createAdminContext(container: HTMLElement, token: string, onBack
     mobTemplatesList: container.querySelector<HTMLTableSectionElement>('#admin-mob-templates')!,
     mobError: container.querySelector<HTMLParagraphElement>('#admin-mob-error')!,
     mobElementSelect,
-    mobLevelInput: container.querySelector<HTMLInputElement>('#admin-mob-level')!,
+    mobMaxLevelInput: container.querySelector<HTMLInputElement>('#admin-mob-max-level')!,
     mobLootItemsList: container.querySelector<HTMLUListElement>('#admin-mob-loot-items')!,
     mobLootError: container.querySelector<HTMLParagraphElement>('#admin-mob-loot-error')!,
     mobCreateBtn: container.querySelector<HTMLButtonElement>('#admin-mob-create')!,
@@ -403,7 +411,6 @@ export function createAdminContext(container: HTMLElement, token: string, onBack
     mobTemplates: [],
     editingMobId: null,
     pendingLootWeights: new Map(),
-    expandedMobGroups: new Set(),
 
     npcTemplatesList: container.querySelector<HTMLUListElement>('#admin-npc-templates')!,
     npcError: container.querySelector<HTMLParagraphElement>('#admin-npc-error')!,

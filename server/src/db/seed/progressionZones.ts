@@ -1,5 +1,7 @@
 import { FRONTIER_ROOM_ID } from './index.js';
-import { speciesAnchorId } from './mobs/interpolated.js';
+
+/** 5종 몹의 mob_templates id — server/src/db/seed/mobs/base.ts에서 고정 배정한 id(3~7)와 맞아야 한다. */
+const LEVELING_SPECIES_TEMPLATE_IDS = [3, 4, 5, 6, 7];
 
 interface RoomText {
   name: string;
@@ -287,7 +289,7 @@ export const PROGRESSION_MOB_SPAWNS: ProgressionMobSpawn[] = ZONE_BLUEPRINTS.fla
   zone.rooms.slice(1, 6).map((_, index) => ({
     // 전투방은 입구(+1) 다음인 +2 ~ +6.
     roomId: zone.roomBase + index + 2,
-    mobTemplateId: speciesAnchorId(index),
+    mobTemplateId: LEVELING_SPECIES_TEMPLATE_IDS[index],
     respawnSeconds: RESPAWN_SECONDS,
     ...zoneLevelRange(zoneIndex),
   })),
@@ -370,11 +372,3 @@ export const PROGRESSION_BRANCH_BLUEPRINTS: BranchBlueprint[] = ZONE_BLUEPRINTS.
     respawnSeconds: RESPAWN_SECONDS,
   })),
 );
-
-/** 기존 전투방(스핀)에 몹을 추가로 채울 때 쓸, 존별 레벨 범위와 전투방 id 목록. */
-export const ZONE_MOB_POOLS: { zoneId: number; minLevel: number; maxLevel: number; combatRoomIds: number[] }[] =
-  ZONE_BLUEPRINTS.map((zone, zoneIndex) => ({
-    zoneId: zone.zoneId,
-    ...zoneLevelRange(zoneIndex),
-    combatRoomIds: zone.rooms.slice(1, 6).map((_, index) => combatRoomId(zone, index)),
-  }));

@@ -28,11 +28,16 @@ import {
 import { escapeHtml } from '../../domUtils';
 import { findRoom, showToolbarError, type BuilderContext } from './context';
 
-/** 존 설계와 동일하게 5레벨 단위로 묶는다: 1-5, 6-10, ..., 46-50. */
+/** 존 설계와 동일하게 5레벨 단위로 묶는다: 1-5, 6-10, ..., 46-50. 최소 레벨 기준으로 버킷을 정한다. */
 const MOB_LEVEL_BRACKETS: { lower: number; upper: number }[] = Array.from({ length: 10 }, (_, index) => ({
   lower: index * 5 + 1,
   upper: index * 5 + 5,
 }));
+
+/** min과 max가 같으면 숫자 하나만, 다르면 "최소-최대"로 보여준다. */
+function formatLevelRange(min: number, max: number): string {
+  return min === max ? String(min) : `${min}-${max}`;
+}
 
 export async function refreshPalette(ctx: BuilderContext): Promise<void> {
   const [itemsResult, mobTemplatesResult, roomItemsResult, mobSpawnsResult, npcTemplatesResult, npcSpawnsResult] =
@@ -106,7 +111,7 @@ export function renderPalette(ctx: BuilderContext): void {
     <div class="builder-item-groups">
       ${
         MOB_LEVEL_BRACKETS.map((bracket) => {
-          const mobs = ctx.mobTemplates.filter((mob) => mob.level >= bracket.lower && mob.level <= bracket.upper);
+          const mobs = ctx.mobTemplates.filter((mob) => mob.minLevel >= bracket.lower && mob.minLevel <= bracket.upper);
           if (mobs.length === 0) return '';
           const expanded = ctx.expandedMobLevelBrackets.has(bracket.lower);
           return `
@@ -123,7 +128,7 @@ export function renderPalette(ctx: BuilderContext): void {
                         .map(
                           (mob) => `
                             <li>
-                              <span class="builder-palette-name">${escapeHtml(mob.name)} <span class="builder-palette-level">Lv.${mob.level}</span></span>
+                              <span class="builder-palette-name">${escapeHtml(mob.name)} <span class="builder-palette-level">Lv.${formatLevelRange(mob.minLevel, mob.maxLevel)}</span></span>
                               <div class="builder-palette-actions">
                                 <input type="number" class="builder-palette-num-input" data-mob-respawn="${mob.id}" value="20" min="5" />
                                 <button type="button" data-place-mob="${mob.id}" ${room ? '' : 'disabled'}>배치</button>
@@ -309,7 +314,7 @@ function renderPlacedInRoom(ctx: BuilderContext, room: BuilderRoomDto | undefine
           .map(
             (row) => `
                   <li>
-                    <span>${escapeHtml(row.mobName)} <span class="builder-palette-level">Lv.${row.mobLevel}</span> (리스폰 ${row.respawnSeconds}초)</span>
+                    <span>${escapeHtml(row.mobName)} <span class="builder-palette-level">Lv.${formatLevelRange(row.mobMinLevel, row.mobMaxLevel)}</span> (리스폰 ${row.respawnSeconds}초)</span>
                     <button type="button" class="builder-exit-delete" data-remove-mob="${row.id}">제거</button>
                   </li>
                 `,

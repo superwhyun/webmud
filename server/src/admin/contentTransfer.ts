@@ -3,7 +3,7 @@ import { db } from '../db/client.js';
 import { toItemDto, toMobTemplateDto } from '../db/dto.js';
 import type { ItemRow, MobLootPoolRow, MobTemplateRow } from '../db/types.js';
 import { itemSchema } from './items.js';
-import { mobTemplateSchema } from './mobs.js';
+import { applyMobTemplateRangeChecks, mobTemplateBaseSchema } from './mobs.js';
 import { adminRouter } from './router.js';
 
 /**
@@ -31,7 +31,7 @@ adminRouter.get('/content-export', (_req, res) => {
 });
 
 const importItemSchema = itemSchema.extend({ id: z.number().int().positive() });
-const importMobTemplateSchema = mobTemplateSchema.extend({ id: z.number().int().positive() });
+const importMobTemplateSchema = applyMobTemplateRangeChecks(mobTemplateBaseSchema.extend({ id: z.number().int().positive() }));
 const importLootEntrySchema = z.object({
   mobTemplateId: z.number().int().positive(),
   itemId: z.number().int().positive(),
@@ -65,13 +65,22 @@ adminRouter.post('/content-import', (req, res) => {
   );
 
   const upsertMobTemplate = db.prepare(
-    `INSERT INTO mob_templates (id, name, hp, strength, dexterity, physical_defense, magic_defense, element, damage_type, exp_reward, gold_reward, level, hostile)
-     VALUES (@id, @name, @hp, @strength, @dexterity, @physicalDefense, @magicDefense, @element, @damageType, @expReward, @goldReward, @level, @hostile)
+    `INSERT INTO mob_templates
+       (id, name, hp, hp_max, strength, strength_max, dexterity, dexterity_max, physical_defense, physical_defense_max,
+        magic_defense, magic_defense_max, element, damage_type, exp_reward, exp_reward_max, gold_reward, gold_reward_max,
+        min_level, max_level, hostile)
+     VALUES
+       (@id, @name, @hp, @hpMax, @strength, @strengthMax, @dexterity, @dexterityMax, @physicalDefense, @physicalDefenseMax,
+        @magicDefense, @magicDefenseMax, @element, @damageType, @expReward, @expRewardMax, @goldReward, @goldRewardMax,
+        @minLevel, @maxLevel, @hostile)
      ON CONFLICT(id) DO UPDATE SET
-       name = excluded.name, hp = excluded.hp, strength = excluded.strength, dexterity = excluded.dexterity,
-       physical_defense = excluded.physical_defense, magic_defense = excluded.magic_defense, element = excluded.element,
-       damage_type = excluded.damage_type, exp_reward = excluded.exp_reward, gold_reward = excluded.gold_reward,
-       level = excluded.level, hostile = excluded.hostile`,
+       name = excluded.name, hp = excluded.hp, hp_max = excluded.hp_max, strength = excluded.strength,
+       strength_max = excluded.strength_max, dexterity = excluded.dexterity, dexterity_max = excluded.dexterity_max,
+       physical_defense = excluded.physical_defense, physical_defense_max = excluded.physical_defense_max,
+       magic_defense = excluded.magic_defense, magic_defense_max = excluded.magic_defense_max, element = excluded.element,
+       damage_type = excluded.damage_type, exp_reward = excluded.exp_reward, exp_reward_max = excluded.exp_reward_max,
+       gold_reward = excluded.gold_reward, gold_reward_max = excluded.gold_reward_max,
+       min_level = excluded.min_level, max_level = excluded.max_level, hostile = excluded.hostile`,
   );
 
   const upsertLootEntry = db.prepare(

@@ -1,7 +1,6 @@
 import type { ElementType } from '@mud/shared';
 import { db } from '../db/client.js';
 import type { MobTemplateRow } from '../db/types.js';
-import { computeMobStatsForLevel, randomLevelInRange, speciesIndexForAnchorId } from '../db/seed/mobs/interpolated.js';
 
 export type DamageType = 'physical' | 'magic';
 
@@ -30,49 +29,20 @@ export interface MobInstance {
   carriedItemIds: number[];
   alive: boolean;
   respawnAt: number | null;
-  /** 존재하면(진행 존 사냥터 몹) 리스폰마다 이 범위 안에서 레벨/스탯을 다시 굴린다. */
-  levelRange: { minLevel: number; maxLevel: number } | null;
-  /** 방금 굴린 레벨의 루팅 풀 조회용 앵커 id — levelRange가 없으면 templateId와 같다. */
-  lootTemplateId: number;
 }
 
-interface MobSpawnRow {
+interface MobSpawnRow extends MobTemplateRow {
   spawn_id: number;
   room_id: number;
   respawn_seconds: number;
-  template_id: number;
-  name: string;
-  hp: number;
-  strength: number;
-  dexterity: number;
-  physical_defense: number;
-  magic_defense: number;
-  element: ElementType;
-  damage_type: DamageType;
-  exp_reward: number;
-  gold_reward: number;
-  level: number;
-  hostile: number;
-  min_level: number | null;
-  max_level: number | null;
+  /** 이 배치에서 템플릿의 min_level~max_level 굴림 범위를 더 좁히는 값(없으면 템플릿 범위 그대로 쓴다). */
+  override_min_level: number | null;
+  override_max_level: number | null;
 }
 
-interface GarrisonRow {
+interface GarrisonRow extends MobTemplateRow {
   garrison_id: number;
   room_id: number;
-  template_id: number;
-  name: string;
-  hp: number;
-  strength: number;
-  dexterity: number;
-  physical_defense: number;
-  magic_defense: number;
-  element: ElementType;
-  damage_type: DamageType;
-  exp_reward: number;
-  gold_reward: number;
-  level: number;
-  hostile: number;
 }
 
 interface LootPoolItemRow {
@@ -109,24 +79,19 @@ export function rollMobLoot(templateId: number): number[] {
 
 const mobs = new Map<number, MobInstance>();
 
-interface ResolvedMobStats {
-  name: string;
-  hp: number;
-  strength: number;
-  dexterity: number;
-  physicalDefense: number;
-  magicDefense: number;
-  element: ElementType;
-  damageType: DamageType;
-  expReward: number;
-  goldReward: number;
-  level: number;
-  lootTemplateId: number;
+function randomLevelInRange(minLevel: number, maxLevel: number): number {
+  return minLevel + Math.floor(Math.random() * (maxLevel - minLevel + 1));
 }
 
-/** levelRange가 있으면 그 범위 안에서 레벨을 새로 굴려 보간 스탯을 계산하고, 없으면 주어진 고정값을 그대로 쓴다. */
-function resolveMobStats(params: {
-  templateId: number;
+function interpolateStat(min: number, max: number, ratio: number): number {
+  return Math.round(min + (max - min) * ratio);
+}
+
+function isRanged(template: MobTemplateRow): boolean {
+  return template.min_level < template.max_level;
+}
+
+interface RolledMobStats {
   name: string;
   hp: number;
   strength: number;
@@ -138,67 +103,65 @@ function resolveMobStats(params: {
   expReward: number;
   goldReward: number;
   level: number;
-  levelRange: { minLevel: number; maxLevel: number } | null;
-}): ResolvedMobStats {
-  if (!params.levelRange) {
-    return {
-      name: params.name,
-      hp: params.hp,
-      strength: params.strength,
-      dexterity: params.dexterity,
-      physicalDefense: params.physicalDefense,
-      magicDefense: params.magicDefense,
-      element: params.element,
-      damageType: params.damageType,
-      expReward: params.expReward,
-      goldReward: params.goldReward,
-      level: params.level,
-      lootTemplateId: params.templateId,
-    };
-  }
+}
 
-  const speciesIndex = speciesIndexForAnchorId(params.templateId);
-  const rolledLevel = randomLevelInRange(params.levelRange.minLevel, params.levelRange.maxLevel);
-  const computed = computeMobStatsForLevel(speciesIndex, rolledLevel);
+/**
+ * 템플릿의 min_level~max_level(굴림 범위는 override로 더 좁힐 수 있다) 안에서 레벨을 굴리고,
+ * 스탯은 항상 템플릿 자신의 min~max 구간을 기준으로 선형 보간한다 — override는 굴림 범위만
+ * 좁힐 뿐, 스탯이 어느 지점까지 보간되는지의 기준(템플릿의 전체 범위)은 바꾸지 않는다.
+ */
+function rollMobStats(template: MobTemplateRow, overrideMinLevel: number | null, overrideMaxLevel: number | null): RolledMobStats {
+  const rollMin = overrideMinLevel ?? template.min_level;
+  const rollMax = overrideMaxLevel ?? template.max_level;
+  const level = randomLevelInRange(rollMin, rollMax);
+  const span = template.max_level - template.min_level;
+  const ratio = span === 0 ? 0 : (level - template.min_level) / span;
   return {
-    name: computed.name,
-    hp: computed.hp,
-    strength: computed.strength,
-    dexterity: computed.dexterity,
-    physicalDefense: computed.physicalDefense,
-    magicDefense: computed.magicDefense,
-    element: computed.element,
-    damageType: computed.damageType,
-    expReward: computed.expReward,
-    goldReward: computed.goldReward,
-    level: computed.level,
-    lootTemplateId: computed.lootTemplateId,
+    name: template.name,
+    hp: interpolateStat(template.hp, template.hp_max, ratio),
+    strength: interpolateStat(template.strength, template.strength_max, ratio),
+    dexterity: interpolateStat(template.dexterity, template.dexterity_max, ratio),
+    physicalDefense: interpolateStat(template.physical_defense, template.physical_defense_max, ratio),
+    magicDefense: interpolateStat(template.magic_defense, template.magic_defense_max, ratio),
+    element: template.element,
+    damageType: template.damage_type,
+    expReward: interpolateStat(template.exp_reward, template.exp_reward_max, ratio),
+    goldReward: interpolateStat(template.gold_reward, template.gold_reward_max, ratio),
+    level,
+  };
+}
+
+function fixedMobStats(template: MobTemplateRow): RolledMobStats {
+  return {
+    name: template.name,
+    hp: template.hp,
+    strength: template.strength,
+    dexterity: template.dexterity,
+    physicalDefense: template.physical_defense,
+    magicDefense: template.magic_defense,
+    element: template.element,
+    damageType: template.damage_type,
+    expReward: template.exp_reward,
+    goldReward: template.gold_reward,
+    level: template.min_level,
   };
 }
 
 function toMobInstance(params: {
   spawnId: number;
-  templateId: number;
   roomId: number;
-  name: string;
-  hp: number;
-  strength: number;
-  dexterity: number;
-  physicalDefense: number;
-  magicDefense: number;
-  element: ElementType;
-  damageType: DamageType;
-  expReward: number;
-  goldReward: number;
   respawnSeconds: number;
-  level: number;
-  hostile: boolean;
-  levelRange: { minLevel: number; maxLevel: number } | null;
+  template: MobTemplateRow;
+  overrideMinLevel: number | null;
+  overrideMaxLevel: number | null;
 }): MobInstance {
-  const resolved = resolveMobStats(params);
+  const { template } = params;
+  const resolved = isRanged(template)
+    ? rollMobStats(template, params.overrideMinLevel, params.overrideMaxLevel)
+    : fixedMobStats(template);
   return {
     spawnId: params.spawnId,
-    templateId: params.templateId,
+    templateId: template.id,
     roomId: params.roomId,
     name: resolved.name,
     maxHp: resolved.hp,
@@ -213,12 +176,10 @@ function toMobInstance(params: {
     goldReward: resolved.goldReward,
     respawnSeconds: params.respawnSeconds,
     level: resolved.level,
-    hostile: params.hostile,
-    carriedItemIds: rollMobLoot(resolved.lootTemplateId),
+    hostile: Boolean(template.hostile),
+    carriedItemIds: rollMobLoot(template.id),
     alive: true,
     respawnAt: null,
-    levelRange: params.levelRange,
-    lootTemplateId: resolved.lootTemplateId,
   };
 }
 
@@ -227,10 +188,9 @@ export function loadMobs(): void {
 
   const spawnRows = db
     .prepare(
-      `SELECT ms.id as spawn_id, ms.room_id, ms.respawn_seconds, ms.min_level, ms.max_level,
-              mt.id as template_id, mt.name, mt.hp, mt.strength, mt.dexterity,
-              mt.physical_defense, mt.magic_defense, mt.element, mt.damage_type,
-              mt.exp_reward, mt.gold_reward, mt.level, mt.hostile
+      `SELECT ms.id as spawn_id, ms.room_id, ms.respawn_seconds,
+              ms.min_level as override_min_level, ms.max_level as override_max_level,
+              mt.*
        FROM mob_spawns ms
        JOIN mob_templates mt ON mt.id = ms.mob_template_id`,
     )
@@ -241,32 +201,18 @@ export function loadMobs(): void {
       row.spawn_id,
       toMobInstance({
         spawnId: row.spawn_id,
-        templateId: row.template_id,
         roomId: row.room_id,
-        name: row.name,
-        hp: row.hp,
-        strength: row.strength,
-        dexterity: row.dexterity,
-        physicalDefense: row.physical_defense,
-        magicDefense: row.magic_defense,
-        element: row.element,
-        damageType: row.damage_type,
-        expReward: row.exp_reward,
-        goldReward: row.gold_reward,
         respawnSeconds: row.respawn_seconds,
-        level: row.level,
-        hostile: Boolean(row.hostile),
-        levelRange: row.min_level !== null && row.max_level !== null ? { minLevel: row.min_level, maxLevel: row.max_level } : null,
+        template: row,
+        overrideMinLevel: row.override_min_level,
+        overrideMaxLevel: row.override_max_level,
       }),
     );
   }
 
   const garrisonRows = db
     .prepare(
-      `SELECT vg.id as garrison_id, v.room_id,
-              mt.id as template_id, mt.name, mt.hp, mt.strength, mt.dexterity,
-              mt.physical_defense, mt.magic_defense, mt.element, mt.damage_type,
-              mt.exp_reward, mt.gold_reward, mt.level, mt.hostile
+      `SELECT vg.id as garrison_id, v.room_id, mt.*
        FROM village_garrison vg
        JOIN villages v ON v.id = vg.village_id
        JOIN mob_templates mt ON mt.id = vg.mob_template_id`,
@@ -279,22 +225,11 @@ export function loadMobs(): void {
       spawnId,
       toMobInstance({
         spawnId,
-        templateId: row.template_id,
         roomId: row.room_id,
-        name: row.name,
-        hp: row.hp,
-        strength: row.strength,
-        dexterity: row.dexterity,
-        physicalDefense: row.physical_defense,
-        magicDefense: row.magic_defense,
-        element: row.element,
-        damageType: row.damage_type,
-        expReward: row.exp_reward,
-        goldReward: row.gold_reward,
         respawnSeconds: GARRISON_RESPAWN_SECONDS,
-        level: row.level,
-        hostile: Boolean(row.hostile),
-        levelRange: null,
+        template: row,
+        overrideMinLevel: null,
+        overrideMaxLevel: null,
       }),
     );
   }
@@ -309,22 +244,11 @@ export function spawnGarrisonMob(
   const spawnId = -garrisonId;
   const instance = toMobInstance({
     spawnId,
-    templateId: template.id,
     roomId,
-    name: template.name,
-    hp: template.hp,
-    strength: template.strength,
-    dexterity: template.dexterity,
-    physicalDefense: template.physical_defense,
-    magicDefense: template.magic_defense,
-    element: template.element,
-    damageType: template.damage_type,
-    expReward: template.exp_reward,
-    goldReward: template.gold_reward,
     respawnSeconds: GARRISON_RESPAWN_SECONDS,
-    level: template.level,
-    hostile: Boolean(template.hostile),
-    levelRange: null,
+    template,
+    overrideMinLevel: null,
+    overrideMaxLevel: null,
   });
   mobs.set(spawnId, instance);
   return instance;
@@ -339,22 +263,11 @@ export function registerMobSpawn(
 ): MobInstance {
   const instance = toMobInstance({
     spawnId,
-    templateId: template.id,
     roomId,
-    name: template.name,
-    hp: template.hp,
-    strength: template.strength,
-    dexterity: template.dexterity,
-    physicalDefense: template.physical_defense,
-    magicDefense: template.magic_defense,
-    element: template.element,
-    damageType: template.damage_type,
-    expReward: template.exp_reward,
-    goldReward: template.gold_reward,
     respawnSeconds,
-    level: template.level,
-    hostile: Boolean(template.hostile),
-    levelRange: null,
+    template,
+    overrideMinLevel: null,
+    overrideMaxLevel: null,
   });
   mobs.set(spawnId, instance);
   return instance;
@@ -386,32 +299,36 @@ export function killMob(mob: MobInstance): void {
   mob.respawnAt = Date.now() + mob.respawnSeconds * 1000;
 }
 
+const selectTemplateById = db.prepare('SELECT * FROM mob_templates WHERE id = ?');
+const selectSpawnOverrideById = db.prepare('SELECT min_level, max_level FROM mob_spawns WHERE id = ?');
+
 export function tickRespawns(): number[] {
   const now = Date.now();
   const respawnedRoomIds: number[] = [];
   for (const mob of mobs.values()) {
     if (!mob.alive && mob.respawnAt !== null && now >= mob.respawnAt) {
-      if (mob.levelRange) {
-        const speciesIndex = speciesIndexForAnchorId(mob.templateId);
-        const rolledLevel = randomLevelInRange(mob.levelRange.minLevel, mob.levelRange.maxLevel);
-        const computed = computeMobStatsForLevel(speciesIndex, rolledLevel);
-        mob.name = computed.name;
-        mob.maxHp = computed.hp;
-        mob.strength = computed.strength;
-        mob.dexterity = computed.dexterity;
-        mob.physicalDefense = computed.physicalDefense;
-        mob.magicDefense = computed.magicDefense;
-        mob.element = computed.element;
-        mob.damageType = computed.damageType;
-        mob.expReward = computed.expReward;
-        mob.goldReward = computed.goldReward;
-        mob.level = computed.level;
-        mob.lootTemplateId = computed.lootTemplateId;
+      const template = selectTemplateById.get(mob.templateId) as MobTemplateRow | undefined;
+      if (template && isRanged(template)) {
+        const override = mob.spawnId > 0
+          ? (selectSpawnOverrideById.get(mob.spawnId) as { min_level: number | null; max_level: number | null } | undefined)
+          : undefined;
+        const resolved = rollMobStats(template, override?.min_level ?? null, override?.max_level ?? null);
+        mob.name = resolved.name;
+        mob.maxHp = resolved.hp;
+        mob.strength = resolved.strength;
+        mob.dexterity = resolved.dexterity;
+        mob.physicalDefense = resolved.physicalDefense;
+        mob.magicDefense = resolved.magicDefense;
+        mob.element = resolved.element;
+        mob.damageType = resolved.damageType;
+        mob.expReward = resolved.expReward;
+        mob.goldReward = resolved.goldReward;
+        mob.level = resolved.level;
       }
       mob.alive = true;
       mob.hp = mob.maxHp;
       mob.respawnAt = null;
-      mob.carriedItemIds = rollMobLoot(mob.lootTemplateId);
+      mob.carriedItemIds = rollMobLoot(mob.templateId);
       respawnedRoomIds.push(mob.roomId);
     }
   }

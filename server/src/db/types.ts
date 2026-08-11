@@ -63,15 +63,23 @@ export interface MobTemplateRow {
   id: number;
   name: string;
   hp: number;
+  hp_max: number;
   strength: number;
+  strength_max: number;
   dexterity: number;
+  dexterity_max: number;
   physical_defense: number;
+  physical_defense_max: number;
   magic_defense: number;
+  magic_defense_max: number;
   element: ElementType;
   damage_type: 'physical' | 'magic';
   exp_reward: number;
+  exp_reward_max: number;
   gold_reward: number;
-  level: number;
+  gold_reward_max: number;
+  min_level: number;
+  max_level: number;
   hostile: number;
 }
 

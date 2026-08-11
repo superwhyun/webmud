@@ -15,7 +15,8 @@ builderRouter.get('/mob-templates', (_req, res) => {
 builderRouter.get('/mob-spawns', (_req, res) => {
   const rows = db
     .prepare(
-      `SELECT ms.id, ms.room_id, ms.mob_template_id, ms.respawn_seconds, r.name as room_name, r.zone_id as zone_id, mt.name as mob_name, mt.level as mob_level
+      `SELECT ms.id, ms.room_id, ms.mob_template_id, ms.respawn_seconds, r.name as room_name, r.zone_id as zone_id,
+              mt.name as mob_name, mt.min_level as mob_min_level, mt.max_level as mob_max_level
        FROM mob_spawns ms JOIN rooms r ON r.id = ms.room_id JOIN mob_templates mt ON mt.id = ms.mob_template_id
        ORDER BY ms.id`,
     )
@@ -27,7 +28,8 @@ builderRouter.get('/mob-spawns', (_req, res) => {
     room_name: string;
     zone_id: number;
     mob_name: string;
-    mob_level: number;
+    mob_min_level: number;
+    mob_max_level: number;
   }[];
 
   res.json({
@@ -38,7 +40,8 @@ builderRouter.get('/mob-spawns', (_req, res) => {
       zoneId: row.zone_id,
       mobTemplateId: row.mob_template_id,
       mobName: row.mob_name,
-      mobLevel: row.mob_level,
+      mobMinLevel: row.mob_min_level,
+      mobMaxLevel: row.mob_max_level,
       respawnSeconds: row.respawn_seconds,
     })),
   });

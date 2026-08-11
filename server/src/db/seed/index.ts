@@ -35,8 +35,11 @@ export function seed(db: Database.Database): void {
     'INSERT INTO room_items (room_id, item_id, quantity) VALUES (?, ?, ?)',
   );
   const insertMobTemplate = db.prepare(
-    `INSERT INTO mob_templates (id, name, hp, strength, dexterity, physical_defense, magic_defense, element, damage_type, exp_reward, gold_reward, level)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO mob_templates
+       (id, name, hp, hp_max, strength, strength_max, dexterity, dexterity_max, physical_defense, physical_defense_max,
+        magic_defense, magic_defense_max, element, damage_type, exp_reward, exp_reward_max, gold_reward, gold_reward_max,
+        min_level, max_level)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   const insertMobSpawn = db.prepare(
     'INSERT INTO mob_spawns (room_id, mob_template_id, respawn_seconds) VALUES (?, ?, ?)',
@@ -84,15 +87,23 @@ export function seed(db: Database.Database): void {
         template.id,
         template.name,
         template.hp,
+        template.hpMax,
         template.strength,
+        template.strengthMax,
         template.dexterity,
+        template.dexterityMax,
         template.physicalDefense,
+        template.physicalDefenseMax,
         template.magicDefense,
+        template.magicDefenseMax,
         template.element,
         template.damageType,
         template.expReward,
+        template.expRewardMax,
         template.goldReward,
-        template.level,
+        template.goldRewardMax,
+        template.minLevel,
+        template.maxLevel,
       );
     }
     for (const spawn of MOB_SPAWNS) {

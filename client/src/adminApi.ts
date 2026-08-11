@@ -45,15 +45,23 @@ export interface MobTemplateDto {
   id: number;
   name: string;
   hp: number;
+  hpMax: number;
   strength: number;
+  strengthMax: number;
   dexterity: number;
+  dexterityMax: number;
   physicalDefense: number;
+  physicalDefenseMax: number;
   magicDefense: number;
+  magicDefenseMax: number;
   element: ElementType;
   damageType: 'physical' | 'magic';
   expReward: number;
+  expRewardMax: number;
   goldReward: number;
-  level: number;
+  goldRewardMax: number;
+  minLevel: number;
+  maxLevel: number;
   hostile: boolean;
 }
 

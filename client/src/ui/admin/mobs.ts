@@ -1,4 +1,4 @@
-import { ELEMENT_LABELS, ITEM_GRADE_DROP_WEIGHT, ITEM_GRADE_LABELS, mobLevelBracket, type ElementType } from '@mud/shared';
+import { ELEMENT_LABELS, ITEM_GRADE_DROP_WEIGHT, ITEM_GRADE_LABELS, type ElementType } from '@mud/shared';
 import {
   addMobLootPoolItem,
   createMobTemplate,
@@ -35,16 +35,24 @@ function moveMobFormBelowRow(ctx: AdminContext, row: HTMLTableRowElement): void 
 function fillMobForm(ctx: AdminContext, mob: MobTemplateDto): void {
   ctx.container.querySelector<HTMLInputElement>('#admin-mob-name')!.value = mob.name;
   ctx.container.querySelector<HTMLInputElement>('#admin-mob-hp')!.value = String(mob.hp);
+  ctx.container.querySelector<HTMLInputElement>('#admin-mob-hp-max')!.value = String(mob.hpMax);
   ctx.mobElementSelect.value = mob.element;
   ctx.container.querySelector<HTMLSelectElement>('#admin-mob-damage-type')!.value = mob.damageType;
-  ctx.container.querySelector<HTMLInputElement>('#admin-mob-level')!.value = String(mob.level);
+  ctx.container.querySelector<HTMLInputElement>('#admin-mob-min-level')!.value = String(mob.minLevel);
+  ctx.container.querySelector<HTMLInputElement>('#admin-mob-max-level')!.value = String(mob.maxLevel);
   ctx.container.querySelector<HTMLInputElement>('#admin-mob-hostile')!.checked = mob.hostile;
   ctx.container.querySelector<HTMLInputElement>('#admin-mob-str')!.value = String(mob.strength);
+  ctx.container.querySelector<HTMLInputElement>('#admin-mob-str-max')!.value = String(mob.strengthMax);
   ctx.container.querySelector<HTMLInputElement>('#admin-mob-dex')!.value = String(mob.dexterity);
+  ctx.container.querySelector<HTMLInputElement>('#admin-mob-dex-max')!.value = String(mob.dexterityMax);
   ctx.container.querySelector<HTMLInputElement>('#admin-mob-pdef')!.value = String(mob.physicalDefense);
+  ctx.container.querySelector<HTMLInputElement>('#admin-mob-pdef-max')!.value = String(mob.physicalDefenseMax);
   ctx.container.querySelector<HTMLInputElement>('#admin-mob-mdef')!.value = String(mob.magicDefense);
+  ctx.container.querySelector<HTMLInputElement>('#admin-mob-mdef-max')!.value = String(mob.magicDefenseMax);
   ctx.container.querySelector<HTMLInputElement>('#admin-mob-exp')!.value = String(mob.expReward);
+  ctx.container.querySelector<HTMLInputElement>('#admin-mob-exp-max')!.value = String(mob.expRewardMax);
   ctx.container.querySelector<HTMLInputElement>('#admin-mob-gold')!.value = String(mob.goldReward);
+  ctx.container.querySelector<HTMLInputElement>('#admin-mob-gold-max')!.value = String(mob.goldRewardMax);
 }
 
 function resetMobForm(ctx: AdminContext): void {
@@ -55,56 +63,36 @@ function resetMobForm(ctx: AdminContext): void {
   parkMobFormAtDefault(ctx);
   ctx.container.querySelector<HTMLInputElement>('#admin-mob-name')!.value = '';
   ctx.container.querySelector<HTMLInputElement>('#admin-mob-hp')!.value = '10';
-  ctx.container.querySelector<HTMLInputElement>('#admin-mob-level')!.value = '1';
+  ctx.container.querySelector<HTMLInputElement>('#admin-mob-hp-max')!.value = '10';
+  ctx.container.querySelector<HTMLInputElement>('#admin-mob-min-level')!.value = '1';
+  ctx.container.querySelector<HTMLInputElement>('#admin-mob-max-level')!.value = '1';
   ctx.container.querySelector<HTMLInputElement>('#admin-mob-hostile')!.checked = true;
   ctx.container.querySelector<HTMLInputElement>('#admin-mob-str')!.value = '1';
+  ctx.container.querySelector<HTMLInputElement>('#admin-mob-str-max')!.value = '1';
   ctx.container.querySelector<HTMLInputElement>('#admin-mob-dex')!.value = '1';
+  ctx.container.querySelector<HTMLInputElement>('#admin-mob-dex-max')!.value = '1';
   ctx.container.querySelector<HTMLInputElement>('#admin-mob-pdef')!.value = '0';
+  ctx.container.querySelector<HTMLInputElement>('#admin-mob-pdef-max')!.value = '0';
   ctx.container.querySelector<HTMLInputElement>('#admin-mob-mdef')!.value = '0';
+  ctx.container.querySelector<HTMLInputElement>('#admin-mob-mdef-max')!.value = '0';
   ctx.container.querySelector<HTMLInputElement>('#admin-mob-exp')!.value = '5';
+  ctx.container.querySelector<HTMLInputElement>('#admin-mob-exp-max')!.value = '5';
   ctx.container.querySelector<HTMLInputElement>('#admin-mob-gold')!.value = '1';
+  ctx.container.querySelector<HTMLInputElement>('#admin-mob-gold-max')!.value = '1';
   ctx.pendingLootWeights = new Map();
 }
 
-/** 같은 이름을 가진 몹들을 레벨 구간(브라켓)별로 묶는다 — 같은 브라켓이면 '+' 개수도 같은 하나의 몹으로 취급한다. */
-interface MobDisplayGroup {
-  key: string;
-  displayName: string;
-  levelLabel: string;
-  mobs: MobTemplateDto[];
-}
-
-function buildMobDisplayGroups(mobTemplates: MobTemplateDto[]): MobDisplayGroup[] {
-  const nameCounts = new Map<string, number>();
-  for (const mob of mobTemplates) nameCounts.set(mob.name, (nameCounts.get(mob.name) ?? 0) + 1);
-
-  const groups: MobDisplayGroup[] = [];
-  const groupByKey = new Map<string, MobDisplayGroup>();
-
-  for (const mob of mobTemplates) {
-    if ((nameCounts.get(mob.name) ?? 0) <= 1) {
-      groups.push({ key: `mob-${mob.id}`, displayName: mob.name, levelLabel: String(mob.level), mobs: [mob] });
-      continue;
-    }
-    const { suffix, min, max } = mobLevelBracket(mob.level);
-    const key = `${mob.name}${suffix}`;
-    let group = groupByKey.get(key);
-    if (!group) {
-      group = { key, displayName: `${mob.name}${suffix}`, levelLabel: `${min}-${max}`, mobs: [] };
-      groupByKey.set(key, group);
-      groups.push(group);
-    }
-    group.mobs.push(mob);
-  }
-  return groups;
+/** min과 max가 같으면 숫자 하나만, 다르면 "최소-최대"로 보여준다. */
+function formatLevelRange(min: number, max: number): string {
+  return min === max ? String(min) : `${min}-${max}`;
 }
 
 function renderMobRowHtml(mob: MobTemplateDto, lootText: string): string {
   return `
     <tr data-mob-id="${mob.id}">
       <td>${escapeHtml(mob.name)}${mob.hostile ? '' : ' <span class="admin-mob-passive-tag">비전투</span>'}</td>
-      <td>${mob.level}</td>
-      <td>${mob.hp}</td>
+      <td>${formatLevelRange(mob.minLevel, mob.maxLevel)}</td>
+      <td>${formatLevelRange(mob.hp, mob.hpMax)}</td>
       <td>${ELEMENT_LABELS[mob.element]}</td>
       <td>${DAMAGE_TYPE_LABELS[mob.damageType]}</td>
       <td class="admin-mob-loot-cell">${lootText || '-'}</td>
@@ -130,45 +118,9 @@ function renderMobTemplatesList(ctx: AdminContext, lootEntries: MobLootPoolEntry
       .map((entry) => `<span class="item-grade-${entry.grade}">${escapeHtml(entry.name)}</span>(${entry.weight}%)`)
       .join(', ');
 
-  const groups = buildMobDisplayGroups(ctx.mobTemplates);
-
-  if (ctx.editingMobId !== null) {
-    const editingGroup = groups.find((group) => group.mobs.some((mob) => mob.id === ctx.editingMobId));
-    if (editingGroup && editingGroup.mobs.length > 1) ctx.expandedMobGroups.add(editingGroup.key);
-  }
-
   ctx.mobTemplatesList.innerHTML =
-    groups
-      .map((group) => {
-        if (group.mobs.length === 1) {
-          const mob = group.mobs[0];
-          return renderMobRowHtml(mob, lootTextFor(mob.id));
-        }
-        const expanded = ctx.expandedMobGroups.has(group.key);
-        const summaryRow = `
-          <tr class="admin-mob-group-row" data-group-key="${escapeHtml(group.key)}">
-            <td>
-              <button type="button" class="admin-mob-group-toggle" data-group-key="${escapeHtml(group.key)}">${expanded ? '▾' : '▸'}</button>
-              ${escapeHtml(group.displayName)}
-            </td>
-            <td>${group.levelLabel}</td>
-            <td colspan="4" class="admin-mob-group-hint">앵커 ${group.mobs.length}개 — 펼쳐서 개별 수정</td>
-            <td></td>
-          </tr>
-        `;
-        const detailRows = expanded ? group.mobs.map((mob) => renderMobRowHtml(mob, lootTextFor(mob.id))).join('') : '';
-        return summaryRow + detailRows;
-      })
-      .join('') || '<tr><td colspan="7" class="admin-panel-empty">없음</td></tr>';
-
-  ctx.mobTemplatesList.querySelectorAll<HTMLButtonElement>('.admin-mob-group-toggle').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const key = btn.dataset.groupKey!;
-      if (ctx.expandedMobGroups.has(key)) ctx.expandedMobGroups.delete(key);
-      else ctx.expandedMobGroups.add(key);
-      renderMobTemplatesList(ctx, lootEntries);
-    });
-  });
+    ctx.mobTemplates.map((mob) => renderMobRowHtml(mob, lootTextFor(mob.id))).join('') ||
+    '<tr><td colspan="7" class="admin-panel-empty">없음</td></tr>';
 
   ctx.mobTemplatesList.querySelectorAll<HTMLButtonElement>('.admin-edit-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -228,11 +180,11 @@ export async function refreshMobs(ctx: AdminContext): Promise<void> {
 /**
  * 편집 중인 몬스터가 있으면 그 몬스터의 실제 보유 아이템 풀을(서버에 바로 반영하며) 보여주고,
  * 새 몬스터를 만드는 중이면 아직 저장되지 않은 로컬 선택(pendingLootWeights)만 보여준다.
- * 두 경우 모두 레벨 입력창에 현재 입력된 값 기준으로 아이템을 필터링한다.
+ * 두 경우 모두 최대 레벨 입력창에 현재 입력된 값 기준으로 아이템을 필터링한다.
  */
 export async function refreshMobLootPool(ctx: AdminContext): Promise<void> {
   ctx.mobLootError.textContent = '';
-  const level = Number(ctx.mobLevelInput.value) || 1;
+  const level = Number(ctx.mobMaxLevelInput.value) || 1;
   const eligibleItems = ctx.itemTemplates.filter((item) => item.level <= level);
 
   const poolWeights = ctx.editingMobId
@@ -316,15 +268,23 @@ export function wireMobForm(ctx: AdminContext): void {
     }
     const data = {
       hp: Number(ctx.container.querySelector<HTMLInputElement>('#admin-mob-hp')!.value),
+      hpMax: Number(ctx.container.querySelector<HTMLInputElement>('#admin-mob-hp-max')!.value),
       strength: Number(ctx.container.querySelector<HTMLInputElement>('#admin-mob-str')!.value),
+      strengthMax: Number(ctx.container.querySelector<HTMLInputElement>('#admin-mob-str-max')!.value),
       dexterity: Number(ctx.container.querySelector<HTMLInputElement>('#admin-mob-dex')!.value),
+      dexterityMax: Number(ctx.container.querySelector<HTMLInputElement>('#admin-mob-dex-max')!.value),
       physicalDefense: Number(ctx.container.querySelector<HTMLInputElement>('#admin-mob-pdef')!.value),
+      physicalDefenseMax: Number(ctx.container.querySelector<HTMLInputElement>('#admin-mob-pdef-max')!.value),
       magicDefense: Number(ctx.container.querySelector<HTMLInputElement>('#admin-mob-mdef')!.value),
+      magicDefenseMax: Number(ctx.container.querySelector<HTMLInputElement>('#admin-mob-mdef-max')!.value),
       element: ctx.mobElementSelect.value as ElementType,
       damageType: ctx.container.querySelector<HTMLSelectElement>('#admin-mob-damage-type')!.value as 'physical' | 'magic',
       expReward: Number(ctx.container.querySelector<HTMLInputElement>('#admin-mob-exp')!.value),
+      expRewardMax: Number(ctx.container.querySelector<HTMLInputElement>('#admin-mob-exp-max')!.value),
       goldReward: Number(ctx.container.querySelector<HTMLInputElement>('#admin-mob-gold')!.value),
-      level: Number(ctx.container.querySelector<HTMLInputElement>('#admin-mob-level')!.value),
+      goldRewardMax: Number(ctx.container.querySelector<HTMLInputElement>('#admin-mob-gold-max')!.value),
+      minLevel: Number(ctx.container.querySelector<HTMLInputElement>('#admin-mob-min-level')!.value),
+      maxLevel: Number(ctx.container.querySelector<HTMLInputElement>('#admin-mob-max-level')!.value),
       hostile: ctx.container.querySelector<HTMLInputElement>('#admin-mob-hostile')!.checked,
       name,
     };
@@ -352,7 +312,7 @@ export function wireMobForm(ctx: AdminContext): void {
     });
   });
 
-  ctx.mobLevelInput.addEventListener('input', () => {
+  ctx.mobMaxLevelInput.addEventListener('input', () => {
     refreshMobLootPool(ctx).catch((error: unknown) => {
       ctx.mobLootError.textContent = error instanceof Error ? error.message : '아이템 풀을 불러오지 못했습니다.';
     });
