@@ -101,7 +101,6 @@ export interface NpcTemplateDto {
   name: string;
   description: string;
   type: NpcType;
-  level: number;
   dealType: NpcDealType;
 }
 

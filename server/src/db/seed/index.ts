@@ -48,7 +48,7 @@ export function seed(db: Database.Database): void {
     'INSERT INTO mob_loot_pool (mob_template_id, item_id, weight) VALUES (?, ?, ?)',
   );
   const insertNpcTemplate = db.prepare(
-    'INSERT INTO npc_templates (id, name, description, type, level, deal_type) VALUES (?, ?, ?, ?, ?, ?)',
+    'INSERT INTO npc_templates (id, name, description, type, deal_type) VALUES (?, ?, ?, ?, ?)',
   );
   const insertNpcSpawn = db.prepare('INSERT INTO npc_spawns (room_id, npc_template_id) VALUES (?, ?)');
   const insertAdminAccount = db.prepare(
@@ -113,7 +113,7 @@ export function seed(db: Database.Database): void {
       insertMobLootPoolEntry.run(entry.mobTemplateId, entry.itemId, entry.weight);
     }
     for (const template of NPC_TEMPLATES) {
-      insertNpcTemplate.run(template.id, template.name, template.description, template.type, template.level, template.dealType);
+      insertNpcTemplate.run(template.id, template.name, template.description, template.type, template.dealType);
     }
     for (const spawn of NPC_SPAWNS) {
       insertNpcSpawn.run(spawn.roomId, spawn.npcTemplateId);
