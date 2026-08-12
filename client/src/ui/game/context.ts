@@ -153,7 +153,7 @@ function renderShellHtml(isBuilder: boolean, isAdmin: boolean): string {
       </div>
     </div>
     <div class="modal-overlay" id="skill-modal" hidden>
-      <div class="modal-content">
+      <div class="modal-content modal-content-xl">
         <div class="modal-header">
           <span>스킬</span>
           <button type="button" id="skill-modal-close" class="modal-close-btn" aria-label="닫기">✕</button>

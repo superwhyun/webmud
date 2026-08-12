@@ -1,9 +1,11 @@
 import {
   effectiveSkillPower,
   ELEMENT_LABELS,
+  ELEMENT_VALUES,
   SKILLS_BY_JOB,
   SKILL_MAX_RANK,
   type ClientMessage,
+  type ElementType,
   type SkillDefinition,
 } from '@mud/shared';
 import { escapeHtml } from '../../domUtils';
@@ -30,7 +32,7 @@ function powerLabel(skill: SkillDefinition, rank: number): string {
   return `피해 ${effectiveSkillPower(skill, rank).toFixed(2)}배${skill.targeting === 'aoe' ? ' (광역)' : ''}`;
 }
 
-function renderSkillRow(ctx: GameContext, skill: SkillDefinition, jobSkills: SkillDefinition[]): string {
+function renderSkillNode(ctx: GameContext, skill: SkillDefinition, jobSkills: SkillDefinition[]): string {
   const rank = ctx.learnedSkillRanks[skill.id] ?? 0;
   const learned = rank > 0;
   const hasPoints = (ctx.currentCharacterState?.unallocatedSkillPoints ?? 0) > 0;
@@ -53,12 +55,14 @@ function renderSkillRow(ctx: GameContext, skill: SkillDefinition, jobSkills: Ski
   }
 
   return `
-    <div class="skill-row">
-      <div class="skill-row-info">
-        <span class="skill-row-name">${escapeHtml(skill.name)} ${statusHtml}</span>
-        <span class="skill-row-desc">${escapeHtml(skill.description)} (MP ${skill.mpCost})</span>
+    <div class="skill-tree-node ${learned ? 'is-learned' : ''}">
+      <div class="skill-row">
+        <div class="skill-row-info">
+          <span class="skill-row-name">${escapeHtml(skill.name)} ${statusHtml}</span>
+          <span class="skill-row-desc">${escapeHtml(skill.description)} (MP ${skill.mpCost})</span>
+        </div>
+        ${actionHtml}
       </div>
-      ${actionHtml}
     </div>
   `;
 }
@@ -73,32 +77,34 @@ export function renderSkillModal(ctx: GameContext): void {
 
   const jobSkills = SKILLS_BY_JOB[job];
   const trunkSkills = jobSkills.filter((skill) => !skill.element).sort((a, b) => a.requiredLevel - b.requiredLevel);
-  const branchByElement = new Map<string, SkillDefinition[]>();
-  for (const skill of jobSkills) {
-    if (!skill.element) continue;
-    const list = branchByElement.get(skill.element) ?? [];
-    list.push(skill);
-    branchByElement.set(skill.element, list);
-  }
-  for (const list of branchByElement.values()) list.sort((a, b) => a.requiredLevel - b.requiredLevel);
 
-  const branchSectionsHtml = [...branchByElement.entries()]
-    .map(
-      ([element, skills]) => `
-        <div class="skill-tier-title">${ELEMENT_LABELS[element as keyof typeof ELEMENT_LABELS]} 계열${element === character.element ? '' : ' (다른 속성)'}</div>
-        ${skills.map((skill) => renderSkillRow(ctx, skill, jobSkills)).join('')}
-      `,
-    )
-    .join('');
+  const branchColumnsHtml = ELEMENT_VALUES.map((element: ElementType) => {
+    const skills = jobSkills.filter((skill) => skill.element === element).sort((a, b) => a.requiredLevel - b.requiredLevel);
+    const isOwnElement = element === character.element;
+    return `
+      <div class="skill-tree-column ${isOwnElement ? 'is-own-element' : ''}" data-element="${element}">
+        <div class="skill-tree-column-header">${ELEMENT_LABELS[element]}${isOwnElement ? '' : ' <span class="skill-tree-column-sub">(다른 속성)</span>'}</div>
+        ${skills.map((skill) => renderSkillNode(ctx, skill, jobSkills)).join('')}
+      </div>
+    `;
+  }).join('');
 
   ctx.skillModalBody.innerHTML = `
     <div class="skill-modal-header">
       <p>사용 가능 스킬 포인트: ${character.unallocatedSkillPoints}</p>
       <button type="button" id="skill-reset-btn">전체 초기화</button>
     </div>
-    <div class="skill-tier-title">공통</div>
-    ${trunkSkills.map((skill) => renderSkillRow(ctx, skill, jobSkills)).join('')}
-    ${branchSectionsHtml}
+    <div class="skill-tree">
+      <div class="skill-tree-trunk">
+        ${trunkSkills.map((skill) => renderSkillNode(ctx, skill, jobSkills)).join('')}
+      </div>
+      <div class="skill-tree-branch-point">
+        <span>속성(오행)에 따라 갈라짐 — 당신의 속성: ${ELEMENT_LABELS[character.element]}</span>
+      </div>
+      <div class="skill-tree-branches">
+        ${branchColumnsHtml}
+      </div>
+    </div>
   `;
 
   ctx.skillModalBody.querySelectorAll<HTMLButtonElement>('.skill-learn-btn').forEach((button) => {

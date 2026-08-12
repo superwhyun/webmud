@@ -306,15 +306,9 @@
 
 .skill-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.5rem 0;
-  border-bottom: 1px dashed var(--color-border);
-}
-
-.skill-row:last-child {
-  border-bottom: none;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
 }
 
 .skill-row-info {
@@ -326,17 +320,143 @@
 .skill-row-name {
   font-weight: bold;
   color: var(--color-accent);
+  font-size: 0.9rem;
 }
 
 .skill-row-status {
+  display: block;
   font-weight: normal;
   color: var(--color-text-dim);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
 }
 
 .skill-row-desc {
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   color: var(--color-text-dim);
+  line-height: 1.3;
+}
+
+/* 스킬 트리 레이아웃: 공통 트리는 세로 한 줄, 분기는 원소별 5열 그리드로 갈라진다. */
+.skill-tree {
+  display: flex;
+  flex-direction: column;
+}
+
+.skill-tree-trunk,
+.skill-tree-column {
+  position: relative;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.skill-tree-trunk::before,
+.skill-tree-column::before {
+  content: '';
+  position: absolute;
+  left: 0.3rem;
+  top: 0.6rem;
+  bottom: 0.6rem;
+  width: 2px;
+  background: var(--color-border);
+}
+
+.skill-tree-node {
+  position: relative;
+  padding: 0.55rem 0 0.55rem 0.85rem;
+  border-bottom: 1px dashed var(--color-border);
+}
+
+.skill-tree-node:last-child {
+  border-bottom: none;
+}
+
+.skill-tree-node::before {
+  content: '';
+  position: absolute;
+  left: -0.85rem;
+  top: 1.05rem;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-border);
+}
+
+.skill-tree-node.is-learned::before {
+  background: var(--color-accent);
+  box-shadow: var(--glow-accent);
+}
+
+.skill-tree-branch-point {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0.75rem 0;
+  padding: 0.4rem;
+  color: var(--color-text-dim);
+  font-size: 0.78rem;
+  text-align: center;
+  border-top: 1px dashed var(--color-border);
+  border-bottom: 1px dashed var(--color-border);
+}
+
+.skill-tree-branches {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0 1rem;
+  align-items: start;
+}
+
+.skill-tree-column-header {
+  font-weight: bold;
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 2px solid var(--color-border);
+  color: var(--color-text);
+}
+
+.skill-tree-column-sub {
+  font-weight: normal;
+  font-size: 0.68rem;
+  color: var(--color-text-dim);
+}
+
+.skill-tree-column:not(.is-own-element) {
+  opacity: 0.55;
+}
+
+.skill-tree-column.is-own-element {
+  background: rgba(77, 255, 136, 0.05);
+  border-radius: 6px;
+  padding-top: 0.3rem;
+  padding-bottom: 0.3rem;
+}
+
+.skill-tree-column[data-element='wood'] .skill-tree-column-header {
+  color: var(--element-wood);
+  border-bottom-color: var(--element-wood);
+}
+
+.skill-tree-column[data-element='fire'] .skill-tree-column-header {
+  color: var(--element-fire);
+  border-bottom-color: var(--element-fire);
+}
+
+.skill-tree-column[data-element='earth'] .skill-tree-column-header {
+  color: var(--element-earth);
+  border-bottom-color: var(--element-earth);
+}
+
+.skill-tree-column[data-element='metal'] .skill-tree-column-header {
+  color: var(--element-metal);
+  border-bottom-color: var(--element-metal);
+}
+
+.skill-tree-column[data-element='water'] .skill-tree-column-header {
+  color: var(--element-water);
+  border-bottom-color: var(--element-water);
 }
 
 .macro-row {

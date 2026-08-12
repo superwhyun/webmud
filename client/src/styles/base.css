@@ -17,6 +17,12 @@
   --grade-legend: #ff9f43;
   --grade-epic: #ffd447;
 
+  --element-wood: #6bd67a;
+  --element-fire: #ff7a5c;
+  --element-earth: #d9a441;
+  --element-metal: #d8d8d8;
+  --element-water: #5ca9ff;
+
   --font-mono: 'JetBrains Mono', 'Courier New', monospace;
 
   --glow-accent: 0 0 8px rgba(77, 255, 136, 0.45);

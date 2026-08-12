@@ -29,6 +29,11 @@
   max-height: calc(100vh - 2rem);
 }
 
+.modal-content-xl {
+  width: 1200px;
+  max-height: calc(100vh - 2rem);
+}
+
 .modal-header {
   display: flex;
   align-items: center;
