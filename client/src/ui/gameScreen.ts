@@ -20,7 +20,6 @@ import { hideCombat, renderCombat, renderRoom, showJobModal } from './game/room'
 import { closeSkillModal, openSkillModal, renderSkillModal } from './game/skills';
 import { renderCooldownPanel, renderState } from './game/state';
 
-let activeSocket: WebSocket | null = null;
 let currentCtx: GameContext | null = null;
 
 export function renderGameScreen(
@@ -30,10 +29,10 @@ export function renderGameScreen(
   isAdmin = false,
   onLogout: () => void = () => {},
 ): void {
-  const isInitialConnect = activeSocket === null;
-  const ctx = createGameContext(container, token, isBuilder, isAdmin, onLogout, activeSocket);
+  const previousCtx = currentCtx;
+  const isInitialConnect = previousCtx === null;
+  const ctx = createGameContext(container, token, isBuilder, isAdmin, onLogout, previousCtx);
   const { socket } = ctx;
-  activeSocket = socket;
   currentCtx = ctx;
 
   if (isInitialConnect) {
@@ -113,6 +112,17 @@ export function renderGameScreen(
   renderEquipmentPanel(ctx);
   renderInventoryCount(ctx);
   renderPotionSummary(ctx);
+  renderCooldownPanel(ctx);
+
+  if (!isInitialConnect) {
+    if (ctx.currentCharacterState) renderState(ctx, ctx.currentCharacterState);
+    if (ctx.latestRoom) {
+      recordRoomVisit(ctx, ctx.latestRoom);
+      renderRoom(ctx, ctx.latestRoom);
+      renderMinimap(ctx);
+    }
+    if (ctx.latestCombatMobs.length > 0) renderCombat(ctx, ctx.latestCombatMobs);
+  }
 
   attachCommandBarListeners(ctx);
 
@@ -129,7 +139,6 @@ export function renderGameScreen(
   const logoutButton = container.querySelector<HTMLButtonElement>('#logout-button')!;
   logoutButton.addEventListener('click', () => {
     socket.close();
-    activeSocket = null;
     currentCtx = null;
     onLogout();
   });

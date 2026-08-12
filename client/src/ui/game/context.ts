@@ -184,11 +184,11 @@ export function createGameContext(
   isBuilder: boolean,
   isAdmin: boolean,
   onLogout: () => void,
-  existingSocket: WebSocket | null,
+  previous: GameContext | null,
 ): GameContext {
   container.innerHTML = renderShellHtml(isBuilder, isAdmin);
 
-  const socket = existingSocket ?? new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`);
+  const socket = previous?.socket ?? new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`);
 
   const terminal = container.querySelector<HTMLDivElement>('#terminal')!;
   for (const entry of persistedLog) {
@@ -226,24 +226,24 @@ export function createGameContext(
     inventoryModal: container.querySelector<HTMLDivElement>('#inventory-modal')!,
     inventoryModalBody: container.querySelector<HTMLDivElement>('#inventory-modal-body')!,
 
-    currentCharacterState: undefined,
-    learnedSkillIds: [],
-    latestCombatMobs: [],
-    activeCooldowns: new Map(),
+    currentCharacterState: previous?.currentCharacterState,
+    learnedSkillIds: previous?.learnedSkillIds ?? [],
+    latestCombatMobs: previous?.latestCombatMobs ?? [],
+    activeCooldowns: previous?.activeCooldowns ?? new Map(),
     macros: loadMacros(),
-    equipmentState: {},
-    inventoryState: [],
+    equipmentState: previous?.equipmentState ?? {},
+    inventoryState: previous?.inventoryState ?? [],
 
-    roomCoord: new Map(),
-    coordRoom: new Map(),
-    roomNames: new Map(),
-    roomExits: new Map(),
-    currentRoomId: null,
+    roomCoord: previous?.roomCoord ?? new Map(),
+    coordRoom: previous?.coordRoom ?? new Map(),
+    roomNames: previous?.roomNames ?? new Map(),
+    roomExits: previous?.roomExits ?? new Map(),
+    currentRoomId: previous?.currentRoomId ?? null,
     pendingDirection: null,
-    latestRoom: null,
-    lastDeathRoomId: null,
+    latestRoom: previous?.latestRoom ?? null,
+    lastDeathRoomId: previous?.lastDeathRoomId ?? null,
 
-    commandHistory: [],
+    commandHistory: previous?.commandHistory ?? [],
     historyIndex: 0,
     historyDraft: '',
     tabCompletion: null,
