@@ -129,7 +129,7 @@ export function renderEquipModal(ctx: GameContext): void {
           ${
             options.length > 0
               ? `<select data-slot-select="${slot}">
-                  ${options.map((item) => `<option value="${item.inventoryId}">${escapeHtml(item.name)}${item.quantity > 1 ? ` x${item.quantity}` : ''}</option>`).join('')}
+                  ${options.map((item) => `<option value="${item.inventoryId}" class="item-grade-${item.grade}">${escapeHtml(item.name)}${item.quantity > 1 ? ` x${item.quantity}` : ''}</option>`).join('')}
                 </select>
                 <button type="button" class="equip-modal-equip-btn" data-equip-slot="${slot}">장착</button>`
               : '<span class="equip-modal-empty">착용 가능한 아이템 없음</span>'
