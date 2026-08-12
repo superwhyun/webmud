@@ -1,5 +1,6 @@
 import { createRoomItemRecord } from '../items.js';
 import { createMobSpawnRecord } from '../mobs.js';
+import { createNpcSpawnRecord } from '../npcs.js';
 import { createRoomRecord } from '../rooms.js';
 import type { ProposedOperation } from './operations.js';
 
@@ -65,7 +66,15 @@ export function applyOperations(zoneId: number, operations: ProposedOperation[])
       continue;
     }
 
-    const outcome = createRoomItemRecord({ roomId, itemId: operation.itemId, quantity: operation.quantity });
+    if (operation.type === 'add_room_item') {
+      const outcome = createRoomItemRecord({ roomId, itemId: operation.itemId, quantity: operation.quantity });
+      results.push(
+        'error' in outcome ? { operation, success: false, error: outcome.error } : { operation, success: true },
+      );
+      continue;
+    }
+
+    const outcome = createNpcSpawnRecord({ roomId, npcTemplateId: operation.npcTemplateId });
     results.push(
       'error' in outcome ? { operation, success: false, error: outcome.error } : { operation, success: true },
     );

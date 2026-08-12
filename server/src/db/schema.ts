@@ -208,4 +208,9 @@ CREATE TABLE IF NOT EXISTS suggestion_votes (
   vote TEXT NOT NULL,
   PRIMARY KEY (suggestion_id, account_id)
 );
+
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
 `;

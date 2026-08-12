@@ -43,25 +43,21 @@ const npcSpawnSchema = z.object({
   npcTemplateId: z.number().int(),
 });
 
-builderRouter.post('/npc-spawns', (req, res) => {
-  const parsed = npcSpawnSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
-    return;
-  }
+export type CreateNpcSpawnInput = z.infer<typeof npcSpawnSchema>;
+export type CreateNpcSpawnOutcome = { spawnId: number } | { error: string; status: number };
 
-  const { roomId, npcTemplateId } = parsed.data;
+/** Validates and inserts an NPC spawn, registering it with NpcManager. Shared by the HTTP route and the map assistant's apply step. */
+export function createNpcSpawnRecord(input: CreateNpcSpawnInput): CreateNpcSpawnOutcome {
+  const { roomId, npcTemplateId } = input;
   if (!getRoom(roomId)) {
-    res.status(404).json({ error: '방을 찾을 수 없습니다.' });
-    return;
+    return { error: '방을 찾을 수 없습니다.', status: 404 };
   }
 
   const template = db.prepare('SELECT * FROM npc_templates WHERE id = ?').get(npcTemplateId) as
     | NpcTemplateRow
     | undefined;
   if (!template) {
-    res.status(404).json({ error: 'NPC 템플릿을 찾을 수 없습니다.' });
-    return;
+    return { error: 'NPC 템플릿을 찾을 수 없습니다.', status: 404 };
   }
 
   const info = db.prepare('INSERT INTO npc_spawns (room_id, npc_template_id) VALUES (?, ?)').run(roomId, npcTemplateId);
@@ -70,7 +66,23 @@ builderRouter.post('/npc-spawns', (req, res) => {
   registerNpcSpawn(spawnId, roomId, template);
   broadcastRoomSnapshot(roomId);
 
-  res.status(201).json({ spawnId });
+  return { spawnId };
+}
+
+builderRouter.post('/npc-spawns', (req, res) => {
+  const parsed = npcSpawnSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
+    return;
+  }
+
+  const outcome = createNpcSpawnRecord(parsed.data);
+  if ('error' in outcome) {
+    res.status(outcome.status).json({ error: outcome.error });
+    return;
+  }
+
+  res.status(201).json(outcome);
 });
 
 builderRouter.delete('/npc-spawns/:id', (req, res) => {

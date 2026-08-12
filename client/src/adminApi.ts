@@ -143,6 +143,22 @@ export function fetchAdminRooms(token: string): Promise<{ rooms: RoomOptionDto[]
   return apiRequest('/admin/rooms', { headers: authHeader(token) });
 }
 
+export function fetchOpenAiKeyStatus(token: string): Promise<{ configured: boolean }> {
+  return apiRequest('/admin/settings/openai-key', { headers: authHeader(token) });
+}
+
+export function saveOpenAiKey(token: string, apiKey: string): Promise<void> {
+  return apiRequest('/admin/settings/openai-key', {
+    method: 'POST',
+    headers: authHeader(token),
+    body: JSON.stringify({ apiKey }),
+  });
+}
+
+export function clearOpenAiKey(token: string): Promise<void> {
+  return apiRequest('/admin/settings/openai-key', { method: 'DELETE', headers: authHeader(token) });
+}
+
 export function fetchItemTemplates(token: string): Promise<{ items: ItemTemplateDto[] }> {
   return apiRequest('/admin/items', { headers: authHeader(token) });
 }

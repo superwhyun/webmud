@@ -1,8 +1,20 @@
 import type OpenAI from 'openai';
 import { MAX_OPERATIONS, MAX_TOOL_CALL_ITERATIONS, OPENAI_MODEL, getOpenAiClient } from './config.js';
-import type { AddMobSpawnOperation, AddRoomItemOperation, AddRoomOperation, ProposedOperation } from './operations.js';
+import type {
+  AddMobSpawnOperation,
+  AddNpcSpawnOperation,
+  AddRoomItemOperation,
+  AddRoomOperation,
+  ProposedOperation,
+} from './operations.js';
 import { buildZoneSnapshot, type ZoneSnapshotDto } from './snapshot.js';
-import { addMobSpawnArgsSchema, addRoomArgsSchema, addRoomItemArgsSchema, MAP_ASSISTANT_TOOLS } from './tools.js';
+import {
+  addMobSpawnArgsSchema,
+  addNpcSpawnArgsSchema,
+  addRoomArgsSchema,
+  addRoomItemArgsSchema,
+  MAP_ASSISTANT_TOOLS,
+} from './tools.js';
 
 export type ProposeOutcome = { operations: ProposedOperation[]; summary: string } | { error: string; status: number };
 
@@ -20,11 +32,13 @@ class ProposalState {
   private readonly occupiedCells = new Set<string>();
   private readonly validMobTemplateIds: Map<number, string>;
   private readonly validItemIds: Map<number, string>;
+  private readonly validNpcTemplateIds: Map<number, string>;
   private nextTempId = 1;
 
   constructor(snapshot: ZoneSnapshotDto) {
     this.validMobTemplateIds = new Map(snapshot.availableMobTemplates.map((t) => [t.id, t.name]));
     this.validItemIds = new Map(snapshot.availableItemTemplates.map((t) => [t.id, t.name]));
+    this.validNpcTemplateIds = new Map(snapshot.availableNpcTemplates.map((t) => [t.id, t.name]));
     for (const room of snapshot.rooms) {
       this.rooms.set(String(room.id), { ref: String(room.id), name: room.name, x: room.x, y: room.y });
       this.occupiedCells.add(`${room.x},${room.y}`);
@@ -59,16 +73,28 @@ class ProposalState {
     const name = this.validItemIds.get(id);
     return name ?? { error: `itemId ${id}는 availableItemTemplates에 없습니다.` };
   }
+
+  npcTemplateName(id: number): string | { error: string } {
+    const name = this.validNpcTemplateIds.get(id);
+    return name ?? { error: `npcTemplateId ${id}는 availableNpcTemplates에 없습니다.` };
+  }
 }
 
-function buildInstructions(): string {
+function buildInstructions(snapshot: ZoneSnapshotDto): string {
+  const levelRangeText =
+    snapshot.zoneMinLevel !== null && snapshot.zoneMaxLevel !== null
+      ? `This zone is for character levels ${snapshot.zoneMinLevel}-${snapshot.zoneMaxLevel}. availableMobTemplates has already been filtered to mobs whose level range overlaps this, so only use ids from that list.`
+      : 'This zone has no configured level range, so availableMobTemplates includes the full mob roster — pick ones that make thematic sense.';
+
   return [
     'You are a level design assistant for a text-based MUD. You edit one zone at a time by calling the provided tools.',
-    'Only propose changes that additively grow the zone: new rooms, new mob spawns, new item drops. Never suggest deleting or moving anything, since those tools do not exist.',
+    'Only propose changes that additively grow the zone: new rooms, new mob spawns, new item drops, new NPC placements. Never suggest deleting or moving anything, since those tools do not exist.',
     'New rooms must use integer grid coordinates that do not collide with existing rooms or rooms you already added in this same request.',
-    'Only use mobTemplateId / itemId values that appear in availableMobTemplates / availableItemTemplates from the snapshot.',
+    levelRangeText,
+    'Only use mobTemplateId / itemId / npcTemplateId values that appear in availableMobTemplates / availableItemTemplates / availableNpcTemplates from the snapshot.',
+    'NPCs (merchants etc.) are usually sparse — only add one if the prompt asks for it or the zone clearly needs a vendor. Do not add an NPC to every room.',
     `Keep proposals reasonably scoped: no more than ${MAX_OPERATIONS} tool calls total in one request.`,
-    '방 이름/설명, 몹/아이템 관련 텍스트는 한국어로 작성하세요.',
+    '방 이름/설명, 몹/아이템/NPC 관련 텍스트는 한국어로 작성하세요.',
     'When you are done, reply with a short Korean summary of what you proposed (no more tool calls).',
   ].join('\n');
 }
@@ -152,6 +178,24 @@ function executeToolCall(
     return { output: { ok: true } };
   }
 
+  if (name === 'add_npc_spawn') {
+    const args = parseArgs(addNpcSpawnArgsSchema, argsJson);
+    if ('error' in args) return { output: args };
+    const room = state.resolveRoom(args.roomRef);
+    if ('error' in room) return { output: room };
+    const npcName = state.npcTemplateName(args.npcTemplateId);
+    if (typeof npcName !== 'string') return { output: npcName };
+    const op: AddNpcSpawnOperation = {
+      type: 'add_npc_spawn',
+      roomRef: args.roomRef,
+      roomLabel: room.name,
+      npcTemplateId: args.npcTemplateId,
+      npcName,
+    };
+    operations.push(op);
+    return { output: { ok: true } };
+  }
+
   return { output: { error: `알 수 없는 tool: ${name}` } };
 }
 
@@ -167,7 +211,7 @@ export async function proposeChanges(zoneId: number, prompt: string): Promise<Pr
 
   let response = await client.responses.create({
     model: OPENAI_MODEL,
-    instructions: buildInstructions(),
+    instructions: buildInstructions(snapshot),
     tools: MAP_ASSISTANT_TOOLS,
     input: [
       { role: 'user', content: `현재 존 스냅샷(JSON):\n${JSON.stringify(snapshot)}` },

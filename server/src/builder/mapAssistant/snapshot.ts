@@ -11,9 +11,10 @@ export interface ZoneSnapshotRoomDto {
   y: number;
   mobs: { mobTemplateId: number; name: string; respawnSeconds: number }[];
   items: { itemId: number; name: string; grade: string; quantity: number }[];
+  npcs: { npcTemplateId: number; name: string }[];
 }
 
-export interface ZoneSnapshotTemplateDto {
+export interface ZoneSnapshotMobTemplateDto {
   id: number;
   name: string;
   minLevel: number;
@@ -24,21 +25,34 @@ export interface ZoneSnapshotItemTemplateDto {
   id: number;
   name: string;
   grade: string;
+  level: number;
+}
+
+export interface ZoneSnapshotNpcTemplateDto {
+  id: number;
+  name: string;
+  description: string;
+  type: string;
+  dealType: string;
 }
 
 export interface ZoneSnapshotDto {
   zoneId: number;
   zoneName: string;
   zoneDescription: string;
+  zoneMinLevel: number | null;
+  zoneMaxLevel: number | null;
   rooms: ZoneSnapshotRoomDto[];
-  availableMobTemplates: ZoneSnapshotTemplateDto[];
+  /** Pre-filtered to templates whose level range overlaps the zone's level range (when the zone has one set), so the LLM doesn't have to guess which mobs belong here. */
+  availableMobTemplates: ZoneSnapshotMobTemplateDto[];
   availableItemTemplates: ZoneSnapshotItemTemplateDto[];
+  availableNpcTemplates: ZoneSnapshotNpcTemplateDto[];
 }
 
-/** Builds a compact JSON view of a zone's current room/mob/item layout, plus the template catalogs the LLM may reference by id. */
+/** Builds a compact JSON view of a zone's current room/mob/item/npc layout, plus the template catalogs the LLM may reference by id. */
 export function buildZoneSnapshot(zoneId: number): ZoneSnapshotDto | null {
-  const zone = db.prepare('SELECT id, name, description FROM zones WHERE id = ?').get(zoneId) as
-    | { id: number; name: string; description: string }
+  const zone = db.prepare('SELECT id, name, description, min_level, max_level FROM zones WHERE id = ?').get(zoneId) as
+    | { id: number; name: string; description: string; min_level: number | null; max_level: number | null }
     | undefined;
   if (!zone) return null;
 
@@ -49,6 +63,7 @@ export function buildZoneSnapshot(zoneId: number): ZoneSnapshotDto | null {
   const roomIds = roomRows.map((r) => r.id);
   const mobsByRoom = new Map<number, ZoneSnapshotRoomDto['mobs']>();
   const itemsByRoom = new Map<number, ZoneSnapshotRoomDto['items']>();
+  const npcsByRoom = new Map<number, ZoneSnapshotRoomDto['npcs']>();
 
   if (roomIds.length > 0) {
     const placeholders = roomIds.map(() => '?').join(',');
@@ -78,6 +93,19 @@ export function buildZoneSnapshot(zoneId: number): ZoneSnapshotDto | null {
       list.push({ itemId: row.item_id, name: row.item_name, grade: row.item_grade, quantity: row.quantity });
       itemsByRoom.set(row.room_id, list);
     }
+
+    const npcRows = db
+      .prepare(
+        `SELECT ns.room_id, ns.npc_template_id, nt.name as npc_name
+         FROM npc_spawns ns JOIN npc_templates nt ON nt.id = ns.npc_template_id
+         WHERE ns.room_id IN (${placeholders})`,
+      )
+      .all(...roomIds) as { room_id: number; npc_template_id: number; npc_name: string }[];
+    for (const row of npcRows) {
+      const list = npcsByRoom.get(row.room_id) ?? [];
+      list.push({ npcTemplateId: row.npc_template_id, name: row.npc_name });
+      npcsByRoom.set(row.room_id, list);
+    }
   }
 
   const rooms: ZoneSnapshotRoomDto[] = roomRows.map((room) => ({
@@ -88,29 +116,51 @@ export function buildZoneSnapshot(zoneId: number): ZoneSnapshotDto | null {
     y: room.y,
     mobs: mobsByRoom.get(room.id) ?? [],
     items: itemsByRoom.get(room.id) ?? [],
+    npcs: npcsByRoom.get(room.id) ?? [],
   }));
 
-  const availableMobTemplates = db
+  const allMobTemplates = db
     .prepare('SELECT id, name, min_level, max_level FROM mob_templates ORDER BY min_level, id')
     .all() as { id: number; name: string; min_level: number; max_level: number }[];
 
-  const availableItemTemplates = db.prepare('SELECT id, name, grade FROM items ORDER BY id').all() as {
+  // Only offer mobs whose level range overlaps the zone's level range. Zones without a level range
+  // configured (minLevel/maxLevel both null) get the full roster since there's nothing to filter against.
+  const levelFilteredMobTemplates =
+    zone.min_level !== null && zone.max_level !== null
+      ? allMobTemplates.filter((t) => t.max_level >= zone.min_level! && t.min_level <= zone.max_level!)
+      : allMobTemplates;
+
+  const availableItemTemplates = db.prepare('SELECT id, name, grade, level FROM items ORDER BY id').all() as {
     id: number;
     name: string;
     grade: string;
+    level: number;
   }[];
+
+  const availableNpcTemplates = db
+    .prepare('SELECT id, name, description, type, deal_type FROM npc_templates ORDER BY id')
+    .all() as { id: number; name: string; description: string; type: string; deal_type: string }[];
 
   return {
     zoneId: zone.id,
     zoneName: zone.name,
     zoneDescription: zone.description,
+    zoneMinLevel: zone.min_level,
+    zoneMaxLevel: zone.max_level,
     rooms,
-    availableMobTemplates: availableMobTemplates.map((t) => ({
+    availableMobTemplates: levelFilteredMobTemplates.map((t) => ({
       id: t.id,
       name: t.name,
       minLevel: t.min_level,
       maxLevel: t.max_level,
     })),
     availableItemTemplates,
+    availableNpcTemplates: availableNpcTemplates.map((t) => ({
+      id: t.id,
+      name: t.name,
+      description: t.description,
+      type: t.type,
+      dealType: t.deal_type,
+    })),
   };
 }

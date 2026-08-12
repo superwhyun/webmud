@@ -292,7 +292,15 @@ export interface AddRoomItemOperation {
   quantity: number;
 }
 
-export type MapAssistantOperation = AddRoomOperation | AddMobSpawnOperation | AddRoomItemOperation;
+export interface AddNpcSpawnOperation {
+  type: 'add_npc_spawn';
+  roomRef: string;
+  roomLabel: string;
+  npcTemplateId: number;
+  npcName: string;
+}
+
+export type MapAssistantOperation = AddRoomOperation | AddMobSpawnOperation | AddRoomItemOperation | AddNpcSpawnOperation;
 
 export interface MapAssistantProposeResult {
   operations: MapAssistantOperation[];

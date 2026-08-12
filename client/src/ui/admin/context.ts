@@ -27,6 +27,11 @@ export interface AdminContext {
   announceCharCount: HTMLSpanElement;
   announceTemplates: HTMLDivElement;
 
+  aiKeyStatus: HTMLParagraphElement;
+  aiKeyInput: HTMLInputElement;
+  aiKeyError: HTMLParagraphElement;
+  aiKeySuccess: HTMLParagraphElement;
+
   itemGradeTabs: HTMLDivElement;
   itemTemplatesList: HTMLUListElement;
   itemError: HTMLParagraphElement;
@@ -82,6 +87,7 @@ function renderShellHtml(): string {
         <button type="button" class="admin-main-tab-btn" data-admin-tab="mobs">몹</button>
         <button type="button" class="admin-main-tab-btn" data-admin-tab="npcs">NPC</button>
         <button type="button" class="admin-main-tab-btn" data-admin-tab="backup">백업</button>
+        <button type="button" class="admin-main-tab-btn" data-admin-tab="ai">AI 설정</button>
       </div>
       <div class="admin-body">
         <section class="admin-section" data-admin-tab-panel="accounts">
@@ -374,6 +380,21 @@ function renderShellHtml(): string {
           <p class="admin-panel-empty" id="admin-backup-result"></p>
           <p class="admin-error" id="admin-backup-error"></p>
         </section>
+
+        <section class="admin-section" data-admin-tab-panel="ai">
+          <h3>AI 설정</h3>
+          <p class="admin-section-desc">
+            맵 빌더의 "AI로 제안받기" 기능이 사용할 OpenAI API 키입니다. 저장 후에는 값을 다시 보여주지 않고 설정 여부만 표시합니다.
+          </p>
+          <p class="admin-panel-empty" id="admin-ai-key-status">확인 중...</p>
+          <div class="admin-form-row">
+            <input id="admin-ai-key-input" type="password" placeholder="sk-..." autocomplete="off" />
+            <button type="button" id="admin-ai-key-save">저장</button>
+            <button type="button" id="admin-ai-key-clear">삭제</button>
+          </div>
+          <p class="admin-error" id="admin-ai-key-error"></p>
+          <p class="admin-success" id="admin-ai-key-success"></p>
+        </section>
       </div>
     </div>
   `;
@@ -398,6 +419,10 @@ export function createAdminContext(container: HTMLElement, token: string, onBack
     announceSuccess: container.querySelector<HTMLParagraphElement>('#admin-announce-success')!,
     announceCharCount: container.querySelector<HTMLSpanElement>('#admin-announce-charcount')!,
     announceTemplates: container.querySelector<HTMLDivElement>('#admin-announce-templates')!,
+    aiKeyStatus: container.querySelector<HTMLParagraphElement>('#admin-ai-key-status')!,
+    aiKeyInput: container.querySelector<HTMLInputElement>('#admin-ai-key-input')!,
+    aiKeyError: container.querySelector<HTMLParagraphElement>('#admin-ai-key-error')!,
+    aiKeySuccess: container.querySelector<HTMLParagraphElement>('#admin-ai-key-success')!,
 
     itemGradeTabs: container.querySelector<HTMLDivElement>('#admin-item-grade-tabs')!,
     itemTemplatesList: container.querySelector<HTMLUListElement>('#admin-item-templates')!,

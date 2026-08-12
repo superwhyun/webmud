@@ -1,5 +1,6 @@
 import { ELEMENT_LABELS, ELEMENT_VALUES } from '@mud/shared';
 import { refreshAccounts } from './admin/accounts';
+import { refreshAiSettings, wireAiSettings } from './admin/aiSettings';
 import { wireAnnounce } from './admin/announce';
 import { wireBackup } from './admin/backup';
 import { createAdminContext } from './admin/context';
@@ -20,6 +21,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
   wireMobForm(ctx);
   wireNpcForm(ctx);
   wireBackup(ctx);
+  wireAiSettings(ctx);
 
   ctx.container.querySelector<HTMLButtonElement>('#admin-back')!.addEventListener('click', onBack);
 
@@ -42,7 +44,7 @@ export function renderAdminScreen(container: HTMLElement, token: string, onBack:
   void (async () => {
     await refreshRooms(ctx);
     await refreshItems(ctx);
-    await Promise.all([refreshAccounts(ctx), refreshSessions(ctx), refreshMobs(ctx), refreshNpcs(ctx)]);
+    await Promise.all([refreshAccounts(ctx), refreshSessions(ctx), refreshMobs(ctx), refreshNpcs(ctx), refreshAiSettings(ctx)]);
   })().catch((error: unknown) => {
     ctx.accountsError.textContent = error instanceof Error ? error.message : '데이터를 불러오지 못했습니다.';
   });

@@ -6,5 +6,6 @@ import './items.js';
 import './mobs.js';
 import './npcs.js';
 import './contentTransfer.js';
+import './settings.js';
 
 export { adminRouter };

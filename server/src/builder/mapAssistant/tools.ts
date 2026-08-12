@@ -20,6 +20,11 @@ export const addRoomItemArgsSchema = z.object({
   quantity: z.number().int().min(1).default(1),
 });
 
+export const addNpcSpawnArgsSchema = z.object({
+  roomRef: z.string().min(1),
+  npcTemplateId: z.number().int(),
+});
+
 /**
  * Tool set exposed to the map assistant LLM. Deliberately additive-only (no delete/move) so proposals
  * can never disrupt players standing in existing rooms — see plan doc for the reasoning.
@@ -79,6 +84,24 @@ export const MAP_ASSISTANT_TOOLS: OpenAI.Responses.Tool[] = [
         quantity: { type: 'integer', description: '수량. 기본 1' },
       },
       required: ['roomRef', 'itemId', 'quantity'],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: 'function',
+    name: 'add_npc_spawn',
+    description: '방에 NPC(상인 등)를 배치한다. 마을이 아닌 사냥터 존이라면 보통 NPC는 거의 배치하지 않는다.',
+    strict: false,
+    parameters: {
+      type: 'object',
+      properties: {
+        roomRef: {
+          type: 'string',
+          description: '대상 방의 id(스냅샷의 rooms[].id를 문자열로) 또는 이번 제안에서 add_room이 반환한 tempId',
+        },
+        npcTemplateId: { type: 'integer', description: '스냅샷의 availableNpcTemplates 중 하나의 id' },
+      },
+      required: ['roomRef', 'npcTemplateId'],
       additionalProperties: false,
     },
   },

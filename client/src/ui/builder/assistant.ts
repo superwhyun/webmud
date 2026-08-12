@@ -5,7 +5,8 @@ import { showToolbarError, type BuilderContext } from './context';
 function operationLabel(op: MapAssistantOperation): string {
   if (op.type === 'add_room') return `방 추가: "${op.name}" (${op.x}, ${op.y})`;
   if (op.type === 'add_mob_spawn') return `몹 배치: "${op.roomLabel}"에 ${op.mobName} (리스폰 ${op.respawnSeconds}초)`;
-  return `아이템 배치: "${op.roomLabel}"에 ${op.itemName} x${op.quantity}`;
+  if (op.type === 'add_room_item') return `아이템 배치: "${op.roomLabel}"에 ${op.itemName} x${op.quantity}`;
+  return `NPC 배치: "${op.roomLabel}"에 ${op.npcName}`;
 }
 
 export function renderAssistantResults(ctx: BuilderContext): void {

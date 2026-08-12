@@ -27,13 +27,23 @@ export const addRoomItemOperationSchema = z.object({
   quantity: z.number().int().min(1),
 });
 
+export const addNpcSpawnOperationSchema = z.object({
+  type: z.literal('add_npc_spawn'),
+  roomRef: z.string().min(1),
+  roomLabel: z.string(),
+  npcTemplateId: z.number().int(),
+  npcName: z.string(),
+});
+
 export const proposedOperationSchema = z.discriminatedUnion('type', [
   addRoomOperationSchema,
   addMobSpawnOperationSchema,
   addRoomItemOperationSchema,
+  addNpcSpawnOperationSchema,
 ]);
 
 export type AddRoomOperation = z.infer<typeof addRoomOperationSchema>;
 export type AddMobSpawnOperation = z.infer<typeof addMobSpawnOperationSchema>;
 export type AddRoomItemOperation = z.infer<typeof addRoomItemOperationSchema>;
+export type AddNpcSpawnOperation = z.infer<typeof addNpcSpawnOperationSchema>;
 export type ProposedOperation = z.infer<typeof proposedOperationSchema>;
