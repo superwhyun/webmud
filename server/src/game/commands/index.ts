@@ -1,4 +1,4 @@
-import { handleSay, handleShout, handleWho } from './chat.js';
+import { handleSay, handleShout, handleTell, handleWho } from './chat.js';
 import { handleAttack, handleCast, handleFlee } from './combat.js';
 import type { CommandContext } from './context.js';
 import { handleDrop, handleEquip, handleGet, handleInventory, handleUse } from './items.js';
@@ -6,6 +6,7 @@ import { describeRoom, showHelp } from './misc.js';
 import { handleEnter, handleMove, resolveDirection } from './movement.js';
 import { handleBuy, handleSell, handleShop } from './npc.js';
 import { handleRaid } from './raid.js';
+import { handleRest } from '../rest.js';
 import { handleSkill } from './skills.js';
 import { handleStat } from './stats.js';
 import { handleLeave, handleTravel, handleVillage } from './village.js';
@@ -43,6 +44,11 @@ export function dispatchCommand(ctx: CommandContext, rawText: string): void {
     return;
   }
 
+  if (lowerVerb === 'tell') {
+    handleTell(ctx, rest);
+    return;
+  }
+
   if (lowerVerb === 'who') {
     handleWho(ctx);
     return;
@@ -55,6 +61,11 @@ export function dispatchCommand(ctx: CommandContext, rawText: string): void {
 
   if (lowerVerb === 'flee') {
     handleFlee(ctx);
+    return;
+  }
+
+  if (lowerVerb === 'rest') {
+    handleRest(ctx);
     return;
   }
 

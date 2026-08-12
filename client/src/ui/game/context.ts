@@ -51,6 +51,8 @@ export interface GameContext {
   macroModalBody: HTMLDivElement;
   inventoryModal: HTMLDivElement;
   inventoryModalBody: HTMLDivElement;
+  suggestionModal: HTMLDivElement;
+  suggestionModalBody: HTMLDivElement;
 
   currentCharacterState: CharacterState | undefined;
   learnedSkillIds: string[];
@@ -111,6 +113,7 @@ function renderShellHtml(isBuilder: boolean, isAdmin: boolean): string {
           <button type="button" id="equip-swap-button" class="equip-swap-btn">장비 교체</button>
           <button type="button" id="skill-button" class="skill-btn">스킬</button>
           <button type="button" id="macro-button" class="skill-btn">매크로</button>
+          <button type="button" id="suggestion-button" class="skill-btn">개선 제안</button>
           <button type="button" id="logout-button" class="logout-btn">로그아웃</button>
         </div>
         ${
@@ -175,6 +178,15 @@ function renderShellHtml(isBuilder: boolean, isAdmin: boolean): string {
         <div class="modal-body" id="inventory-modal-body"></div>
       </div>
     </div>
+    <div class="modal-overlay" id="suggestion-modal" hidden>
+      <div class="modal-content modal-content-lg">
+        <div class="modal-header">
+          <span>개선 제안</span>
+          <button type="button" id="suggestion-modal-close" class="modal-close-btn" aria-label="닫기">✕</button>
+        </div>
+        <div class="modal-body" id="suggestion-modal-body"></div>
+      </div>
+    </div>
   `;
 }
 
@@ -225,6 +237,8 @@ export function createGameContext(
     macroModalBody: container.querySelector<HTMLDivElement>('#macro-modal-body')!,
     inventoryModal: container.querySelector<HTMLDivElement>('#inventory-modal')!,
     inventoryModalBody: container.querySelector<HTMLDivElement>('#inventory-modal-body')!,
+    suggestionModal: container.querySelector<HTMLDivElement>('#suggestion-modal')!,
+    suggestionModalBody: container.querySelector<HTMLDivElement>('#suggestion-modal-body')!,
 
     currentCharacterState: previous?.currentCharacterState,
     learnedSkillIds: previous?.learnedSkillIds ?? [],

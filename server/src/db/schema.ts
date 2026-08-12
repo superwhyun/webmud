@@ -191,4 +191,20 @@ CREATE TABLE IF NOT EXISTS npc_spawns (
   room_id INTEGER NOT NULL REFERENCES rooms(id),
   npc_template_id INTEGER NOT NULL REFERENCES npc_templates(id)
 );
+
+CREATE TABLE IF NOT EXISTS suggestions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_id INTEGER NOT NULL REFERENCES accounts(id),
+  author_name TEXT NOT NULL,
+  title TEXT NOT NULL,
+  content TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS suggestion_votes (
+  suggestion_id INTEGER NOT NULL REFERENCES suggestions(id),
+  account_id INTEGER NOT NULL REFERENCES accounts(id),
+  vote TEXT NOT NULL,
+  PRIMARY KEY (suggestion_id, account_id)
+);
 `;

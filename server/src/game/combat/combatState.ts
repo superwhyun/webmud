@@ -7,6 +7,7 @@ import type { CommandContext } from '../commands/context.js';
 import { getMobsInRoom, type MobInstance } from '../MobManager.js';
 import { hasElementAdvantage, mobCombatantStats, resolveAttack } from './combatMath.js';
 import { defeatCharacter, handleMobDefeat } from './combatRewards.js';
+import { stopResting } from '../rest.js';
 
 const COMBAT_TICK_MS = 2000;
 
@@ -45,6 +46,7 @@ export function cleanupCombatForSession(ws: WebSocket): void {
 }
 
 export function startCombatInterval(ctx: CommandContext, mobs: MobInstance[]): Combat {
+  stopResting(ctx.session.ws);
   const intervalId = setInterval(() => performRound(ctx), COMBAT_TICK_MS);
   const combat: Combat = { ctx, mobs, intervalId };
   activeCombats.set(ctx.session.ws, combat);

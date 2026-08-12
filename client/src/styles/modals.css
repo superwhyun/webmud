@@ -24,6 +24,11 @@
   box-shadow: 0 0 24px rgba(0, 0, 0, 0.5);
 }
 
+.modal-content-lg {
+  width: 820px;
+  max-height: calc(100vh - 2rem);
+}
+
 .modal-header {
   display: flex;
   align-items: center;
@@ -156,6 +161,235 @@
 }
 
 .equip-modal-unequip-btn:hover {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.suggestion-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 0.5rem;
+}
+
+.suggestion-form input,
+.suggestion-form textarea {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  padding: 0.5rem 0.6rem;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  resize: vertical;
+}
+
+.suggestion-form button {
+  align-self: flex-end;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+}
+
+.suggestion-form button:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.suggestion-form-error {
+  color: var(--color-danger);
+  min-height: 1.2em;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.suggestion-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.suggestion-empty {
+  color: var(--color-text-dim);
+  font-size: 0.9rem;
+}
+
+.suggestion-row {
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.6rem 0.75rem;
+}
+
+.suggestion-row-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.suggestion-title {
+  font-weight: bold;
+  color: var(--color-accent);
+}
+
+.suggestion-meta {
+  color: var(--color-text-dim);
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
+
+.suggestion-content {
+  margin: 0.4rem 0 0.6rem;
+  font-size: 0.85rem;
+  color: var(--color-text);
+  white-space: pre-wrap;
+}
+
+.suggestion-row-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.suggestion-votes {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.suggestion-owner-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.suggestion-edit-btn,
+.suggestion-delete-btn {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-dim);
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.suggestion-edit-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.suggestion-delete-btn:hover {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.suggestion-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.suggestion-edit-form input,
+.suggestion-edit-form textarea {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  padding: 0.5rem 0.6rem;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  resize: vertical;
+}
+
+.suggestion-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
+.suggestion-edit-actions button {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  padding: 0.35rem 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+}
+
+.suggestion-save-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.suggestion-cancel-btn:hover {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.suggestion-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.suggestion-pagination button {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  padding: 0.3rem 0.8rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+}
+
+.suggestion-pagination button:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.suggestion-pagination button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.suggestion-page-label {
+  color: var(--color-text-dim);
+  font-size: 0.85rem;
+}
+
+.suggestion-vote-btn {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-dim);
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.suggestion-vote-btn:hover {
+  border-color: var(--color-accent);
+}
+
+.suggestion-vote-up.active {
+  border-color: var(--grade-mid);
+  color: var(--grade-mid);
+}
+
+.suggestion-vote-down.active {
   border-color: var(--color-danger);
   color: var(--color-danger);
 }

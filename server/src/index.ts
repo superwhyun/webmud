@@ -7,6 +7,7 @@ import { builderRouter } from './builder/routes.js';
 import { handleConnection } from './game/GameServer.js';
 import { startVillageTick } from './game/village/villageTick.js';
 import { startWorldTick } from './game/worldTick.js';
+import { suggestionsRouter } from './suggestions/routes.js';
 
 const PORT = Number(process.env.PORT ?? 3001);
 
@@ -16,6 +17,7 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
 app.use('/api', authRouter);
 app.use('/api/builder', builderRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/suggestions', suggestionsRouter);
 
 const httpServer = createServer(app);
 const wss = new WebSocketServer({ server: httpServer, path: '/ws' });

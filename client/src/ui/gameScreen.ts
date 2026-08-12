@@ -19,6 +19,7 @@ import { recordRoomVisit, renderMinimap } from './game/minimap';
 import { hideCombat, renderCombat, renderRoom, showJobModal } from './game/room';
 import { closeSkillModal, openSkillModal, renderSkillModal } from './game/skills';
 import { renderCooldownPanel, renderState } from './game/state';
+import { closeSuggestionModal, openSuggestionModal } from './game/suggestions';
 
 let currentCtx: GameContext | null = null;
 
@@ -181,5 +182,15 @@ export function renderGameScreen(
 
   ctx.inventoryModal.addEventListener('click', (event) => {
     if (event.target === ctx.inventoryModal) closeInventoryModal(ctx);
+  });
+
+  const suggestionButton = container.querySelector<HTMLButtonElement>('#suggestion-button')!;
+  suggestionButton.addEventListener('click', () => openSuggestionModal(ctx));
+
+  const suggestionModalCloseButton = container.querySelector<HTMLButtonElement>('#suggestion-modal-close')!;
+  suggestionModalCloseButton.addEventListener('click', () => closeSuggestionModal(ctx));
+
+  ctx.suggestionModal.addEventListener('click', (event) => {
+    if (event.target === ctx.suggestionModal) closeSuggestionModal(ctx);
   });
 }

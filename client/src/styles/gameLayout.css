@@ -133,6 +133,11 @@
   font-weight: bold;
 }
 
+.line-tell {
+  color: var(--grade-rare);
+  font-style: italic;
+}
+
 .line-echo {
   color: var(--color-text-dim);
 }

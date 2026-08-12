@@ -10,6 +10,7 @@ import { handleEquipItemMessage, handleUnequipItemMessage, sendEquipmentAndInven
 import { handleDropItemMessage } from './commands/items.js';
 import { sendSkills } from './commands/skills.js';
 import { assignJobToLegacyCharacter, isValidJob } from './jobSelection.js';
+import { stopResting } from './rest.js';
 import { broadcastRoomSnapshot, sendRoomSnapshot } from './roomSnapshot.js';
 import { addSession, getSession, removeSession, type Session } from './sessionRegistry.js';
 import { send } from './wsUtil.js';
@@ -153,6 +154,7 @@ export function handleConnection(ws: WebSocket): void {
     const session = getSession(ws);
     pendingJobSelections.delete(ws);
     cleanupCombatForSession(ws);
+    stopResting(ws);
     removeSession(ws);
     if (session) broadcastRoomSnapshot(session.roomId);
   });

@@ -126,6 +126,7 @@ export type ClientMessage =
 export type ChatChannel =
   | 'say'
   | 'shout'
+  | 'tell'
   | 'admin'
   | 'death'
   | 'combat-victory'

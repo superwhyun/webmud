@@ -2,6 +2,7 @@ import { DIRECTION_LABELS, OPPOSITE_DIRECTION } from '@mud/shared';
 import { db } from '../../db/client.js';
 import { loadCharacterState } from '../characterState.js';
 import { isInCombat, triggerAggro } from '../combat/CombatManager.js';
+import { stopResting } from '../rest.js';
 import { broadcastRoomSnapshot } from '../roomSnapshot.js';
 import { broadcastToRoom } from '../sessionRegistry.js';
 import { getRoom } from '../World.js';
@@ -53,6 +54,8 @@ export function handleMove(ctx: CommandContext, direction: string): void {
   }
 
   const targetRoomId = exit.targetRoomId;
+
+  stopResting(ctx.session.ws);
 
   const oldRoomId = room.id;
 
