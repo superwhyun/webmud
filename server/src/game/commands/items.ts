@@ -168,6 +168,10 @@ export function handleDrop(ctx: CommandContext, itemName: string): void {
     ctx.send({ type: 'text', text: '그런 아이템을 가지고 있지 않습니다.' });
     return;
   }
+  if (item.equipped) {
+    ctx.send({ type: 'text', text: '장착 중인 아이템은 버릴 수 없습니다. 먼저 해제하세요.' });
+    return;
+  }
 
   performDrop(ctx, item);
 }
@@ -176,6 +180,10 @@ export function handleDropItemMessage(ctx: CommandContext, inventoryId: number):
   const item = findInventoryItemById(ctx.session.characterId, inventoryId);
   if (!item) {
     ctx.send({ type: 'error', text: '그런 아이템을 가지고 있지 않습니다.' });
+    return;
+  }
+  if (item.equipped) {
+    ctx.send({ type: 'error', text: '장착 중인 아이템은 버릴 수 없습니다. 먼저 해제하세요.' });
     return;
   }
 

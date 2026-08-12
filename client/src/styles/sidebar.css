@@ -522,6 +522,12 @@
   box-shadow: 0 0 6px var(--color-accent);
 }
 
+.inventory-panel-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+  box-shadow: none;
+}
+
 .inventory-panel-btn-danger {
   border-color: var(--color-danger);
   color: var(--color-danger);
@@ -529,6 +535,10 @@
 
 .inventory-panel-btn-danger:hover {
   box-shadow: 0 0 6px var(--color-danger);
+}
+
+.inventory-panel-btn-danger:disabled:hover {
+  box-shadow: none;
 }
 
 .stat-grid {

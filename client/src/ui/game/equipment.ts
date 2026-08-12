@@ -71,7 +71,12 @@ export function renderInventoryModal(ctx: GameContext): void {
             <div class="inventory-panel-actions">
               ${canEquip ? `<button type="button" class="inventory-panel-btn" data-equip-inventory-id="${item.inventoryId}">장착</button>` : ''}
               ${item.equipped ? `<button type="button" class="inventory-panel-btn" data-unequip-slot="${item.slot}">해제</button>` : ''}
-              <button type="button" class="inventory-panel-btn inventory-panel-btn-danger" data-drop-inventory-id="${item.inventoryId}">버리기</button>
+              <button
+                type="button"
+                class="inventory-panel-btn inventory-panel-btn-danger"
+                data-drop-inventory-id="${item.inventoryId}"
+                ${item.equipped ? 'disabled title="장착 중인 아이템은 버릴 수 없습니다. 먼저 해제하세요."' : ''}
+              >버리기</button>
             </div>
           </div>
         `;
