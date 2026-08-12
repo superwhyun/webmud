@@ -304,8 +304,66 @@
 
 .admin-row-actions {
   display: inline-flex;
+  align-items: center;
   gap: 0.4rem;
   flex-shrink: 0;
+}
+
+.admin-accounts-table {
+  table-layout: fixed;
+}
+
+.admin-accounts-table th:nth-child(1),
+.admin-accounts-table td:nth-child(1) {
+  width: 16%;
+}
+
+.admin-accounts-table th:nth-child(2),
+.admin-accounts-table td:nth-child(2),
+.admin-accounts-table th:nth-child(3),
+.admin-accounts-table td:nth-child(3) {
+  width: 8%;
+}
+
+.admin-accounts-table th:nth-child(4),
+.admin-accounts-table td:nth-child(4) {
+  width: 10%;
+}
+
+.admin-accounts-table th:nth-child(5),
+.admin-accounts-table td:nth-child(5) {
+  width: 34%;
+}
+
+.admin-accounts-table th:nth-child(6),
+.admin-accounts-table td:nth-child(6) {
+  width: 24%;
+}
+
+.admin-accounts-table .admin-row-actions {
+  width: 100%;
+}
+
+.admin-current-room {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 5.5rem;
+  color: var(--color-text-dim);
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.admin-place-target {
+  flex: 1;
+  min-width: 0;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  border-radius: 4px;
+  padding: 0.3rem 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
 }
 
 .admin-edit-btn,

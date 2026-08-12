@@ -3,7 +3,7 @@ import { DIRECTION_LABELS, type ItemGrade, type RoomSnapshot, type VillageInfo }
 import { db } from '../db/client.js';
 import type { CommandContext } from './commands/context.js';
 import { getMobsInRoom } from './MobManager.js';
-import { getNpcsInRoom } from './NpcManager.js';
+import { getMerchantCatalog, getNpcsInRoom } from './NpcManager.js';
 import { getSessionsInRoom } from './sessionRegistry.js';
 import { BUILDING_CATALOG, findVillageByRoomId, getVillagePlots } from './village/VillageService.js';
 import { getRoom } from './World.js';
@@ -63,7 +63,11 @@ export function buildRoomSnapshot(roomId: number, viewerWs?: WebSocket): RoomSna
 
   const mobs = getMobsInRoom(roomId).map((mob) => ({ name: mob.name, hp: mob.hp, maxHp: mob.maxHp, level: mob.level }));
 
-  const npcs = getNpcsInRoom(roomId).map((npc) => ({ name: npc.name, type: npc.type }));
+  const npcs = getNpcsInRoom(roomId).map((npc) => ({
+    name: npc.name,
+    type: npc.type,
+    shopItemNames: npc.type === 'merchant' ? getMerchantCatalog(npc).map((item) => item.name) : [],
+  }));
 
   const players = getSessionsInRoom(roomId)
     .filter((session) => session.ws !== viewerWs)

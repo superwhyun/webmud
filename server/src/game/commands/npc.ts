@@ -1,21 +1,11 @@
 import { formatItemMention, ITEM_GRADE_LABELS, MAX_INVENTORY_SLOTS, type ItemGrade } from '@mud/shared';
 import { db } from '../../db/client.js';
 import { loadCharacter, loadCharacterState } from '../characterState.js';
-import { getNpcsInRoom, type NpcInstance } from '../NpcManager.js';
+import { getMerchantCatalog, getMerchants } from '../NpcManager.js';
 import type { CommandContext } from './context.js';
 import { sendEquipmentAndInventory } from './equipment.js';
 
 const SELL_PRICE_RATIO = 0.5;
-
-interface ShopItemRow {
-  id: number;
-  name: string;
-  description: string;
-  type: string;
-  grade: ItemGrade;
-  level: number;
-  value: number;
-}
 
 interface SellableInventoryRow {
   id: number;
@@ -26,23 +16,6 @@ interface SellableInventoryRow {
   type: string;
   grade: ItemGrade;
   value: number;
-}
-
-function getMerchants(roomId: number): NpcInstance[] {
-  return getNpcsInRoom(roomId).filter((npc) => npc.type === 'merchant');
-}
-
-function getMerchantCatalog(npc: NpcInstance): ShopItemRow[] {
-  if (npc.dealType === 'all') {
-    return db
-      .prepare('SELECT id, name, description, type, grade, level, value FROM items WHERE level <= ? ORDER BY level, id')
-      .all(npc.level) as ShopItemRow[];
-  }
-  return db
-    .prepare(
-      'SELECT id, name, description, type, grade, level, value FROM items WHERE level <= ? AND type = ? ORDER BY level, id',
-    )
-    .all(npc.level, npc.dealType) as ShopItemRow[];
 }
 
 export function handleShop(ctx: CommandContext): void {

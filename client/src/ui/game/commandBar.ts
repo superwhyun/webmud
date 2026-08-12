@@ -109,6 +109,17 @@ function portalExitCandidates(ctx: GameContext): string[] {
   return [...names];
 }
 
+/** buy는 방에 있는 상인들이 파는 품목만 대상이 될 수 있으므로, 상인별 판매 목록을 모아 후보로 삼는다. */
+function shopItemCandidates(ctx: GameContext): string[] {
+  const names = new Set<string>();
+  if (ctx.latestRoom) {
+    for (const npc of ctx.latestRoom.npcs) {
+      for (const itemName of npc.shopItemNames) names.add(itemName);
+    }
+  }
+  return [...names];
+}
+
 function learnedSkillNameCandidates(ctx: GameContext): string[] {
   const names = new Set<string>();
   for (const skill of SKILLS) {
@@ -172,6 +183,8 @@ function handleTabComplete(ctx: GameContext): void {
       pool = roomItemCandidates(ctx);
     } else if (verb === 'enter' || verb === 'e') {
       pool = portalExitCandidates(ctx);
+    } else if (verb === 'buy') {
+      pool = shopItemCandidates(ctx);
     } else {
       pool = nameCompletionCandidates(ctx);
     }

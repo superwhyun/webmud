@@ -164,6 +164,40 @@
   font-size: 0.85rem;
 }
 
+.sidebar-potions-name {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.sidebar-potions-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.sidebar-potions-icon-health {
+  background: color-mix(in srgb, #e05a5a 22%, transparent);
+  color: #ff8a8a;
+}
+
+.sidebar-potions-icon-mana {
+  background: color-mix(in srgb, #4a8fe0 22%, transparent);
+  color: #7ec2ff;
+}
+
+.sidebar-potions-icon-elixir {
+  background: color-mix(in srgb, #c58aff 22%, transparent);
+  color: #d9b3ff;
+}
+
 .sidebar-potions-qty {
   color: var(--color-text-dim);
   font-size: 0.8rem;

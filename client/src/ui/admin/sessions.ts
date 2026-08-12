@@ -1,4 +1,4 @@
-import { fetchAdminRooms, fetchSessions, moderationKick, moderationMove } from '../../adminApi';
+import { fetchAdminRooms, fetchSessions, moderationKick, moderationMove, type RoomOptionDto } from '../../adminApi';
 import { escapeHtml } from '../../domUtils';
 import type { AdminContext } from './context';
 
@@ -6,11 +6,27 @@ export async function refreshRooms(ctx: AdminContext): Promise<void> {
   ctx.rooms = (await fetchAdminRooms(ctx.token)).rooms;
 }
 
+/** 맵 빌더의 포털 추가 드롭다운과 같은 방식으로, 존별로 묶어서 어느 존의 방인지 한눈에 보이게 한다. */
 export function roomOptionsHtml(ctx: AdminContext, selectedRoomId?: number | null): string {
-  return ctx.rooms
+  const groupedByZone = new Map<string, RoomOptionDto[]>();
+  for (const room of ctx.rooms) {
+    const list = groupedByZone.get(room.zoneName) ?? [];
+    list.push(room);
+    groupedByZone.set(room.zoneName, list);
+  }
+
+  return [...groupedByZone.entries()]
     .map(
-      (room) =>
-        `<option value="${room.id}" ${room.id === selectedRoomId ? 'selected' : ''}>${escapeHtml(room.name)}</option>`,
+      ([zoneName, rooms]) => `
+        <optgroup label="${escapeHtml(zoneName)}">
+          ${rooms
+            .map(
+              (room) =>
+                `<option value="${room.id}" ${room.id === selectedRoomId ? 'selected' : ''}>${escapeHtml(room.name)}</option>`,
+            )
+            .join('')}
+        </optgroup>
+      `,
     )
     .join('');
 }

@@ -51,6 +51,8 @@ export interface RoomMobInfo {
 export interface RoomNpcInfo {
   name: string;
   type: NpcType;
+  /** 상인일 때만 채워지는 판매 품목 이름 목록 — buy 탭 완성에 쓴다. */
+  shopItemNames: string[];
 }
 
 export interface CombatMobInfo {

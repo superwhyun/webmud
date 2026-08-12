@@ -20,6 +20,8 @@ export interface SessionDto {
 export interface RoomOptionDto {
   id: number;
   name: string;
+  zoneId: number;
+  zoneName: string;
 }
 
 export interface ItemTemplateDto {

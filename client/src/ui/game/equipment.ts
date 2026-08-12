@@ -24,6 +24,13 @@ export function renderInventoryCount(ctx: GameContext): void {
   ctx.inventoryCountLabel.textContent = String(slotsUsed);
 }
 
+/** 체력만 채우면 ❤, 마나만 채우면 💧, 둘 다 채우는 엘릭서류는 ✨로 구분한다. */
+function potionIcon(item: { healAmount: number; manaAmount: number }): string {
+  if (item.healAmount > 0 && item.manaAmount > 0) return '✨';
+  if (item.manaAmount > 0) return '💧';
+  return '❤';
+}
+
 /** 물약류(체력/마나 회복 아이템)는 인벤토리 칸을 차지하지 않으므로, 종류와 개수를 따로 모아 보여준다. */
 export function renderPotionSummary(ctx: GameContext): void {
   const potions = ctx.inventoryState.filter((item) => item.healAmount > 0 || item.manaAmount > 0);
@@ -38,7 +45,10 @@ export function renderPotionSummary(ctx: GameContext): void {
       .map(
         (item) => `
           <div class="sidebar-potions-row">
-            <span class="item-grade-${item.grade}">${escapeHtml(item.name)}</span>
+            <span class="sidebar-potions-name">
+              <span class="sidebar-potions-icon sidebar-potions-icon-${item.healAmount > 0 && item.manaAmount > 0 ? 'elixir' : item.manaAmount > 0 ? 'mana' : 'health'}">${potionIcon(item)}</span>
+              <span class="item-grade-${item.grade}">${escapeHtml(item.name)}</span>
+            </span>
             <span class="sidebar-potions-qty">x${item.quantity}</span>
           </div>
         `,

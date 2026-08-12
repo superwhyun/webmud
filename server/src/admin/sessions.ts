@@ -64,6 +64,12 @@ adminRouter.post('/moderation/kick', (req, res) => {
 });
 
 adminRouter.get('/rooms', (_req, res) => {
-  const rows = db.prepare('SELECT id, name FROM rooms ORDER BY id').all() as { id: number; name: string }[];
+  const rows = db
+    .prepare(
+      `SELECT rooms.id as id, rooms.name as name, rooms.zone_id as zoneId, zones.name as zoneName
+       FROM rooms JOIN zones ON zones.id = rooms.zone_id
+       ORDER BY zones.id, rooms.name`,
+    )
+    .all() as { id: number; name: string; zoneId: number; zoneName: string }[];
   res.json({ rooms: rows });
 });

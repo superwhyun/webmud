@@ -18,7 +18,7 @@ export async function refreshAccounts(ctx: AdminContext): Promise<void> {
               account.roomId !== null
                 ? `
                   <span class="admin-row-actions">
-                    <span>${escapeHtml(account.roomName ?? '-')}</span>
+                    <span class="admin-current-room">${escapeHtml(account.roomName ?? '-')}</span>
                     <select class="admin-place-target" data-account-id="${account.id}">${roomOptionsHtml(ctx, account.roomId)}</select>
                     <button type="button" class="admin-place-btn" data-account-id="${account.id}">이동</button>
                   </span>
