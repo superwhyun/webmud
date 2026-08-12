@@ -46,7 +46,7 @@ export function renderPotionSummary(ctx: GameContext): void {
         (item) => `
           <div class="sidebar-potions-row">
             <span class="sidebar-potions-name">
-              <span class="sidebar-potions-icon sidebar-potions-icon-${item.healAmount > 0 && item.manaAmount > 0 ? 'elixir' : item.manaAmount > 0 ? 'mana' : 'health'}">${potionIcon(item)}</span>
+              <span class="sidebar-potions-icon sidebar-potions-icon-${item.healAmount > 0 && item.manaAmount > 0 ? 'elixir' : item.manaAmount > 0 ? 'mana' : 'health'} sidebar-potions-icon-grade-${item.grade}">${potionIcon(item)}</span>
               <span class="item-grade-${item.grade}">${escapeHtml(item.name)}</span>
             </span>
             <span class="sidebar-potions-qty">x${item.quantity}</span>

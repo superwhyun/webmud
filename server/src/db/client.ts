@@ -580,6 +580,14 @@ function backfillNpcTemplates(target: Database.Database): void {
   tx();
 }
 
+/** 고블린(마법 속성)에게 하급 마나 물약(itemId 100) 드랍을 추가한다. backfillLevelScaledLootPool은 이미 한 번 적용됐으면 건너뛰므로 별도로 채워 넣는다. */
+function backfillGoblinManaPotionLoot(target: Database.Database): void {
+  const alreadyApplied = target.prepare('SELECT id FROM mob_loot_pool WHERE mob_template_id = 2 AND item_id = 100').get();
+  if (alreadyApplied) return;
+
+  target.prepare('INSERT INTO mob_loot_pool (mob_template_id, item_id, weight) VALUES (?, ?, ?)').run(2, 100, 5);
+}
+
 migrate(db);
 seed(db);
 backfillMissingItems(db);
@@ -592,5 +600,6 @@ collapseLevelingSpeciesAnchors(db);
 backfillNarrowLevelingSpeciesTier1(db);
 backfillZoneSpeciesTiers(db);
 backfillLevelScaledLootPool(db);
+backfillGoblinManaPotionLoot(db);
 backfillRemoveLegacyInterpolatedMobTemplates(db);
 backfillNpcTemplates(db);

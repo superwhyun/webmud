@@ -12,6 +12,7 @@ export const MOB_LOOT_POOL_BASE: MobLootPoolSeed[] = [
   { mobTemplateId: 2, itemId: 8, weight: 5 },
   { mobTemplateId: 2, itemId: 9, weight: 5 },
   { mobTemplateId: 2, itemId: 10, weight: 5 },
+  { mobTemplateId: 2, itemId: 100, weight: 5 },
   // 아래는 레벨링 존 5계열 × 5단계 진화형(base.ts) 몹의 루팅 풀. 계열별로 겹치지 않는 장비 2종씩,
   // 진화 단계가 올라갈수록 그 단계에 맞는 등급 아이템으로 바뀐다(1-10→하급, 11-20→상급, ...).
   { mobTemplateId: 3, itemId: 1, weight: 3 },

@@ -1,4 +1,4 @@
-import { DIRECTION_VALUES, SKILLS, type ClientMessage } from '@mud/shared';
+import { DIRECTION_LABELS, DIRECTION_VALUES, SKILLS, type ClientMessage } from '@mud/shared';
 import { MACRO_SLOTS, type MacroSlot } from '../../macros';
 import { appendLine, type GameContext, type TabCompletionState } from './context';
 import { CARDINAL_ALIASES } from './minimap';
@@ -28,6 +28,7 @@ const COMMAND_VERBS = [
   'skill',
   'cast',
   '마법',
+  '공격',
   'shop',
   'buy',
   'sell',
@@ -39,19 +40,42 @@ const COMMAND_VERBS = [
   'a',
   's',
   'd',
+  'ㅈ',
+  'ㅁ',
+  'ㄴ',
+  'ㅇ',
   'up',
   'down',
   'u',
 ];
+
+const HANGUL_INITIALS = ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
+
+/** 완성된 한글 음절 한 글자의 초성만 뽑아낸다 (한글 음절이 아니면 null). */
+function koreanInitialOf(char: string): string | null {
+  const code = char.charCodeAt(0);
+  if (code < 0xac00 || code > 0xd7a3) return null;
+  return HANGUL_INITIALS[Math.floor((code - 0xac00) / (21 * 28))];
+}
+
+/**
+ * 한영전환 없이 자음만(예: "ㄱ") 입력했을 때도, 그 자음이 초성인 후보(예: "공격")를 찾을 수 있게 한다.
+ * 완성된 글자로 입력했을 때는(예: "공") 기존처럼 접두어 일치로 충분하다.
+ */
+function matchesTyped(candidate: string, typed: string): boolean {
+  if (candidate.toLowerCase().startsWith(typed.toLowerCase())) return true;
+  return typed.length === 1 && HANGUL_INITIALS.includes(typed) && koreanInitialOf(candidate[0]) === typed;
+}
 
 /** 게임 화면을 벗어났다 돌아올 때마다 새로 등록되는 걸 막기 위해, 이전에 등록한 핸들러를 기억해뒀다가 떼어낸다. */
 let activeCommandFocusHandler: ((event: KeyboardEvent) => void) | null = null;
 
 export function sendCommand(ctx: GameContext, text: string): void {
   const verb = text.trim().split(/\s+/)[0]?.toLowerCase();
-  ctx.pendingDirection = verb ? (CARDINAL_ALIASES[verb] ?? null) : null;
+  const direction = verb ? (CARDINAL_ALIASES[verb] ?? null) : null;
+  ctx.pendingDirection = direction;
 
-  appendLine(ctx, `> ${text}`, 'echo');
+  appendLine(ctx, direction ? `> ${DIRECTION_LABELS[direction]}으로 이동` : `> ${text}`, 'echo');
   const message: ClientMessage = { type: 'command', text };
   ctx.socket.send(JSON.stringify(message));
   ctx.commandInput.value = '';
@@ -105,6 +129,15 @@ function portalExitCandidates(ctx: GameContext): string[] {
     for (const exit of ctx.latestRoom.exits) {
       if (!DIRECTION_VALUES.includes(exit.direction)) names.add(exit.direction);
     }
+  }
+  return [...names];
+}
+
+/** use는 체력/마나를 회복하는 소모품만 대상이 될 수 있으므로, 인벤토리 중 사용 가능한 아이템만 후보로 삼는다. */
+function usableItemCandidates(ctx: GameContext): string[] {
+  const names = new Set<string>();
+  for (const item of ctx.inventoryState) {
+    if (item.healAmount > 0 || item.manaAmount > 0) names.add(item.name);
   }
   return [...names];
 }
@@ -183,13 +216,14 @@ function handleTabComplete(ctx: GameContext): void {
       pool = roomItemCandidates(ctx);
     } else if (verb === 'enter' || verb === 'e') {
       pool = portalExitCandidates(ctx);
+    } else if (verb === 'use') {
+      pool = usableItemCandidates(ctx);
     } else if (verb === 'buy') {
       pool = shopItemCandidates(ctx);
     } else {
       pool = nameCompletionCandidates(ctx);
     }
-    const lowerTyped = typed.toLowerCase();
-    const candidates = pool.filter((candidate) => candidate.toLowerCase().startsWith(lowerTyped));
+    const candidates = pool.filter((candidate) => matchesTyped(candidate, typed));
     if (candidates.length === 0) return;
     tabCompletion = { base, candidates, index: 0 };
     ctx.tabCompletion = tabCompletion;

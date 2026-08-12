@@ -9,15 +9,21 @@ import type { CommandContext } from './context.js';
 
 // WASD 배치: w=북, a=서, s=남, d=동 (게임 키보드 관례). n/e 한 글자 단축키는 더 이상 없음 —
 // e는 enter(포털) 명령의 단축 verb로 쓰인다.
+// 한영전환을 깜빡하고 한글 입력 상태로 같은 물리 키(두벌식 자판 기준 w=ㅈ, a=ㅁ, s=ㄴ, d=ㅇ)를 눌러도
+// 그대로 이동되게 자모 별칭도 함께 받아준다.
 const DIRECTION_ALIASES: Record<string, string> = {
   north: 'north',
   w: 'north',
+  ㅈ: 'north',
   south: 'south',
   s: 'south',
+  ㄴ: 'south',
   east: 'east',
   d: 'east',
+  ㅇ: 'east',
   west: 'west',
   a: 'west',
+  ㅁ: 'west',
   up: 'up',
   u: 'up',
   down: 'down',

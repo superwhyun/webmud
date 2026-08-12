@@ -48,7 +48,7 @@ export function dispatchCommand(ctx: CommandContext, rawText: string): void {
     return;
   }
 
-  if (lowerVerb === 'attack') {
+  if (lowerVerb === 'attack' || lowerVerb === '공격') {
     handleAttack(ctx, rest);
     return;
   }

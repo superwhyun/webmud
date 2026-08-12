@@ -176,26 +176,51 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.3rem;
-  height: 1.3rem;
+  width: 1.6rem;
+  height: 1.6rem;
   border-radius: 50%;
-  font-size: 0.75rem;
+  border: 1px solid transparent;
+  font-size: 0.9rem;
   line-height: 1;
 }
 
 .sidebar-potions-icon-health {
-  background: color-mix(in srgb, #e05a5a 22%, transparent);
+  background: color-mix(in srgb, #e05a5a 32%, transparent);
   color: #ff8a8a;
 }
 
 .sidebar-potions-icon-mana {
-  background: color-mix(in srgb, #4a8fe0 22%, transparent);
+  background: color-mix(in srgb, #4a8fe0 32%, transparent);
   color: #7ec2ff;
 }
 
 .sidebar-potions-icon-elixir {
-  background: color-mix(in srgb, #c58aff 22%, transparent);
+  background: color-mix(in srgb, #c58aff 32%, transparent);
   color: #d9b3ff;
+}
+
+/* 등급이 높을수록 아이콘 테두리에 등급색 링/글로우를 둘러서, 같은 종류의 물약이라도 등급 차이가 한눈에 보이게 한다. */
+.sidebar-potions-icon-grade-mid {
+  border-color: var(--grade-mid);
+}
+
+.sidebar-potions-icon-grade-high {
+  border-color: var(--grade-high);
+}
+
+.sidebar-potions-icon-grade-rare {
+  border-color: var(--grade-rare);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--grade-rare) 55%, transparent);
+}
+
+.sidebar-potions-icon-grade-legend {
+  border-color: var(--grade-legend);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--grade-legend) 55%, transparent);
+}
+
+.sidebar-potions-icon-grade-epic {
+  border-color: var(--grade-epic);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--grade-epic) 65%, transparent);
 }
 
 .sidebar-potions-qty {
