@@ -35,6 +35,7 @@ export interface CharacterSkillRow {
   id: number;
   character_id: number;
   skill_id: string;
+  rank: number;
   learned_at: string;
 }
 

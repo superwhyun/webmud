@@ -81,6 +81,7 @@ CREATE TABLE IF NOT EXISTS character_skills (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   character_id INTEGER NOT NULL REFERENCES characters(id),
   skill_id TEXT NOT NULL,
+  rank INTEGER NOT NULL DEFAULT 1,
   learned_at TEXT NOT NULL DEFAULT (datetime('now')),
   UNIQUE(character_id, skill_id)
 );

@@ -1,4 +1,13 @@
-import { getSkillById, SKILLS, SKILLS_BY_JOB, type PassiveStat, type SkillDefinition } from '@mud/shared';
+import {
+  getSkillById,
+  SKILLS,
+  SKILLS_BY_JOB,
+  SKILL_MAX_RANK,
+  totalPassiveBonus,
+  passiveRankDelta,
+  type PassiveStat,
+  type SkillDefinition,
+} from '@mud/shared';
 import { db } from '../db/client.js';
 import type { CharacterRow, CharacterSkillRow } from '../db/types.js';
 
@@ -33,10 +42,31 @@ export function getLearnedSkillIds(characterId: number): Set<string> {
   return new Set(rows.map((row) => row.skill_id));
 }
 
+export function getLearnedSkillRanks(characterId: number): Map<string, number> {
+  const rows = db
+    .prepare('SELECT skill_id, rank FROM character_skills WHERE character_id = ?')
+    .all(characterId) as Pick<CharacterSkillRow, 'skill_id' | 'rank'>[];
+  return new Map(rows.map((row) => [row.skill_id, row.rank]));
+}
+
 export function hasLearnedSkill(characterId: number, skillId: string): boolean {
   return db
     .prepare('SELECT 1 FROM character_skills WHERE character_id = ? AND skill_id = ?')
     .get(characterId, skillId) !== undefined;
+}
+
+export function getSkillRank(characterId: number, skillId: string): number {
+  const row = db
+    .prepare('SELECT rank FROM character_skills WHERE character_id = ? AND skill_id = ?')
+    .get(characterId, skillId) as Pick<CharacterSkillRow, 'rank'> | undefined;
+  return row?.rank ?? 0;
+}
+
+function applyPassiveDelta(characterId: number, skill: SkillDefinition, rank: number): void {
+  if (skill.kind !== 'passive' || !skill.passiveStat) return;
+  const column = PASSIVE_STAT_COLUMNS[skill.passiveStat];
+  const delta = passiveRankDelta(skill, rank);
+  db.prepare(`UPDATE characters SET ${column} = ${column} + ? WHERE id = ?`).run(delta, characterId);
 }
 
 export interface LearnSkillResult {
@@ -58,6 +88,13 @@ export function learnSkill(character: CharacterRow, skillId: string): LearnSkill
   if (character.level < skill.requiredLevel) {
     return { ok: false, message: `${skill.name}은(는) 레벨 ${skill.requiredLevel} 이상부터 배울 수 있습니다.` };
   }
+  if (skill.element && skill.element !== character.element) {
+    return { ok: false, message: `${skill.name}은(는) 당신의 속성으로는 배울 수 없는 스킬입니다.` };
+  }
+  if (skill.requires && !hasLearnedSkill(character.id, skill.requires)) {
+    const prereq = getSkillById(skill.requires);
+    return { ok: false, message: `${skill.name}을(를) 배우려면 먼저 '${prereq?.name ?? skill.requires}'을(를) 배워야 합니다.` };
+  }
   if (character.unallocated_skill_points < 1) {
     return { ok: false, message: '사용 가능한 스킬 포인트가 없습니다.' };
   }
@@ -66,30 +103,102 @@ export function learnSkill(character: CharacterRow, skillId: string): LearnSkill
   }
 
   const tx = db.transaction(() => {
-    db.prepare('INSERT INTO character_skills (character_id, skill_id) VALUES (?, ?)').run(character.id, skillId);
+    db.prepare('INSERT INTO character_skills (character_id, skill_id, rank) VALUES (?, ?, 1)').run(character.id, skillId);
     db.prepare('UPDATE characters SET unallocated_skill_points = unallocated_skill_points - 1 WHERE id = ?').run(
       character.id,
     );
-    if (skill.kind === 'passive' && skill.passiveStat) {
-      const column = PASSIVE_STAT_COLUMNS[skill.passiveStat];
-      db.prepare(`UPDATE characters SET ${column} = ${column} + ? WHERE id = ?`).run(skill.power, character.id);
-    }
+    applyPassiveDelta(character.id, skill, 1);
   });
   tx();
 
   return { ok: true, message: `${skill.name}을(를) 배웠습니다.` };
 }
 
+export function upgradeSkill(character: CharacterRow, skillId: string): LearnSkillResult {
+  const skill = getSkillById(skillId);
+  if (!skill) {
+    return { ok: false, message: '존재하지 않는 스킬입니다.' };
+  }
+
+  const currentRank = getSkillRank(character.id, skillId);
+  if (currentRank < 1) {
+    return { ok: false, message: '아직 배우지 않은 스킬입니다.' };
+  }
+  if (currentRank >= SKILL_MAX_RANK) {
+    return { ok: false, message: `${skill.name}은(는) 이미 최대 랭크(${SKILL_MAX_RANK})입니다.` };
+  }
+  if (character.unallocated_skill_points < 1) {
+    return { ok: false, message: '사용 가능한 스킬 포인트가 없습니다.' };
+  }
+
+  const newRank = currentRank + 1;
+  const tx = db.transaction(() => {
+    db.prepare('UPDATE character_skills SET rank = ? WHERE character_id = ? AND skill_id = ?').run(
+      newRank,
+      character.id,
+      skillId,
+    );
+    db.prepare('UPDATE characters SET unallocated_skill_points = unallocated_skill_points - 1 WHERE id = ?').run(
+      character.id,
+    );
+    applyPassiveDelta(character.id, skill, newRank);
+  });
+  tx();
+
+  return { ok: true, message: `${skill.name}을(를) 랭크 ${newRank}(으)로 강화했습니다.` };
+}
+
+export function resetSkills(character: CharacterRow): LearnSkillResult {
+  const ranks = getLearnedSkillRanks(character.id);
+  if (ranks.size === 0) {
+    return { ok: false, message: '배운 스킬이 없습니다.' };
+  }
+
+  let refund = 0;
+  const tx = db.transaction(() => {
+    for (const [skillId, rank] of ranks) {
+      const skill = getSkillById(skillId);
+      refund += rank;
+      if (skill && skill.kind === 'passive' && skill.passiveStat) {
+        const column = PASSIVE_STAT_COLUMNS[skill.passiveStat];
+        const bonus = totalPassiveBonus(skill, rank);
+        db.prepare(`UPDATE characters SET ${column} = ${column} - ? WHERE id = ?`).run(bonus, character.id);
+      }
+    }
+    db.prepare('DELETE FROM character_skills WHERE character_id = ?').run(character.id);
+    db.prepare('UPDATE characters SET unallocated_skill_points = unallocated_skill_points + ? WHERE id = ?').run(
+      refund,
+      character.id,
+    );
+  });
+  tx();
+
+  return { ok: true, message: `모든 스킬을 초기화했습니다. 스킬 포인트 ${refund}개를 돌려받았습니다.` };
+}
+
+function skillLockReason(character: CharacterRow, skill: SkillDefinition, learned: Set<string>): string | undefined {
+  if (character.level < skill.requiredLevel) return `Lv.${skill.requiredLevel} 필요`;
+  if (skill.element && skill.element !== character.element) return '다른 속성 전용';
+  if (skill.requires && !learned.has(skill.requires)) {
+    const prereq = getSkillById(skill.requires);
+    return `'${prereq?.name ?? skill.requires}' 선행 필요`;
+  }
+  return undefined;
+}
+
 export function describeAvailableSkills(character: CharacterRow): string {
   if (!character.job) return '직업이 없어 스킬을 확인할 수 없습니다.';
 
   const learned = getLearnedSkillIds(character.id);
+  const ranks = getLearnedSkillRanks(character.id);
   const lines = SKILLS_BY_JOB[character.job].map((skill) => {
-    const status = learned.has(skill.id)
-      ? '[습득]'
-      : character.level < skill.requiredLevel
-        ? `[Lv.${skill.requiredLevel} 필요]`
-        : '[습득 가능]';
+    if (learned.has(skill.id)) {
+      const rank = ranks.get(skill.id) ?? 1;
+      const status = rank >= SKILL_MAX_RANK ? `[Lv${rank}/${SKILL_MAX_RANK} 만렙]` : `[Lv${rank}/${SKILL_MAX_RANK}]`;
+      return `${status} ${skill.name} (MP ${skill.mpCost}) - ${skill.description}`;
+    }
+    const lockReason = skillLockReason(character, skill, learned);
+    const status = lockReason ? `[${lockReason}]` : '[습득 가능]';
     return `${status} ${skill.name} (Lv.${skill.requiredLevel}, MP ${skill.mpCost}) - ${skill.description}`;
   });
 

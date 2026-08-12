@@ -86,6 +86,7 @@ export function renderGameScreen(
         if (!ctx.equipModal.hidden) renderEquipModal(ctx);
       } else if (message.type === 'skills') {
         ctx.learnedSkillIds = message.learnedSkillIds;
+        ctx.learnedSkillRanks = message.learnedSkillRanks;
         if (!ctx.skillModal.hidden) renderSkillModal(ctx);
       } else if (message.type === 'skillCooldowns') {
         const now = Date.now();

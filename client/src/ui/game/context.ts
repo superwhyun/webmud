@@ -56,6 +56,7 @@ export interface GameContext {
 
   currentCharacterState: CharacterState | undefined;
   learnedSkillIds: string[];
+  learnedSkillRanks: Record<string, number>;
   latestCombatMobs: CombatMobInfo[];
   activeCooldowns: Map<string, ActiveCooldown>;
   macros: MacroMap;
@@ -242,6 +243,7 @@ export function createGameContext(
 
     currentCharacterState: previous?.currentCharacterState,
     learnedSkillIds: previous?.learnedSkillIds ?? [],
+    learnedSkillRanks: previous?.learnedSkillRanks ?? {},
     latestCombatMobs: previous?.latestCombatMobs ?? [],
     activeCooldowns: previous?.activeCooldowns ?? new Map(),
     macros: loadMacros(),

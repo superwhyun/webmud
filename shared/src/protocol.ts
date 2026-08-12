@@ -145,6 +145,6 @@ export type ServerMessage =
   | { type: 'equipment'; slots: EquipmentSnapshot }
   | { type: 'inventory'; items: InventoryItemInfo[] }
   | { type: 'needsJob' }
-  | { type: 'skills'; learnedSkillIds: string[] }
+  | { type: 'skills'; learnedSkillIds: string[]; learnedSkillRanks: Record<string, number> }
   | { type: 'skillCooldowns'; cooldowns: SkillCooldownInfo[] }
   | { type: 'death'; roomId: number };

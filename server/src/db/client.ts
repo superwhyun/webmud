@@ -97,6 +97,7 @@ function migrate(target: Database.Database): void {
   ensureColumn(target, 'zones', 'max_level', 'ALTER TABLE zones ADD COLUMN max_level INTEGER');
   ensureColumn(target, 'mob_spawns', 'min_level', 'ALTER TABLE mob_spawns ADD COLUMN min_level INTEGER');
   ensureColumn(target, 'mob_spawns', 'max_level', 'ALTER TABLE mob_spawns ADD COLUMN max_level INTEGER');
+  ensureColumn(target, 'character_skills', 'rank', 'ALTER TABLE character_skills ADD COLUMN rank INTEGER NOT NULL DEFAULT 1');
   migrateMobTemplateLevelRangeColumns(target);
   dropColumnIfExists(target, 'npc_templates', 'level');
 }

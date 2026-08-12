@@ -1,4 +1,6 @@
 import {
+  AOE_TARGET_PENALTY,
+  effectiveSkillPower,
   getSkillById,
   SKILLS,
   type SkillCooldownInfo,
@@ -8,8 +10,8 @@ import { db } from '../../db/client.js';
 import { getEffectiveStats } from '../combatStats.js';
 import { loadCharacter, loadCharacterState } from '../characterState.js';
 import type { CommandContext } from '../commands/context.js';
-import { findMobInRoomByName } from '../MobManager.js';
-import { hasLearnedSkill, resolveSkillArg } from '../skillProgress.js';
+import { findMobInRoomByName, type MobInstance } from '../MobManager.js';
+import { getSkillRank, hasLearnedSkill, resolveSkillArg } from '../skillProgress.js';
 import { computeDamage } from './combatMath.js';
 import { handleMobDefeat } from './combatRewards.js';
 import { cleanupCombatForSession, getActiveCombat, sendCombatEnd, sendCombatStatus, startCombatInterval } from './combatState.js';
@@ -125,29 +127,37 @@ export function handleCast(ctx: CommandContext, rest: string): void {
       ctx.send({ type: 'text', text: `${targetMob.name}에게 싸움을 겁니다!`, channel: 'combat-engage' });
       combat = startCombatInterval(ctx, [targetMob]);
     }
-    const mob = (targetHint && combat.mobs.find((m) => m.name.includes(targetHint))) || combat.mobs[0];
+    const isAoe = skill.targeting === 'aoe';
+    const targets: MobInstance[] = isAoe
+      ? [...combat.mobs]
+      : [(targetHint && combat.mobs.find((m) => m.name.includes(targetHint))) || combat.mobs[0]];
+
+    const rank = getSkillRank(character.id, skill.id);
+    const perTargetPower = effectiveSkillPower(skill, rank) * (isAoe ? AOE_TARGET_PENALTY : 1);
 
     const playerStats = getEffectiveStats(character);
     const attackStat =
       skill.damageType === 'magic' ? playerStats.intelligence : playerStats.strength + playerStats.attackPower;
-    const defense = skill.damageType === 'magic' ? mob.magicDefense : mob.physicalDefense;
-    const damage = computeDamage(attackStat, defense, playerStats.element, mob.element, skill.power);
 
     db.prepare('UPDATE characters SET mp = mp - ? WHERE id = ?').run(skill.mpCost, character.id);
     startCooldown(character.id, skill.id, skill.cooldownMs ?? 0);
     sendSkillCooldowns(ctx, character.id);
-    mob.hp = Math.max(0, mob.hp - damage);
+
+    const hitTexts: string[] = [];
+    for (const mob of targets) {
+      const defense = skill.damageType === 'magic' ? mob.magicDefense : mob.physicalDefense;
+      const damage = computeDamage(attackStat, defense, playerStats.element, mob.element, perTargetPower);
+      mob.hp = Math.max(0, mob.hp - damage);
+      hitTexts.push(`${mob.name}에게 ${damage}의 피해 (${mob.hp}/${mob.maxHp})`);
+      if (mob.hp <= 0) handleMobDefeat(ctx, mob, character.id);
+    }
+    combat.mobs = combat.mobs.filter((m) => m.hp > 0);
 
     ctx.send({
       type: 'text',
-      text: `${skill.name}! ${mob.name}에게 ${damage}의 피해를 입혔습니다. (${mob.hp}/${mob.maxHp})`,
+      text: `${skill.name}! ${hitTexts.join(', ')}`,
       channel: 'combat-hit',
     });
-
-    if (mob.hp <= 0) {
-      handleMobDefeat(ctx, mob, character.id);
-      combat.mobs = combat.mobs.filter((m) => m.spawnId !== mob.spawnId);
-    }
 
     if (combat.mobs.length === 0) {
       cleanupCombatForSession(ctx.session.ws);
@@ -162,8 +172,9 @@ export function handleCast(ctx: CommandContext, rest: string): void {
   }
 
   // kind === 'heal'
+  const healRank = getSkillRank(character.id, skill.id);
   const previousHp = character.hp;
-  const healedHp = Math.min(character.max_hp, character.hp + skill.power);
+  const healedHp = Math.min(character.max_hp, character.hp + Math.round(effectiveSkillPower(skill, healRank)));
   db.prepare('UPDATE characters SET hp = ?, mp = mp - ? WHERE id = ?').run(healedHp, skill.mpCost, character.id);
   startCooldown(character.id, skill.id, skill.cooldownMs ?? 0);
   sendSkillCooldowns(ctx, character.id);
