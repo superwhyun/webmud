@@ -264,3 +264,61 @@ export function placeBuilderNpcSpawn(token: string, roomId: number, npcTemplateI
 export function removeBuilderNpcSpawn(token: string, spawnId: number): Promise<void> {
   return apiRequest(`/builder/npc-spawns/${spawnId}`, { method: 'DELETE', headers: authHeader(token) });
 }
+
+export interface AddRoomOperation {
+  type: 'add_room';
+  tempId: string;
+  name: string;
+  description: string;
+  x: number;
+  y: number;
+}
+
+export interface AddMobSpawnOperation {
+  type: 'add_mob_spawn';
+  roomRef: string;
+  roomLabel: string;
+  mobTemplateId: number;
+  mobName: string;
+  respawnSeconds: number;
+}
+
+export interface AddRoomItemOperation {
+  type: 'add_room_item';
+  roomRef: string;
+  roomLabel: string;
+  itemId: number;
+  itemName: string;
+  quantity: number;
+}
+
+export type MapAssistantOperation = AddRoomOperation | AddMobSpawnOperation | AddRoomItemOperation;
+
+export interface MapAssistantProposeResult {
+  operations: MapAssistantOperation[];
+  summary: string;
+}
+
+export interface MapAssistantApplyResult {
+  results: { operation: MapAssistantOperation; success: boolean; error?: string }[];
+}
+
+export function proposeMapAssistantChanges(token: string, zoneId: number, prompt: string): Promise<MapAssistantProposeResult> {
+  return apiRequest(`/builder/zones/${zoneId}/assistant/propose`, {
+    method: 'POST',
+    headers: authHeader(token),
+    body: JSON.stringify({ prompt }),
+  });
+}
+
+export function applyMapAssistantChanges(
+  token: string,
+  zoneId: number,
+  operations: MapAssistantOperation[],
+): Promise<MapAssistantApplyResult> {
+  return apiRequest(`/builder/zones/${zoneId}/assistant/apply`, {
+    method: 'POST',
+    headers: authHeader(token),
+    body: JSON.stringify({ operations }),
+  });
+}

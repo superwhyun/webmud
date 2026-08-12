@@ -1,6 +1,7 @@
 import type {
   BuilderRoomDto,
   ItemTemplateDto,
+  MapAssistantOperation,
   MobSpawnDto,
   MobTemplateDto,
   NpcSpawnDto,
@@ -54,6 +55,14 @@ export interface BuilderContext {
   backButton: HTMLButtonElement;
   toolbarError: HTMLSpanElement;
 
+  assistantPromptInput: HTMLTextAreaElement;
+  assistantProposeButton: HTMLButtonElement;
+  assistantResults: HTMLDivElement;
+  assistantOperations: MapAssistantOperation[];
+  assistantSelected: boolean[];
+  assistantSummary: string;
+  assistantLoading: boolean;
+
   rooms: BuilderRoomDto[];
   selectedRoomId: number | null;
   panelMode: 'create' | 'edit' | 'empty';
@@ -92,6 +101,16 @@ function renderShellHtml(): string {
         <span class="builder-toolbar-error" id="builder-toolbar-error"></span>
         <button type="button" id="builder-back">게임으로 돌아가기</button>
       </div>
+      <div class="builder-assistant" id="builder-assistant">
+        <textarea
+          id="builder-assistant-prompt"
+          class="builder-assistant-prompt"
+          rows="2"
+          placeholder="AI에게 맵 수정을 요청하세요. 예: 북쪽에 방 2개 추가하고 각 방에 몹 하나씩 배치해줘"
+        ></textarea>
+        <button type="button" id="builder-assistant-propose">AI로 제안받기</button>
+        <div class="builder-assistant-results" id="builder-assistant-results"></div>
+      </div>
       <div class="builder-zone-bar" id="builder-zone-bar"></div>
       <div class="builder-body">
         <div class="builder-canvas-wrap" id="builder-canvas-wrap">
@@ -121,6 +140,14 @@ export function createBuilderContext(container: HTMLElement, token: string, onBa
     addRoomButton: container.querySelector<HTMLButtonElement>('#builder-add-room')!,
     backButton: container.querySelector<HTMLButtonElement>('#builder-back')!,
     toolbarError: container.querySelector<HTMLSpanElement>('#builder-toolbar-error')!,
+
+    assistantPromptInput: container.querySelector<HTMLTextAreaElement>('#builder-assistant-prompt')!,
+    assistantProposeButton: container.querySelector<HTMLButtonElement>('#builder-assistant-propose')!,
+    assistantResults: container.querySelector<HTMLDivElement>('#builder-assistant-results')!,
+    assistantOperations: [],
+    assistantSelected: [],
+    assistantSummary: '',
+    assistantLoading: false,
 
     rooms: [],
     selectedRoomId: null,

@@ -33,6 +33,19 @@ interface RoomRow {
   zone_id: number;
 }
 
+export interface RoomRecordDto {
+  id: number;
+  name: string;
+  description: string;
+  x: number;
+  y: number;
+  zoneId: number;
+  exits: { direction: string; targetRoomId: number; blocked: boolean }[];
+}
+
+export type CreateRoomInput = z.infer<typeof roomCreateSchema>;
+export type CreateRoomOutcome = { room: RoomRecordDto } | { error: string; status: number };
+
 interface RoomExitRow {
   room_id: number;
   direction: string;
@@ -131,26 +144,19 @@ builderRouter.get('/rooms', (req, res) => {
   res.json({ rooms });
 });
 
-builderRouter.post('/rooms', (req, res) => {
-  const parsed = roomCreateSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
-    return;
-  }
-
-  const { name, description, x, y, zoneId } = parsed.data;
+/** Validates and inserts a room, registering it in World.ts and reconciling zone exits. Shared by the HTTP route and the map assistant's apply step. */
+export function createRoomRecord(input: CreateRoomInput): CreateRoomOutcome {
+  const { name, description, x, y, zoneId } = input;
 
   if (!db.prepare('SELECT 1 FROM zones WHERE id = ?').get(zoneId)) {
-    res.status(404).json({ error: '존을 찾을 수 없습니다.' });
-    return;
+    return { error: '존을 찾을 수 없습니다.', status: 404 };
   }
 
   const occupied = db
     .prepare(`SELECT 1 FROM rooms WHERE x = ? AND y = ? AND zone_id = ? AND ${NON_VILLAGE_ROOMS_SQL}`)
     .get(x, y, zoneId);
   if (occupied) {
-    res.status(409).json({ error: '이미 그 위치에 방이 있습니다.' });
-    return;
+    return { error: '이미 그 위치에 방이 있습니다.', status: 409 };
   }
 
   const info = db
@@ -162,7 +168,7 @@ builderRouter.post('/rooms', (req, res) => {
   applyExitReconciliation(zoneId);
 
   const created = getRoom(id)!;
-  res.status(201).json({
+  return {
     room: {
       id: created.id,
       name: created.name,
@@ -176,7 +182,23 @@ builderRouter.post('/rooms', (req, res) => {
         blocked: exit.blocked,
       })),
     },
-  });
+  };
+}
+
+builderRouter.post('/rooms', (req, res) => {
+  const parsed = roomCreateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
+    return;
+  }
+
+  const outcome = createRoomRecord(parsed.data);
+  if ('error' in outcome) {
+    res.status(outcome.status).json({ error: outcome.error });
+    return;
+  }
+
+  res.status(201).json({ room: outcome.room });
 });
 
 builderRouter.patch('/rooms/:id', (req, res) => {

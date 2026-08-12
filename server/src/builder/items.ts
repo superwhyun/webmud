@@ -47,6 +47,24 @@ const roomItemSchema = z.object({
   quantity: z.number().int().min(1).default(1),
 });
 
+export type CreateRoomItemInput = z.infer<typeof roomItemSchema>;
+export type CreateRoomItemOutcome = { ok: true } | { error: string; status: number };
+
+/** Validates and inserts a room item drop. Shared by the HTTP route and the map assistant's apply step. */
+export function createRoomItemRecord(input: CreateRoomItemInput): CreateRoomItemOutcome {
+  const { roomId, itemId, quantity } = input;
+  if (!getRoom(roomId)) {
+    return { error: '방을 찾을 수 없습니다.', status: 404 };
+  }
+  if (!db.prepare('SELECT id FROM items WHERE id = ?').get(itemId)) {
+    return { error: '아이템을 찾을 수 없습니다.', status: 404 };
+  }
+
+  db.prepare('INSERT INTO room_items (room_id, item_id, quantity) VALUES (?, ?, ?)').run(roomId, itemId, quantity);
+  broadcastRoomSnapshot(roomId);
+  return { ok: true };
+}
+
 builderRouter.post('/room-items', (req, res) => {
   const parsed = roomItemSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -54,18 +72,12 @@ builderRouter.post('/room-items', (req, res) => {
     return;
   }
 
-  const { roomId, itemId, quantity } = parsed.data;
-  if (!getRoom(roomId)) {
-    res.status(404).json({ error: '방을 찾을 수 없습니다.' });
-    return;
-  }
-  if (!db.prepare('SELECT id FROM items WHERE id = ?').get(itemId)) {
-    res.status(404).json({ error: '아이템을 찾을 수 없습니다.' });
+  const outcome = createRoomItemRecord(parsed.data);
+  if ('error' in outcome) {
+    res.status(outcome.status).json({ error: outcome.error });
     return;
   }
 
-  db.prepare('INSERT INTO room_items (room_id, item_id, quantity) VALUES (?, ?, ?)').run(roomId, itemId, quantity);
-  broadcastRoomSnapshot(roomId);
   res.status(201).send();
 });
 

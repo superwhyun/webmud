@@ -1,4 +1,5 @@
 import { fetchBuilderRooms } from '../builderApi';
+import { renderAssistantResults, setupAssistant } from './builder/assistant';
 import { renderCanvas } from './builder/canvas';
 import { createBuilderContext } from './builder/context';
 import { refreshPalette, renderPalette } from './builder/palette';
@@ -12,6 +13,7 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
     renderCanvas(ctx);
     renderPanel(ctx);
     renderPalette(ctx);
+    renderAssistantResults(ctx);
   };
 
   ctx.refresh = async () => {
@@ -33,6 +35,8 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
   });
 
   ctx.backButton.addEventListener('click', onBack);
+
+  setupAssistant(ctx);
 
   void refreshZones(ctx);
   void refreshPalette(ctx);

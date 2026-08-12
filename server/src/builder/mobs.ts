@@ -53,25 +53,21 @@ const mobSpawnSchema = z.object({
   respawnSeconds: z.number().int().min(5).default(20),
 });
 
-builderRouter.post('/mob-spawns', (req, res) => {
-  const parsed = mobSpawnSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
-    return;
-  }
+export type CreateMobSpawnInput = z.infer<typeof mobSpawnSchema>;
+export type CreateMobSpawnOutcome = { spawnId: number } | { error: string; status: number };
 
-  const { roomId, mobTemplateId, respawnSeconds } = parsed.data;
+/** Validates and inserts a mob spawn, registering it with MobManager. Shared by the HTTP route and the map assistant's apply step. */
+export function createMobSpawnRecord(input: CreateMobSpawnInput): CreateMobSpawnOutcome {
+  const { roomId, mobTemplateId, respawnSeconds } = input;
   if (!getRoom(roomId)) {
-    res.status(404).json({ error: '방을 찾을 수 없습니다.' });
-    return;
+    return { error: '방을 찾을 수 없습니다.', status: 404 };
   }
 
   const template = db.prepare('SELECT * FROM mob_templates WHERE id = ?').get(mobTemplateId) as
     | MobTemplateRow
     | undefined;
   if (!template) {
-    res.status(404).json({ error: '몹 템플릿을 찾을 수 없습니다.' });
-    return;
+    return { error: '몹 템플릿을 찾을 수 없습니다.', status: 404 };
   }
 
   const info = db
@@ -82,7 +78,23 @@ builderRouter.post('/mob-spawns', (req, res) => {
   registerMobSpawn(spawnId, roomId, template, respawnSeconds);
   broadcastRoomSnapshot(roomId);
 
-  res.status(201).json({ spawnId });
+  return { spawnId };
+}
+
+builderRouter.post('/mob-spawns', (req, res) => {
+  const parsed = mobSpawnSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
+    return;
+  }
+
+  const outcome = createMobSpawnRecord(parsed.data);
+  if ('error' in outcome) {
+    res.status(outcome.status).json({ error: outcome.error });
+    return;
+  }
+
+  res.status(201).json(outcome);
 });
 
 builderRouter.delete('/mob-spawns/:id', (req, res) => {
