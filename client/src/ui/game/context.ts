@@ -184,11 +184,16 @@ export function createGameContext(
   isBuilder: boolean,
   isAdmin: boolean,
   onLogout: () => void,
+  existingSocket: WebSocket | null,
 ): GameContext {
   container.innerHTML = renderShellHtml(isBuilder, isAdmin);
 
-  const wsUrl = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`;
-  const socket = new WebSocket(wsUrl);
+  const socket = existingSocket ?? new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`);
+
+  const terminal = container.querySelector<HTMLDivElement>('#terminal')!;
+  for (const entry of persistedLog) {
+    renderLine(terminal, entry.text, entry.channel);
+  }
 
   return {
     container,
@@ -202,7 +207,7 @@ export function createGameContext(
     roomMeta: container.querySelector<HTMLDivElement>('#room-meta')!,
     roomVillage: container.querySelector<HTMLDivElement>('#room-village')!,
     combatPanel: container.querySelector<HTMLDivElement>('#combat-panel')!,
-    terminal: container.querySelector<HTMLDivElement>('#terminal')!,
+    terminal,
     sidebarStats: container.querySelector<HTMLDivElement>('#sidebar-stats')!,
     sidebarPotions: container.querySelector<HTMLDivElement>('#sidebar-potions')!,
     equipmentPanel: container.querySelector<HTMLDivElement>('#equipment-panel')!,
@@ -271,10 +276,19 @@ function appendItemMentions(target: HTMLElement, text: string): void {
   }
 }
 
-export function appendLine(ctx: GameContext, text: string, channel?: string): void {
+const MAX_LOG_LINES = 500;
+const persistedLog: { text: string; channel?: string }[] = [];
+
+function renderLine(terminal: HTMLDivElement, text: string, channel?: string): void {
   const line = document.createElement('div');
   line.className = `line line-${channel ?? 'system'}`;
   appendItemMentions(line, text);
-  ctx.terminal.prepend(line);
-  ctx.terminal.scrollTop = 0;
+  terminal.prepend(line);
+  terminal.scrollTop = 0;
+}
+
+export function appendLine(ctx: GameContext, text: string, channel?: string): void {
+  persistedLog.push({ text, channel });
+  if (persistedLog.length > MAX_LOG_LINES) persistedLog.shift();
+  renderLine(ctx.terminal, text, channel);
 }

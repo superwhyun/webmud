@@ -2,7 +2,7 @@ import type { ClientMessage, ServerMessage } from '@mud/shared';
 import { renderAdminScreen } from './adminScreen';
 import { renderBuilderScreen } from './builderScreen';
 import { attachCommandBarListeners } from './game/commandBar';
-import { appendLine, createGameContext } from './game/context';
+import { appendLine, createGameContext, type GameContext } from './game/context';
 import {
   closeEquipModal,
   closeInventoryModal,
@@ -20,6 +20,9 @@ import { hideCombat, renderCombat, renderRoom, showJobModal } from './game/room'
 import { closeSkillModal, openSkillModal, renderSkillModal } from './game/skills';
 import { renderCooldownPanel, renderState } from './game/state';
 
+let activeSocket: WebSocket | null = null;
+let currentCtx: GameContext | null = null;
+
 export function renderGameScreen(
   container: HTMLElement,
   token: string,
@@ -27,74 +30,85 @@ export function renderGameScreen(
   isAdmin = false,
   onLogout: () => void = () => {},
 ): void {
-  const ctx = createGameContext(container, token, isBuilder, isAdmin, onLogout);
+  const isInitialConnect = activeSocket === null;
+  const ctx = createGameContext(container, token, isBuilder, isAdmin, onLogout, activeSocket);
   const { socket } = ctx;
+  activeSocket = socket;
+  currentCtx = ctx;
 
-  setInterval(() => renderCooldownPanel(ctx), 100);
+  if (isInitialConnect) {
+    setInterval(() => {
+      if (currentCtx) renderCooldownPanel(currentCtx);
+    }, 100);
 
-  socket.addEventListener('open', () => {
-    const authMessage: ClientMessage = { type: 'auth', token };
-    socket.send(JSON.stringify(authMessage));
-  });
+    socket.addEventListener('open', () => {
+      const authMessage: ClientMessage = { type: 'auth', token };
+      socket.send(JSON.stringify(authMessage));
+    });
 
-  socket.addEventListener('close', () => appendLine(ctx, '[연결 종료됨]'));
+    socket.addEventListener('close', () => {
+      if (currentCtx) appendLine(currentCtx, '[연결 종료됨]');
+    });
 
-  socket.addEventListener('message', (event: MessageEvent<string>) => {
-    const message = JSON.parse(event.data) as ServerMessage;
-    if (message.type === 'text') {
-      appendLine(ctx, message.text, message.channel);
-    } else if (message.type === 'error') {
-      appendLine(ctx, message.text, 'error');
-    } else if (message.type === 'state') {
-      renderState(ctx, message.character);
-    } else if (message.type === 'room') {
-      ctx.latestRoom = message.room;
-      recordRoomVisit(ctx, message.room);
-      renderRoom(ctx, message.room);
-      renderMinimap(ctx);
-    } else if (message.type === 'death') {
-      ctx.lastDeathRoomId = message.roomId;
-      renderMinimap(ctx);
-    } else if (message.type === 'combat') {
-      ctx.latestCombatMobs = message.mobs;
-      renderCombat(ctx, message.mobs);
-    } else if (message.type === 'combatEnd') {
-      ctx.latestCombatMobs = [];
-      hideCombat(ctx);
-    } else if (message.type === 'equipment') {
-      ctx.equipmentState = message.slots;
-      renderEquipmentPanel(ctx);
-      if (!ctx.equipModal.hidden) renderEquipModal(ctx);
-    } else if (message.type === 'inventory') {
-      ctx.inventoryState = message.items;
-      renderInventoryCount(ctx);
-      renderPotionSummary(ctx);
-      if (!ctx.inventoryModal.hidden) renderInventoryModal(ctx);
-      if (!ctx.equipModal.hidden) renderEquipModal(ctx);
-    } else if (message.type === 'skills') {
-      ctx.learnedSkillIds = message.learnedSkillIds;
-      if (!ctx.skillModal.hidden) renderSkillModal(ctx);
-    } else if (message.type === 'skillCooldowns') {
-      const now = Date.now();
-      const activeIds = new Set(message.cooldowns.map((cooldown) => cooldown.skillId));
-      for (const skillId of ctx.activeCooldowns.keys()) {
-        if (!activeIds.has(skillId)) ctx.activeCooldowns.delete(skillId);
-      }
-      for (const cooldown of message.cooldowns) {
-        ctx.activeCooldowns.set(cooldown.skillId, {
-          name: cooldown.name,
-          endsAt: now + cooldown.remainingMs,
-          totalMs: cooldown.totalMs,
+    socket.addEventListener('message', (event: MessageEvent<string>) => {
+      if (!currentCtx) return;
+      const ctx = currentCtx;
+      const message = JSON.parse(event.data) as ServerMessage;
+      if (message.type === 'text') {
+        appendLine(ctx, message.text, message.channel);
+      } else if (message.type === 'error') {
+        appendLine(ctx, message.text, 'error');
+      } else if (message.type === 'state') {
+        renderState(ctx, message.character);
+      } else if (message.type === 'room') {
+        ctx.latestRoom = message.room;
+        recordRoomVisit(ctx, message.room);
+        renderRoom(ctx, message.room);
+        renderMinimap(ctx);
+      } else if (message.type === 'death') {
+        ctx.lastDeathRoomId = message.roomId;
+        renderMinimap(ctx);
+      } else if (message.type === 'combat') {
+        ctx.latestCombatMobs = message.mobs;
+        renderCombat(ctx, message.mobs);
+      } else if (message.type === 'combatEnd') {
+        ctx.latestCombatMobs = [];
+        hideCombat(ctx);
+      } else if (message.type === 'equipment') {
+        ctx.equipmentState = message.slots;
+        renderEquipmentPanel(ctx);
+        if (!ctx.equipModal.hidden) renderEquipModal(ctx);
+      } else if (message.type === 'inventory') {
+        ctx.inventoryState = message.items;
+        renderInventoryCount(ctx);
+        renderPotionSummary(ctx);
+        if (!ctx.inventoryModal.hidden) renderInventoryModal(ctx);
+        if (!ctx.equipModal.hidden) renderEquipModal(ctx);
+      } else if (message.type === 'skills') {
+        ctx.learnedSkillIds = message.learnedSkillIds;
+        if (!ctx.skillModal.hidden) renderSkillModal(ctx);
+      } else if (message.type === 'skillCooldowns') {
+        const now = Date.now();
+        const activeIds = new Set(message.cooldowns.map((cooldown) => cooldown.skillId));
+        for (const skillId of ctx.activeCooldowns.keys()) {
+          if (!activeIds.has(skillId)) ctx.activeCooldowns.delete(skillId);
+        }
+        for (const cooldown of message.cooldowns) {
+          ctx.activeCooldowns.set(cooldown.skillId, {
+            name: cooldown.name,
+            endsAt: now + cooldown.remainingMs,
+            totalMs: cooldown.totalMs,
+          });
+        }
+        renderCooldownPanel(ctx);
+      } else if (message.type === 'needsJob') {
+        showJobModal(ctx, (job) => {
+          const chooseJobMessage: ClientMessage = { type: 'chooseJob', job };
+          socket.send(JSON.stringify(chooseJobMessage));
         });
       }
-      renderCooldownPanel(ctx);
-    } else if (message.type === 'needsJob') {
-      showJobModal(ctx, (job) => {
-        const chooseJobMessage: ClientMessage = { type: 'chooseJob', job };
-        socket.send(JSON.stringify(chooseJobMessage));
-      });
-    }
-  });
+    });
+  }
 
   renderEquipmentPanel(ctx);
   renderInventoryCount(ctx);
@@ -104,19 +118,19 @@ export function renderGameScreen(
 
   const builderEntryButton = container.querySelector<HTMLButtonElement>('#builder-entry');
   builderEntryButton?.addEventListener('click', () => {
-    socket.close();
     renderBuilderScreen(container, token, () => renderGameScreen(container, token, isBuilder, isAdmin, onLogout));
   });
 
   const adminEntryButton = container.querySelector<HTMLButtonElement>('#admin-entry');
   adminEntryButton?.addEventListener('click', () => {
-    socket.close();
     renderAdminScreen(container, token, () => renderGameScreen(container, token, isBuilder, isAdmin, onLogout));
   });
 
   const logoutButton = container.querySelector<HTMLButtonElement>('#logout-button')!;
   logoutButton.addEventListener('click', () => {
     socket.close();
+    activeSocket = null;
+    currentCtx = null;
     onLogout();
   });
 

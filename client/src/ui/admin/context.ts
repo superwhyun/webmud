@@ -21,8 +21,11 @@ export interface AdminContext {
   accountsError: HTMLParagraphElement;
   sessionsList: HTMLDivElement;
   sessionsError: HTMLParagraphElement;
-  announceInput: HTMLInputElement;
+  announceInput: HTMLTextAreaElement;
   announceError: HTMLParagraphElement;
+  announceSuccess: HTMLParagraphElement;
+  announceCharCount: HTMLSpanElement;
+  announceTemplates: HTMLDivElement;
 
   itemGradeTabs: HTMLDivElement;
   itemTemplatesList: HTMLUListElement;
@@ -98,11 +101,23 @@ function renderShellHtml(): string {
 
         <section class="admin-section" data-admin-tab-panel="announce">
           <h3>공지 보내기</h3>
-          <div class="admin-form-row">
-            <input id="admin-announce-input" type="text" maxlength="500" placeholder="공지 내용" />
-            <button type="button" id="admin-announce-send">보내기</button>
+          <p class="admin-section-desc">접속 중인 모든 유저에게 공지를 전송합니다. 아래 템플릿을 눌러 빠르게 작성할 수 있습니다.</p>
+          <div class="admin-announce-templates" id="admin-announce-templates"></div>
+          <div class="admin-announce-compose">
+            <textarea
+              id="admin-announce-input"
+              class="admin-announce-textarea"
+              maxlength="500"
+              rows="3"
+              placeholder="공지 내용을 입력하세요"
+            ></textarea>
+            <div class="admin-announce-footer">
+              <span class="admin-announce-charcount" id="admin-announce-charcount">0/500</span>
+              <button type="button" id="admin-announce-send">보내기</button>
+            </div>
           </div>
           <p class="admin-error" id="admin-announce-error"></p>
+          <p class="admin-success" id="admin-announce-success"></p>
         </section>
 
         <section class="admin-section" data-admin-tab-panel="items">
@@ -378,8 +393,11 @@ export function createAdminContext(container: HTMLElement, token: string, onBack
     accountsError: container.querySelector<HTMLParagraphElement>('#admin-accounts-error')!,
     sessionsList: container.querySelector<HTMLDivElement>('#admin-sessions-list')!,
     sessionsError: container.querySelector<HTMLParagraphElement>('#admin-sessions-error')!,
-    announceInput: container.querySelector<HTMLInputElement>('#admin-announce-input')!,
+    announceInput: container.querySelector<HTMLTextAreaElement>('#admin-announce-input')!,
     announceError: container.querySelector<HTMLParagraphElement>('#admin-announce-error')!,
+    announceSuccess: container.querySelector<HTMLParagraphElement>('#admin-announce-success')!,
+    announceCharCount: container.querySelector<HTMLSpanElement>('#admin-announce-charcount')!,
+    announceTemplates: container.querySelector<HTMLDivElement>('#admin-announce-templates')!,
 
     itemGradeTabs: container.querySelector<HTMLDivElement>('#admin-item-grade-tabs')!,
     itemTemplatesList: container.querySelector<HTMLUListElement>('#admin-item-templates')!,

@@ -348,7 +348,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 5.5rem;
+  width: 5.5rem;
   color: var(--color-text-dim);
   font-size: 0.8rem;
   flex-shrink: 0;
@@ -426,4 +426,84 @@
   min-height: 1.2em;
   margin: 0 0 0.5rem;
   font-size: 0.85rem;
+}
+
+.admin-success {
+  color: var(--color-accent);
+  min-height: 1.2em;
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+}
+
+.admin-section-desc {
+  color: var(--color-text-dim);
+  font-size: 0.85rem;
+  margin: -0.3rem 0 0.75rem;
+}
+
+.admin-announce-templates {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.admin-announce-template-btn {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-dim);
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.admin-announce-template-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.admin-announce-compose {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.admin-announce-textarea {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  padding: 0.6rem 0.75rem;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  resize: vertical;
+  min-height: 4.5rem;
+}
+
+.admin-announce-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.admin-announce-footer button {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  padding: 0.4rem 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+}
+
+.admin-announce-footer button:hover {
+  border-color: var(--color-accent);
+}
+
+.admin-announce-charcount {
+  color: var(--color-text-dim);
+  font-size: 0.75rem;
 }

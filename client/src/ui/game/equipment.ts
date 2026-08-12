@@ -144,6 +144,15 @@ export function renderEquipModal(ctx: GameContext): void {
     `;
   }).join('');
 
+  ctx.equipModalBody.querySelectorAll<HTMLSelectElement>('[data-slot-select]').forEach((select) => {
+    const syncColor = () => {
+      const selected = select.selectedOptions[0];
+      select.style.color = selected ? getComputedStyle(selected).color : '';
+    };
+    syncColor();
+    select.addEventListener('change', syncColor);
+  });
+
   ctx.equipModalBody.querySelectorAll<HTMLButtonElement>('[data-equip-slot]').forEach((button) => {
     button.addEventListener('click', () => {
       const slot = button.dataset.equipSlot!;
