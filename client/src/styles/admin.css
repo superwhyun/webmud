@@ -32,7 +32,7 @@
   padding: 0.5rem 0.75rem;
   border-radius: 4px;
   cursor: pointer;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
 }
 
 .admin-toolbar button:hover {
@@ -66,7 +66,7 @@
 .admin-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.9rem;
+  font-size: var(--text-md);
 }
 
 .admin-table th,
@@ -90,7 +90,7 @@
   padding: 0.4rem 0;
   border-bottom: 1px solid var(--color-border);
   color: var(--color-text);
-  font-size: 0.9rem;
+  font-size: var(--text-md);
 }
 
 .admin-list {
@@ -108,7 +108,7 @@
   justify-content: space-between;
   gap: 0.5rem;
   color: var(--color-text-dim);
-  font-size: 0.9rem;
+  font-size: var(--text-md);
   border-bottom: 1px solid var(--color-border);
   padding-bottom: 0.3rem;
 }
@@ -129,13 +129,13 @@
 
 .admin-mob-loot-cell {
   color: var(--color-text-dim);
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   max-width: 320px;
 }
 
 .admin-mob-passive-tag {
   color: var(--color-text-dim);
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
 }
 
 .admin-loot-items {
@@ -155,7 +155,7 @@
 
 .admin-panel-empty {
   color: var(--color-text-dim);
-  font-size: 0.9rem;
+  font-size: var(--text-md);
 }
 
 .admin-form-row {
@@ -174,7 +174,7 @@
 
 .admin-field label {
   color: var(--color-text-dim);
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
 }
 
 .admin-tabs {
@@ -191,8 +191,8 @@
   padding: 0.3rem 0.7rem;
   border-radius: 999px;
   cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
 }
 
 .admin-tab-btn:hover {
@@ -223,8 +223,8 @@
   padding: 0.5rem 1rem;
   border-radius: 4px;
   cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: 0.9rem;
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
   font-weight: bold;
 }
 
@@ -245,8 +245,8 @@
   color: var(--color-text);
   padding: 0.4rem 0.5rem;
   border-radius: 4px;
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
 }
 
 .admin-form-row input[type='number'] {
@@ -260,13 +260,13 @@
   color: var(--color-text);
   padding: 0.4rem 0.5rem;
   border-radius: 4px;
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
 }
 
 .admin-form-row button,
 .admin-toolbar button {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
 }
 
 .admin-form-row button {
@@ -287,7 +287,7 @@
   align-items: center;
   gap: 0.35rem;
   color: var(--color-text);
-  font-size: 0.85rem;
+  font-size: var(--text-base);
   cursor: pointer;
 }
 
@@ -298,8 +298,8 @@
   border-radius: 4px;
   padding: 0.2rem 0.5rem;
   cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
 }
 
 .admin-row-actions {
@@ -350,7 +350,7 @@
   white-space: nowrap;
   width: 5.5rem;
   color: var(--color-text-dim);
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   flex-shrink: 0;
 }
 
@@ -362,8 +362,8 @@
   color: var(--color-text);
   border-radius: 4px;
   padding: 0.3rem 0.4rem;
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
 }
 
 .admin-edit-btn,
@@ -374,8 +374,8 @@
   border-radius: 4px;
   padding: 0.2rem 0.5rem;
   cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
   color: var(--color-text-dim);
 }
 
@@ -397,8 +397,8 @@
   color: var(--color-text);
   padding: 0.2rem 0.4rem;
   border-radius: 4px;
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
 }
 
 .admin-mob-loot-weight:disabled {
@@ -413,8 +413,8 @@
   padding: 0.3rem 0.6rem;
   border-radius: 4px;
   cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
 }
 
 .admin-kick-btn {
@@ -425,19 +425,19 @@
   color: var(--color-danger);
   min-height: 1.2em;
   margin: 0 0 0.5rem;
-  font-size: 0.85rem;
+  font-size: var(--text-base);
 }
 
 .admin-success {
   color: var(--color-accent);
   min-height: 1.2em;
   margin: 0 0 0.5rem;
-  font-size: 0.85rem;
+  font-size: var(--text-base);
 }
 
 .admin-section-desc {
   color: var(--color-text-dim);
-  font-size: 0.85rem;
+  font-size: var(--text-base);
   margin: -0.3rem 0 0.75rem;
 }
 
@@ -455,8 +455,8 @@
   padding: 0.3rem 0.7rem;
   border-radius: 999px;
   cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
 }
 
 .admin-announce-template-btn:hover {
@@ -476,8 +476,8 @@
   color: var(--color-text);
   padding: 0.6rem 0.75rem;
   border-radius: 4px;
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
   resize: vertical;
   min-height: 4.5rem;
 }
@@ -496,7 +496,7 @@
   padding: 0.4rem 0.75rem;
   border-radius: 4px;
   cursor: pointer;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
 }
 
 .admin-announce-footer button:hover {
@@ -505,5 +505,5 @@
 
 .admin-announce-charcount {
   color: var(--color-text-dim);
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
 }

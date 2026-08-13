@@ -25,7 +25,7 @@
 
 .ops-menu-title {
   color: var(--color-text-dim);
-  font-size: 0.85rem;
+  font-size: var(--text-base);
   letter-spacing: 0.05em;
 }
 
@@ -117,7 +117,7 @@
 }
 
 .cooldown-label {
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   color: var(--color-text-muted, inherit);
 }
 
@@ -151,7 +151,7 @@
 
 .sidebar-potions-title {
   color: var(--color-text-dim);
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
@@ -161,7 +161,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  font-size: 0.85rem;
+  font-size: var(--text-base);
 }
 
 .sidebar-potions-name {
@@ -180,7 +180,7 @@
   height: 1.6rem;
   border-radius: 50%;
   border: 1px solid transparent;
-  font-size: 0.9rem;
+  font-size: var(--text-md);
   line-height: 1;
 }
 
@@ -225,7 +225,7 @@
 
 .sidebar-potions-qty {
   color: var(--color-text-dim);
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   flex-shrink: 0;
 }
 
@@ -249,13 +249,13 @@
 
 .equipment-slot-label {
   color: var(--color-text-dim);
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   letter-spacing: 0.03em;
 }
 
 .equipment-slot-value {
   color: var(--color-text);
-  font-size: 0.85rem;
+  font-size: var(--text-base);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -270,8 +270,8 @@
   padding: 0.5rem;
   border-radius: 4px;
   cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: 0.9rem;
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
   transition: box-shadow var(--transition-fast);
 }
 
@@ -296,7 +296,7 @@
   height: 1.2rem;
   line-height: 1;
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   transition: box-shadow var(--transition-fast);
 }
 
@@ -320,14 +320,14 @@
 .skill-row-name {
   font-weight: bold;
   color: var(--color-accent);
-  font-size: 0.9rem;
+  font-size: var(--text-md);
 }
 
 .skill-row-status {
   display: block;
   font-weight: normal;
   color: var(--color-text-dim);
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
 }
 
 .skill-row-desc {
@@ -410,7 +410,7 @@
 
 .skill-tree-column-header {
   font-weight: bold;
-  font-size: 0.85rem;
+  font-size: var(--text-base);
   margin-bottom: 0.5rem;
   padding-bottom: 0.3rem;
   border-bottom: 2px solid var(--color-border);
@@ -484,8 +484,8 @@
   background: var(--color-bg);
   border: 1px solid var(--color-border);
   color: var(--color-text);
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
   padding: 0.35rem 0.5rem;
   border-radius: 4px;
 }
@@ -503,7 +503,7 @@
   padding: 0.35rem 0.75rem;
   border-radius: 4px;
   cursor: pointer;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   transition: box-shadow var(--transition-fast);
 }
 
@@ -519,7 +519,7 @@
   padding: 0.35rem 0.75rem;
   border-radius: 4px;
   cursor: pointer;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   transition: box-shadow var(--transition-fast);
 }
 
@@ -548,8 +548,8 @@
   padding: 0.3rem 0.7rem;
   border-radius: 4px;
   cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
 }
 
 #skill-reset-btn:hover {
@@ -559,7 +559,7 @@
 
 .skill-tier-title {
   color: var(--color-text-dim);
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.03em;
   margin: 0.75rem 0 0.3rem;
@@ -681,7 +681,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  font-size: 0.85rem;
+  font-size: var(--text-base);
   color: var(--color-text);
   border-bottom: 1px solid var(--color-border);
   padding-bottom: 0.4rem;
@@ -696,13 +696,13 @@
 
 .inventory-panel-qty {
   color: var(--color-text-dim);
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   flex-shrink: 0;
 }
 
 .inventory-panel-empty {
   color: var(--color-text-dim);
-  font-size: 0.85rem;
+  font-size: var(--text-base);
 }
 
 .inventory-panel-actions {
@@ -721,7 +721,7 @@
   padding: 0.15rem 0.5rem;
   line-height: 1.4;
   cursor: pointer;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   transition: box-shadow var(--transition-fast);
 }
 
@@ -753,5 +753,5 @@
   grid-template-columns: 1fr 1fr;
   gap: 0.25rem 0.5rem;
   color: var(--color-text-dim);
-  font-size: 0.9rem;
+  font-size: var(--text-md);
 }

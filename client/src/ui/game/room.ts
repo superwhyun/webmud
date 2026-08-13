@@ -9,6 +9,7 @@ import {
   type VillageInfo,
 } from '@mud/shared';
 import { escapeHtml } from '../../domUtils';
+import { icon } from '../icons';
 import { hpLevel, type GameContext } from './context';
 
 function raidStatusText(raidProtectedUntil: string | null): string {
@@ -23,7 +24,7 @@ function renderVillageSection(village: VillageInfo): string {
 
   return `
     <div class="village-panel">
-      <div class="village-title">🏰 ${village.name} (영주: ${village.lordName}, Lv.${village.level})</div>
+      <div class="village-title">${icon('castle')} ${village.name} (영주: ${village.lordName}, Lv.${village.level})</div>
       <div class="room-meta">
         <span><strong>국고</strong>gold ${village.gold}</span>
         <span><strong>목재</strong>${village.wood}</span>

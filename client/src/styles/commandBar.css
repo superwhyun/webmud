@@ -24,8 +24,8 @@
   border: none;
   outline: none;
   color: var(--color-text);
-  font-family: var(--font-mono);
-  font-size: 1rem;
+  font-family: var(--font-sans);
+  font-size: var(--text-lg);
 }
 
 .logout-btn {
@@ -35,8 +35,8 @@
   padding: 0.5rem;
   border-radius: 4px;
   cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: 0.9rem;
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
   transition: border-color var(--transition-fast), color var(--transition-fast);
 }
 
@@ -52,8 +52,8 @@
   padding: 0.5rem;
   border-radius: 4px;
   cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: 0.9rem;
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
   transition: box-shadow var(--transition-fast);
 }
 
@@ -68,8 +68,8 @@
   padding: 0.5rem;
   border-radius: 4px;
   cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: 0.9rem;
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
   transition: box-shadow var(--transition-fast);
 }
 

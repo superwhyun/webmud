@@ -33,13 +33,13 @@
 
 .room-map-title {
   color: var(--color-text-dim);
-  font-size: 0.85rem;
+  font-size: var(--text-base);
   letter-spacing: 0.05em;
 }
 
 .room-zone-label {
   color: var(--color-text-dim);
-  font-size: 0.85rem;
+  font-size: var(--text-base);
   letter-spacing: 0.05em;
 }
 

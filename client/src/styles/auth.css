@@ -32,8 +32,8 @@
   color: var(--color-text);
   padding: 0.6rem 0.75rem;
   border-radius: 4px;
-  font-family: var(--font-mono);
-  font-size: 1rem;
+  font-family: var(--font-sans);
+  font-size: var(--text-lg);
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
@@ -57,8 +57,8 @@
   padding: 0.6rem;
   border-radius: 4px;
   cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: 1rem;
+  font-family: var(--font-sans);
+  font-size: var(--text-lg);
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast),
     transform var(--transition-fast);
 }

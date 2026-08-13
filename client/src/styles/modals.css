@@ -49,7 +49,7 @@
   border: none;
   color: var(--color-text-dim);
   cursor: pointer;
-  font-size: 1rem;
+  font-size: var(--text-lg);
   transition: color var(--transition-fast);
 }
 
@@ -110,13 +110,13 @@
 }
 
 .job-choice-desc {
-  font-size: 0.85rem;
+  font-size: var(--text-base);
   color: var(--color-text-dim);
 }
 
 .equip-modal-slot-label {
   color: var(--color-text-dim);
-  font-size: 0.85rem;
+  font-size: var(--text-base);
 }
 
 .equip-modal-current {
@@ -137,14 +137,14 @@
   background: var(--color-bg);
   border: 1px solid var(--color-border);
   color: var(--color-text);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   padding: 0.25rem;
   border-radius: 4px;
 }
 
 .equip-modal-empty {
   color: var(--color-text-dim);
-  font-size: 0.85rem;
+  font-size: var(--text-base);
 }
 
 .equip-modal-equip-btn,
@@ -155,8 +155,8 @@
   padding: 0.25rem 0.6rem;
   border-radius: 4px;
   cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
   transition: border-color var(--transition-fast), color var(--transition-fast);
 }
 
@@ -186,8 +186,8 @@
   color: var(--color-text);
   padding: 0.5rem 0.6rem;
   border-radius: 4px;
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
   resize: vertical;
 }
 
@@ -199,7 +199,7 @@
   padding: 0.4rem 0.8rem;
   border-radius: 4px;
   cursor: pointer;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
 }
 
 .suggestion-form button:hover {
@@ -210,7 +210,7 @@
 .suggestion-form-error {
   color: var(--color-danger);
   min-height: 1.2em;
-  font-size: 0.85rem;
+  font-size: var(--text-base);
   margin: 0;
 }
 
@@ -222,7 +222,7 @@
 
 .suggestion-empty {
   color: var(--color-text-dim);
-  font-size: 0.9rem;
+  font-size: var(--text-md);
 }
 
 .suggestion-row {
@@ -245,13 +245,13 @@
 
 .suggestion-meta {
   color: var(--color-text-dim);
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   flex-shrink: 0;
 }
 
 .suggestion-content {
   margin: 0.4rem 0 0.6rem;
-  font-size: 0.85rem;
+  font-size: var(--text-base);
   color: var(--color-text);
   white-space: pre-wrap;
 }
@@ -281,8 +281,8 @@
   padding: 0.25rem 0.6rem;
   border-radius: 4px;
   cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
 }
 
 .suggestion-edit-btn:hover {
@@ -308,8 +308,8 @@
   color: var(--color-text);
   padding: 0.5rem 0.6rem;
   border-radius: 4px;
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
   resize: vertical;
 }
 
@@ -326,8 +326,8 @@
   padding: 0.35rem 0.75rem;
   border-radius: 4px;
   cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
 }
 
 .suggestion-save-btn:hover {
@@ -355,8 +355,8 @@
   padding: 0.3rem 0.8rem;
   border-radius: 4px;
   cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
 }
 
 .suggestion-pagination button:hover:not(:disabled) {
@@ -371,7 +371,7 @@
 
 .suggestion-page-label {
   color: var(--color-text-dim);
-  font-size: 0.85rem;
+  font-size: var(--text-base);
 }
 
 .suggestion-vote-btn {
@@ -381,8 +381,8 @@
   padding: 0.25rem 0.6rem;
   border-radius: 999px;
   cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
 }
 
 .suggestion-vote-btn:hover {

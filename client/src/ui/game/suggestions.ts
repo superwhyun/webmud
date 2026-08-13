@@ -7,6 +7,7 @@ import {
   type SuggestionDto,
 } from '../../suggestionApi';
 import { escapeHtml } from '../../domUtils';
+import { icon } from '../icons';
 import type { GameContext } from './context';
 
 let currentPage = 1;
@@ -46,13 +47,13 @@ function renderSuggestionRow(suggestion: SuggestionDto): string {
             class="suggestion-vote-btn suggestion-vote-up ${suggestion.myVote === 'up' ? 'active' : ''}"
             data-suggestion-id="${suggestion.id}"
             data-vote="up"
-          >👍 ${suggestion.upCount}</button>
+          >${icon('thumbsUp')} ${suggestion.upCount}</button>
           <button
             type="button"
             class="suggestion-vote-btn suggestion-vote-down ${suggestion.myVote === 'down' ? 'active' : ''}"
             data-suggestion-id="${suggestion.id}"
             data-vote="down"
-          >👎 ${suggestion.downCount}</button>
+          >${icon('thumbsDown')} ${suggestion.downCount}</button>
         </div>
         ${
           suggestion.isOwner

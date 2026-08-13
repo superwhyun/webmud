@@ -23,7 +23,15 @@
   --element-metal: #d8d8d8;
   --element-water: #5ca9ff;
 
-  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+  --font-sans:
+    'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto,
+    sans-serif;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.8rem;
+  --text-base: 0.85rem;
+  --text-md: 0.9rem;
+  --text-lg: 1rem;
 
   --glow-accent: 0 0 8px rgba(77, 255, 136, 0.45);
   --transition-fast: 150ms ease;
@@ -39,7 +47,7 @@ body {
   height: 100%;
   background: var(--color-bg);
   color: var(--color-text);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
 }
 
 body {
@@ -83,4 +91,10 @@ body::after {
 
 #app:has(.admin-screen) {
   max-width: none;
+}
+
+.icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  vertical-align: -0.125em;
 }

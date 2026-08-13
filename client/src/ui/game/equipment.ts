@@ -5,6 +5,7 @@ import {
   type EquipmentSlot,
 } from '@mud/shared';
 import { escapeHtml } from '../../domUtils';
+import { icon } from '../icons';
 import type { GameContext } from './context';
 
 export function renderEquipmentPanel(ctx: GameContext): void {
@@ -24,11 +25,11 @@ export function renderInventoryCount(ctx: GameContext): void {
   ctx.inventoryCountLabel.textContent = String(slotsUsed);
 }
 
-/** 체력만 채우면 ❤, 마나만 채우면 💧, 둘 다 채우는 엘릭서류는 ✨로 구분한다. */
+/** 체력만 채우면 heart, 마나만 채우면 droplet, 둘 다 채우는 엘릭서류는 sparkle로 구분한다. */
 function potionIcon(item: { healAmount: number; manaAmount: number }): string {
-  if (item.healAmount > 0 && item.manaAmount > 0) return '✨';
-  if (item.manaAmount > 0) return '💧';
-  return '❤';
+  if (item.healAmount > 0 && item.manaAmount > 0) return icon('sparkle');
+  if (item.manaAmount > 0) return icon('droplet');
+  return icon('heart');
 }
 
 /** 물약류(체력/마나 회복 아이템)는 인벤토리 칸을 차지하지 않으므로, 종류와 개수를 따로 모아 보여준다. */

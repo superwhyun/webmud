@@ -8,6 +8,7 @@ import {
   type RoomSnapshot,
 } from '@mud/shared';
 import { loadMacros, type MacroMap } from '../../macros';
+import { icon } from '../icons';
 
 export interface ActiveCooldown {
   name: string;
@@ -120,7 +121,7 @@ function renderShellHtml(isBuilder: boolean, isAdmin: boolean): string {
         ${
           isBuilder
             ? `<div class="ops-menu-section">
-                <div class="ops-menu-title">🛠 빌더 메뉴</div>
+                <div class="ops-menu-title">${icon('wrench')} 빌더 메뉴</div>
                 <button type="button" id="builder-entry" class="builder-entry-btn">맵 편집기 열기</button>
               </div>`
             : ''
@@ -128,7 +129,7 @@ function renderShellHtml(isBuilder: boolean, isAdmin: boolean): string {
         ${
           isAdmin
             ? `<div class="ops-menu-section">
-                <div class="ops-menu-title">⚙ 어드민 메뉴</div>
+                <div class="ops-menu-title">${icon('gear')} 어드민 메뉴</div>
                 <button type="button" id="admin-entry" class="admin-entry-btn">관리자 패널 열기</button>
               </div>`
             : ''
