@@ -18,7 +18,7 @@ export function renderBuilderScreen(container: HTMLElement, token: string, onBac
 
   ctx.refresh = async () => {
     if (ctx.selectedZoneId === null) return;
-    const result = await fetchBuilderRooms(ctx.token, ctx.selectedZoneId);
+    const [result] = await Promise.all([fetchBuilderRooms(ctx.token, ctx.selectedZoneId), refreshPalette(ctx)]);
     ctx.rooms = result.rooms;
     ctx.rerenderAll();
   };
