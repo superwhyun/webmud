@@ -284,7 +284,9 @@
 .stat-grid-entry {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.35rem;
+  width: 100%;
 }
 
 .stat-alloc-btn {
