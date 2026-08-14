@@ -10,7 +10,7 @@ import { db } from '../../db/client.js';
 import { getEffectiveStats } from '../combatStats.js';
 import { loadCharacter, loadCharacterState } from '../characterState.js';
 import type { CommandContext } from '../commands/context.js';
-import { findMobInRoomByName, type MobInstance } from '../MobManager.js';
+import { findMobInRoomByName, getMobsInRoom, type MobInstance } from '../MobManager.js';
 import { getSkillRank, hasLearnedSkill, resolveSkillArg } from '../skillProgress.js';
 import { computeDamage } from './combatMath.js';
 import { handleMobDefeat } from './combatRewards.js';
@@ -113,21 +113,32 @@ export function handleCast(ctx: CommandContext, rest: string): void {
   }
 
   if (skill.kind === 'damage') {
+    const isAoe = skill.targeting === 'aoe';
     let combat = getActiveCombat(ctx.session.ws);
     if (!combat || combat.mobs.length === 0) {
-      if (!targetHint) {
-        ctx.send({ type: 'text', text: `전투 중이 아닙니다. 사용법: 마법 ${skill.name} <대상>` });
-        return;
+      if (isAoe) {
+        // 광역기는 방에 있는 몹을 모두 끌어들이므로 특정 대상을 지정할 필요가 없다.
+        const roomMobs = getMobsInRoom(ctx.session.roomId);
+        if (roomMobs.length === 0) {
+          ctx.send({ type: 'text', text: '이곳에는 공격할 대상이 없습니다.' });
+          return;
+        }
+        ctx.send({ type: 'text', text: `${skill.name}(으)로 싸움을 겁니다!`, channel: 'combat-engage' });
+        combat = startCombatInterval(ctx, roomMobs);
+      } else {
+        if (!targetHint) {
+          ctx.send({ type: 'text', text: `전투 중이 아닙니다. 사용법: 마법 ${skill.name} <대상>` });
+          return;
+        }
+        const targetMob = findMobInRoomByName(ctx.session.roomId, targetHint);
+        if (!targetMob) {
+          ctx.send({ type: 'text', text: '그런 대상이 이곳에 없습니다.' });
+          return;
+        }
+        ctx.send({ type: 'text', text: `${targetMob.name}에게 싸움을 겁니다!`, channel: 'combat-engage' });
+        combat = startCombatInterval(ctx, [targetMob]);
       }
-      const targetMob = findMobInRoomByName(ctx.session.roomId, targetHint);
-      if (!targetMob) {
-        ctx.send({ type: 'text', text: '그런 대상이 이곳에 없습니다.' });
-        return;
-      }
-      ctx.send({ type: 'text', text: `${targetMob.name}에게 싸움을 겁니다!`, channel: 'combat-engage' });
-      combat = startCombatInterval(ctx, [targetMob]);
     }
-    const isAoe = skill.targeting === 'aoe';
     const targets: MobInstance[] = isAoe
       ? [...combat.mobs]
       : [(targetHint && combat.mobs.find((m) => m.name.includes(targetHint))) || combat.mobs[0]];
