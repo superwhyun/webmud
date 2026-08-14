@@ -33,6 +33,7 @@ export interface GameContext {
   roomHeader: HTMLDivElement;
   roomMeta: HTMLDivElement;
   roomVillage: HTMLDivElement;
+  mobSpriteRow: HTMLDivElement;
   combatPanel: HTMLDivElement;
   terminal: HTMLDivElement;
   sidebarStats: HTMLDivElement;
@@ -95,6 +96,7 @@ function renderShellHtml(isBuilder: boolean, isAdmin: boolean): string {
       </div>
       <div id="room-village"></div>
     </div>
+    <div class="mob-sprite-row" id="mob-sprite-row"></div>
     <div class="command-input">
       <span class="prompt">&gt;</span>
       <input id="command" type="text" autocomplete="off" autofocus aria-label="명령어 입력" />
@@ -220,6 +222,7 @@ export function createGameContext(
     roomHeader: container.querySelector<HTMLDivElement>('#room-header')!,
     roomMeta: container.querySelector<HTMLDivElement>('#room-meta')!,
     roomVillage: container.querySelector<HTMLDivElement>('#room-village')!,
+    mobSpriteRow: container.querySelector<HTMLDivElement>('#mob-sprite-row')!,
     combatPanel: container.querySelector<HTMLDivElement>('#combat-panel')!,
     terminal,
     sidebarStats: container.querySelector<HTMLDivElement>('#sidebar-stats')!,

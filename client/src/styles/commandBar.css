@@ -1,3 +1,21 @@
+.mob-sprite-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  min-height: 0;
+}
+
+.mob-sprite-row:empty {
+  display: none;
+}
+
+.mob-sprite {
+  width: 48px;
+  height: 48px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5));
+}
+
 .command-input {
   display: flex;
   align-items: center;

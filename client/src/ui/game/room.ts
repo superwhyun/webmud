@@ -11,6 +11,7 @@ import {
 import { escapeHtml } from '../../domUtils';
 import { icon } from '../icons';
 import { hpLevel, type GameContext } from './context';
+import { MOB_SPRITES } from './mobSprites';
 
 function raidStatusText(raidProtectedUntil: string | null): string {
   if (!raidProtectedUntil) return '무방비';
@@ -74,6 +75,14 @@ export function renderRoom(ctx: GameContext, room: RoomSnapshot): void {
     <span><strong>포털</strong>${portalsText}</span>
   `;
   ctx.roomVillage.innerHTML = room.village ? renderVillageSection(room.village) : '';
+
+  ctx.mobSpriteRow.innerHTML = room.mobs
+    .filter((mob) => MOB_SPRITES[mob.name])
+    .map(
+      (mob) =>
+        `<img class="mob-sprite" src="${MOB_SPRITES[mob.name]}" alt="${escapeHtml(mob.name)}" title="${escapeHtml(mob.name)} Lv.${mob.level}" />`,
+    )
+    .join('');
 }
 
 export function renderCombat(ctx: GameContext, mobs: CombatMobInfo[]): void {
