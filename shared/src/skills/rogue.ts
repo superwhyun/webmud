@@ -83,7 +83,6 @@ const ROGUE_BRANCHES = buildElementBranches({
   idPrefix: 'rogue',
   activeKind: 'damage',
   damageType: 'physical',
-  trunkFinalSkillId: 'rogue_stealth_ambush',
   themes: {
     wood: {
       actives: [

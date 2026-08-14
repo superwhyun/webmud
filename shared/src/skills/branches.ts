@@ -27,17 +27,16 @@ interface BranchConfig {
   /** 액티브 티어의 종류. 사제처럼 딜 스킬이 없는 직업은 'heal'을 쓴다. */
   activeKind: Extract<SkillKind, 'damage' | 'heal'>;
   damageType?: SkillDamageType;
-  /** 트리 공통 구간의 마지막 스킬 id — 분기 1티어의 선행 조건이 된다. */
-  trunkFinalSkillId: string;
   themes: Record<ElementType, BranchTheme>;
 }
 
-const BRANCH_TIER_LEVELS = [20, 28, 36, 44];
+const BRANCH_TIER_LEVELS = [5, 15, 25, 35];
 
 /**
- * 공통 트리(트렁크) 이후, 캐릭터의 원소(오행)에 따라 갈라지는 4단계 분기 스킬(원소 5 × 4단계 = 20개)을
- * 만든다. 앞 3단계는 액티브(공격/회복), 마지막 1단계는 패시브로 마무리한다. 자기 원소가 아니면 배울
- * 수 없다(element 필드로 걸러짐). 손으로 다 쓰는 대신 이 생성기로 통일한다.
+ * 공통 트리(트렁크)와는 별개로, 캐릭터의 원소(오행)에 따라 갈라지는 4단계 분기 스킬(원소 5 × 4단계 = 20개)을
+ * 만든다. 트렁크 완료를 요구하지 않고 레벨 조건만으로 독립적으로 진행된다. 앞 3단계는 액티브(공격/회복),
+ * 마지막 1단계는 패시브로 마무리한다. 자기 원소가 아니면 배울 수 없다(element 필드로 걸러짐). 손으로 다
+ * 쓰는 대신 이 생성기로 통일한다.
  */
 export function buildElementBranches(config: BranchConfig): SkillDefinition[] {
   return ELEMENT_VALUES.flatMap((element) => {
@@ -45,7 +44,7 @@ export function buildElementBranches(config: BranchConfig): SkillDefinition[] {
     const tierIds = [0, 1, 2, 3].map((i) => `${config.idPrefix}_${element}_t${i + 1}`);
 
     const activeSkills: SkillDefinition[] = theme.actives.map((tier, i) => {
-      const requires = i === 0 ? config.trunkFinalSkillId : tierIds[i - 1];
+      const requires = i === 0 ? undefined : tierIds[i - 1];
       const power = 3.2 + i * 0.6;
       const base =
         config.activeKind === 'heal'

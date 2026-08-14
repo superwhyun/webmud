@@ -80,7 +80,6 @@ const PRIEST_BRANCHES = buildElementBranches({
   job: 'priest',
   idPrefix: 'priest',
   activeKind: 'heal',
-  trunkFinalSkillId: 'priest_divine_grace',
   themes: {
     wood: {
       actives: [

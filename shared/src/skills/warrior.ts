@@ -83,7 +83,6 @@ const WARRIOR_BRANCHES = buildElementBranches({
   idPrefix: 'warrior',
   activeKind: 'damage',
   damageType: 'physical',
-  trunkFinalSkillId: 'warrior_earth_crush',
   themes: {
     wood: {
       actives: [

@@ -83,7 +83,6 @@ const MAGE_BRANCHES = buildElementBranches({
   idPrefix: 'mage',
   activeKind: 'damage',
   damageType: 'magic',
-  trunkFinalSkillId: 'mage_mana_engraving',
   themes: {
     wood: {
       actives: [
