@@ -72,6 +72,33 @@
   margin-right: 0.4rem;
 }
 
+.mob-name[data-element='wood'] {
+  color: var(--element-wood);
+}
+.mob-name[data-element='fire'] {
+  color: var(--element-fire);
+}
+.mob-name[data-element='earth'] {
+  color: var(--element-earth);
+}
+.mob-name[data-element='metal'] {
+  color: var(--element-metal);
+}
+.mob-name[data-element='water'] {
+  color: var(--element-water);
+}
+
+.mob-element-marker {
+  font-size: 0.85em;
+  margin-left: 0.1em;
+}
+.mob-element-advantage {
+  color: var(--color-accent);
+}
+.mob-element-disadvantage {
+  color: var(--color-danger);
+}
+
 .village-panel {
   margin-top: 0.75rem;
   padding-top: 0.75rem;

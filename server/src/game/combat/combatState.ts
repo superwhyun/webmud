@@ -30,7 +30,13 @@ export function getActiveCombat(ws: WebSocket): { mobs: MobInstance[] } | undefi
 export function sendCombatStatus(ctx: CommandContext, combat: { mobs: MobInstance[] }): void {
   ctx.send({
     type: 'combat',
-    mobs: combat.mobs.map((mob) => ({ spawnId: mob.spawnId, name: mob.name, hp: mob.hp, maxHp: mob.maxHp })),
+    mobs: combat.mobs.map((mob) => ({
+      spawnId: mob.spawnId,
+      name: mob.name,
+      hp: mob.hp,
+      maxHp: mob.maxHp,
+      element: mob.element,
+    })),
   });
 }
 

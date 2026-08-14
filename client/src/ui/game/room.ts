@@ -1,10 +1,12 @@
 import {
   DIRECTION_VALUES,
+  ELEMENT_ADVANTAGE,
   JOB_DESCRIPTIONS,
   JOB_LABELS,
   JOB_VALUES,
   NPC_TYPE_LABELS,
   type CombatMobInfo,
+  type ElementType,
   type RoomSnapshot,
   type VillageInfo,
 } from '@mud/shared';
@@ -12,6 +14,22 @@ import { escapeHtml } from '../../domUtils';
 import { icon } from '../icons';
 import { hpLevel, type GameContext } from './context';
 import { MOB_SPRITES } from './mobSprites';
+
+/**
+ * 몹 이름을 오행 색상으로 물들이고, 내 속성 기준으로 유리/불리하면 색상만으로는 구별이 안 될 수
+ * 있으니(색맹 등) ▲/▼ 기호를 덧붙인다. 상성이 없으면(같은 속성 등) 기호 없이 색만 표시.
+ */
+function mobNameHtml(name: string, mobElement: ElementType, playerElement: ElementType | undefined): string {
+  let marker = '';
+  if (playerElement !== undefined) {
+    if (ELEMENT_ADVANTAGE[playerElement] === mobElement) {
+      marker = '<span class="mob-element-marker mob-element-advantage" title="유리한 상성">▲</span>';
+    } else if (ELEMENT_ADVANTAGE[mobElement] === playerElement) {
+      marker = '<span class="mob-element-marker mob-element-disadvantage" title="불리한 상성">▼</span>';
+    }
+  }
+  return `<span class="mob-name" data-element="${mobElement}">${escapeHtml(name)}</span>${marker}`;
+}
 
 function raidStatusText(raidProtectedUntil: string | null): string {
   if (!raidProtectedUntil) return '무방비';
@@ -44,9 +62,12 @@ function renderVillageSection(village: VillageInfo): string {
 }
 
 export function renderRoom(ctx: GameContext, room: RoomSnapshot): void {
+  const playerElement = ctx.currentCharacterState?.element;
   const mobsText =
     room.mobs.length > 0
-      ? room.mobs.map((mob) => `${mob.name} Lv.${mob.level} (${mob.hp}/${mob.maxHp})`).join(', ')
+      ? room.mobs
+          .map((mob) => `${mobNameHtml(mob.name, mob.element, playerElement)} Lv.${mob.level} (${mob.hp}/${mob.maxHp})`)
+          .join(', ')
       : '-';
   const itemsText =
     room.items.length > 0
@@ -87,12 +108,13 @@ export function renderRoom(ctx: GameContext, room: RoomSnapshot): void {
 
 export function renderCombat(ctx: GameContext, mobs: CombatMobInfo[]): void {
   ctx.combatPanel.hidden = false;
+  const playerElement = ctx.currentCharacterState?.element;
   ctx.combatPanel.innerHTML = mobs
     .map((mob) => {
       const ratio = mob.maxHp > 0 ? mob.hp / mob.maxHp : 0;
       return `
         <div class="combat-mob-row">
-          <div class="combat-mob-name"></div>
+          <div class="combat-mob-name">${mobNameHtml(mob.name, mob.element, playerElement)}</div>
           <div class="hp-bar" role="progressbar" aria-valuenow="${mob.hp}" aria-valuemin="0" aria-valuemax="${mob.maxHp}">
             <div class="hp-bar-fill" data-level="${hpLevel(ratio)}" style="width: ${Math.max(0, ratio * 100)}%"></div>
           </div>
@@ -100,9 +122,6 @@ export function renderCombat(ctx: GameContext, mobs: CombatMobInfo[]): void {
       `;
     })
     .join('');
-  ctx.combatPanel.querySelectorAll<HTMLDivElement>('.combat-mob-name').forEach((el, index) => {
-    el.textContent = mobs[index].name;
-  });
 }
 
 export function hideCombat(ctx: GameContext): void {

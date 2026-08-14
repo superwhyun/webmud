@@ -46,6 +46,7 @@ export interface RoomMobInfo {
   hp: number;
   maxHp: number;
   level: number;
+  element: ElementType;
 }
 
 export interface RoomNpcInfo {
@@ -60,6 +61,7 @@ export interface CombatMobInfo {
   name: string;
   hp: number;
   maxHp: number;
+  element: ElementType;
 }
 
 export interface VillagePlotInfo {
