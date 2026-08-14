@@ -140,7 +140,7 @@ export function dispatchCommand(ctx: CommandContext, rawText: string): void {
     return;
   }
 
-  if (lowerVerb === 'enter' || lowerVerb === 'e') {
+  if (lowerVerb === 'enter' || lowerVerb === 'e' || lowerVerb === '입장') {
     handleEnter(ctx, rest);
     return;
   }

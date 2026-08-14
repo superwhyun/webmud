@@ -30,6 +30,7 @@ const COMMAND_VERBS = [
   'leave',
   'enter',
   'e',
+  '입장',
   'raid',
   'stat',
   'skill',
@@ -249,7 +250,7 @@ function handleTabComplete(ctx: GameContext): void {
       pool = combatTargetCandidates(ctx);
     } else if (verb === 'get') {
       pool = roomItemCandidates(ctx);
-    } else if (verb === 'enter' || verb === 'e') {
+    } else if (verb === 'enter' || verb === 'e' || verb === '입장') {
       pool = portalExitCandidates(ctx);
     } else if (verb === 'use') {
       pool = usableItemCandidates(ctx);
