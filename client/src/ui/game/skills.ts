@@ -109,21 +109,21 @@ export function renderSkillModal(ctx: GameContext): void {
 
   ctx.skillModalBody.querySelectorAll<HTMLButtonElement>('.skill-learn-btn').forEach((button) => {
     button.addEventListener('click', () => {
-      const message: ClientMessage = { type: 'command', text: `skill learn ${button.dataset.skillId}` };
+      const message: ClientMessage = { type: 'learnSkill', skillId: button.dataset.skillId! };
       ctx.socket.send(JSON.stringify(message));
     });
   });
 
   ctx.skillModalBody.querySelectorAll<HTMLButtonElement>('.skill-upgrade-btn').forEach((button) => {
     button.addEventListener('click', () => {
-      const message: ClientMessage = { type: 'command', text: `skill upgrade ${button.dataset.skillId}` };
+      const message: ClientMessage = { type: 'upgradeSkill', skillId: button.dataset.skillId! };
       ctx.socket.send(JSON.stringify(message));
     });
   });
 
   ctx.skillModalBody.querySelector<HTMLButtonElement>('#skill-reset-btn')!.addEventListener('click', () => {
     if (!confirm('배운 스킬을 전부 초기화할까요? 사용한 스킬 포인트는 전액 돌려받습니다.')) return;
-    const message: ClientMessage = { type: 'command', text: 'skill reset' };
+    const message: ClientMessage = { type: 'resetSkills' };
     ctx.socket.send(JSON.stringify(message));
   });
 }

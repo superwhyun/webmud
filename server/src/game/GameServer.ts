@@ -8,7 +8,13 @@ import { getEffectiveStats } from './combatStats.js';
 import { dispatchCommand } from './commands/index.js';
 import { handleEquipItemMessage, handleUnequipItemMessage, sendEquipmentAndInventory } from './commands/equipment.js';
 import { handleDropItemMessage } from './commands/items.js';
-import { sendSkills } from './commands/skills.js';
+import {
+  handleLearnSkillMessage,
+  handleResetSkillsMessage,
+  handleUpgradeSkillMessage,
+  sendSkills,
+} from './commands/skills.js';
+import { handleAllocateStatMessage } from './commands/stats.js';
 import { assignJobToLegacyCharacter, isValidJob } from './jobSelection.js';
 import { stopResting } from './rest.js';
 import { broadcastRoomSnapshot, sendRoomSnapshot } from './roomSnapshot.js';
@@ -145,6 +151,18 @@ export function handleConnection(ws: WebSocket): void {
     } else if (message.type === 'dropItem') {
       const session = requireSession(ws);
       if (session) handleDropItemMessage({ session, send: (m) => send(ws, m) }, message.inventoryId);
+    } else if (message.type === 'learnSkill') {
+      const session = requireSession(ws);
+      if (session) handleLearnSkillMessage({ session, send: (m) => send(ws, m) }, message.skillId);
+    } else if (message.type === 'upgradeSkill') {
+      const session = requireSession(ws);
+      if (session) handleUpgradeSkillMessage({ session, send: (m) => send(ws, m) }, message.skillId);
+    } else if (message.type === 'resetSkills') {
+      const session = requireSession(ws);
+      if (session) handleResetSkillsMessage({ session, send: (m) => send(ws, m) });
+    } else if (message.type === 'allocateStat') {
+      const session = requireSession(ws);
+      if (session) handleAllocateStatMessage({ session, send: (m) => send(ws, m) }, message.statKey, message.amount);
     } else if (message.type === 'chooseJob') {
       handleChooseJob(ws, message.job);
     }

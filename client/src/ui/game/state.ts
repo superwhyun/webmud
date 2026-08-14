@@ -1,9 +1,16 @@
-import { ELEMENT_LABELS, expThresholdForLevel, JOB_LABELS, type CharacterState, type ClientMessage } from '@mud/shared';
+import {
+  ELEMENT_LABELS,
+  expThresholdForLevel,
+  JOB_LABELS,
+  type CharacterState,
+  type ClientMessage,
+  type StatKey,
+} from '@mud/shared';
 import { escapeHtml } from '../../domUtils';
 import { hpLevel, type GameContext } from './context';
 import { renderSkillModal } from './skills';
 
-const STAT_ALLOC_ENTRIES: { key: string; label: string; pick: (c: CharacterState) => number }[] = [
+const STAT_ALLOC_ENTRIES: { key: StatKey; label: string; pick: (c: CharacterState) => number }[] = [
   { key: 'str', label: '힘', pick: (c) => c.strength },
   { key: 'dex', label: '민첩', pick: (c) => c.dexterity },
   { key: 'int', label: '지능', pick: (c) => c.intelligence },
@@ -102,7 +109,7 @@ export function renderState(ctx: GameContext, character: CharacterState): void {
 
   ctx.sidebarStats.querySelectorAll<HTMLButtonElement>('.stat-alloc-btn').forEach((button) => {
     button.addEventListener('click', () => {
-      const message: ClientMessage = { type: 'command', text: `stat ${button.dataset.statKey} 1` };
+      const message: ClientMessage = { type: 'allocateStat', statKey: button.dataset.statKey as StatKey, amount: 1 };
       ctx.socket.send(JSON.stringify(message));
     });
   });

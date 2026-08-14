@@ -1,7 +1,7 @@
 import type { ElementType } from './elements.js';
 import type { EquipmentSlot } from './equipment.js';
 import type { ItemGrade } from './itemGrades.js';
-import type { JobType } from './jobs.js';
+import type { JobType, StatKey } from './jobs.js';
 import type { NpcType } from './npc.js';
 
 export interface CharacterState {
@@ -121,6 +121,10 @@ export type ClientMessage =
   | { type: 'equipItem'; inventoryId: number }
   | { type: 'unequipItem'; slot: EquipmentSlot }
   | { type: 'dropItem'; inventoryId: number }
+  | { type: 'learnSkill'; skillId: string }
+  | { type: 'upgradeSkill'; skillId: string }
+  | { type: 'resetSkills' }
+  | { type: 'allocateStat'; statKey: StatKey; amount: number }
   | { type: 'chooseJob'; job: JobType };
 
 export type ChatChannel =

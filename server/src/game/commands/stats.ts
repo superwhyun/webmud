@@ -1,43 +1,22 @@
+import { STAT_KEY_LABELS, STAT_KEY_VALUES, type StatKey } from '@mud/shared';
 import { db } from '../../db/client.js';
 import { loadCharacter, loadCharacterState } from '../characterState.js';
 import type { CommandContext } from './context.js';
 
-const STAT_COLUMNS = {
+const STAT_COLUMNS: Record<StatKey, string> = {
   str: 'strength',
   dex: 'dexterity',
   int: 'intelligence',
   vit: 'vitality',
   wis: 'wisdom',
   luk: 'luck',
-} as const;
-
-type StatKey = keyof typeof STAT_COLUMNS;
-
-const STAT_LABELS: Record<StatKey, string> = {
-  str: '힘',
-  dex: '민첩',
-  int: '지능',
-  vit: '체력',
-  wis: '지혜',
-  luk: '행운',
 };
 
 /** 전사/사제의 레벨업 성장 비율(HP+4당 체력+1)과 맞춘 값 — 체력 분배도 같은 비율로 최대HP를 올린다. */
 const HP_PER_VITALITY_POINT = 4;
 
-export function handleStat(ctx: CommandContext, rest: string): void {
-  const [statArg, amountArg] = rest.trim().split(/\s+/);
-  const statKey = statArg?.toLowerCase() as StatKey | undefined;
-
-  if (!statKey || !(statKey in STAT_COLUMNS)) {
-    ctx.send({
-      type: 'text',
-      text: '사용법: stat <str|dex|int|vit|wis|luk> <수치> (힘/민첩/지능/체력/지혜/행운)',
-    });
-    return;
-  }
-
-  const amount = Number(amountArg);
+/** stat UI 전용 메시지(allocateStat)와 텍스트 명령(stat <키> <수치>)이 공통으로 쓰는 실행부. */
+export function handleAllocateStatMessage(ctx: CommandContext, statKey: StatKey, amount: number): void {
   if (!Number.isInteger(amount) || amount <= 0) {
     ctx.send({ type: 'text', text: '1 이상의 정수를 입력하세요.' });
     return;
@@ -66,8 +45,23 @@ export function handleStat(ctx: CommandContext, rest: string): void {
     ).run(amount, amount, character.id);
   }
 
-  ctx.send({ type: 'text', text: `${STAT_LABELS[statKey]}에 스탯 포인트 ${amount}을(를) 분배했습니다.` });
+  ctx.send({ type: 'text', text: `${STAT_KEY_LABELS[statKey]}에 스탯 포인트 ${amount}을(를) 분배했습니다.` });
 
   const state = loadCharacterState(character.id);
   if (state) ctx.send({ type: 'state', character: state });
+}
+
+export function handleStat(ctx: CommandContext, rest: string): void {
+  const [statArg, amountArg] = rest.trim().split(/\s+/);
+  const statKey = statArg?.toLowerCase() as StatKey | undefined;
+
+  if (!statKey || !STAT_KEY_VALUES.includes(statKey)) {
+    ctx.send({
+      type: 'text',
+      text: '사용법: stat <str|dex|int|vit|wis|luk> <수치> (힘/민첩/지능/체력/지혜/행운)',
+    });
+    return;
+  }
+
+  handleAllocateStatMessage(ctx, statKey, Number(amountArg));
 }

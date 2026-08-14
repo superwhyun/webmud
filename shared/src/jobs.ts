@@ -48,3 +48,17 @@ export const STAT_POINTS_PER_LEVEL = 3;
 
 /** 레벨업 시 지급되는 스킬 포인트 수. */
 export const SKILL_POINTS_PER_LEVEL = 1;
+
+/** stat 명령/스탯 분배 UI에서 쓰는 6개 자유 분배 스탯 키. */
+export type StatKey = 'str' | 'dex' | 'int' | 'vit' | 'wis' | 'luk';
+
+export const STAT_KEY_VALUES: StatKey[] = ['str', 'dex', 'int', 'vit', 'wis', 'luk'];
+
+export const STAT_KEY_LABELS: Record<StatKey, string> = {
+  str: '힘',
+  dex: '민첩',
+  int: '지능',
+  vit: '체력',
+  wis: '지혜',
+  luk: '행운',
+};

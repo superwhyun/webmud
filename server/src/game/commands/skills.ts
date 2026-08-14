@@ -18,6 +18,50 @@ export function sendSkills(ctx: CommandContext): void {
   });
 }
 
+/**
+ * 스킬 UI 전용 메시지(learnSkill/upgradeSkill/resetSkills)와 텍스트 명령(skill learn/upgrade/reset)이
+ * 공통으로 쓰는 실행부. skillId는 이미 확정된 값(UI 버튼의 data-skill-id 또는 텍스트 명령에서
+ * resolveSkillArg로 해석된 id)이어야 한다.
+ */
+export function handleLearnSkillMessage(ctx: CommandContext, skillId: string): void {
+  const character = loadCharacter(ctx.session.characterId);
+  if (!character) return;
+
+  const result = learnSkill(character, skillId);
+  ctx.send({ type: 'text', text: result.message });
+  if (result.ok) {
+    const state = loadCharacterState(character.id);
+    if (state) ctx.send({ type: 'state', character: state });
+    sendSkills(ctx);
+  }
+}
+
+export function handleUpgradeSkillMessage(ctx: CommandContext, skillId: string): void {
+  const character = loadCharacter(ctx.session.characterId);
+  if (!character) return;
+
+  const result = upgradeSkill(character, skillId);
+  ctx.send({ type: 'text', text: result.message });
+  if (result.ok) {
+    const state = loadCharacterState(character.id);
+    if (state) ctx.send({ type: 'state', character: state });
+    sendSkills(ctx);
+  }
+}
+
+export function handleResetSkillsMessage(ctx: CommandContext): void {
+  const character = loadCharacter(ctx.session.characterId);
+  if (!character) return;
+
+  const result = resetSkills(character);
+  ctx.send({ type: 'text', text: result.message });
+  if (result.ok) {
+    const state = loadCharacterState(character.id);
+    if (state) ctx.send({ type: 'state', character: state });
+    sendSkills(ctx);
+  }
+}
+
 export function handleSkill(ctx: CommandContext, rest: string): void {
   const [subVerb, ...args] = rest.trim().split(/\s+/);
 
@@ -34,17 +78,8 @@ export function handleSkill(ctx: CommandContext, rest: string): void {
       ctx.send({ type: 'text', text: '사용법: skill learn <스킬 ID>' });
       return;
     }
-    const character = loadCharacter(ctx.session.characterId);
-    if (!character) return;
-
     const skill = resolveSkillArg(skillArg);
-    const result = learnSkill(character, skill?.id ?? skillArg);
-    ctx.send({ type: 'text', text: result.message });
-    if (result.ok) {
-      const state = loadCharacterState(character.id);
-      if (state) ctx.send({ type: 'state', character: state });
-      sendSkills(ctx);
-    }
+    handleLearnSkillMessage(ctx, skill?.id ?? skillArg);
     return;
   }
 
@@ -54,31 +89,13 @@ export function handleSkill(ctx: CommandContext, rest: string): void {
       ctx.send({ type: 'text', text: '사용법: skill upgrade <스킬 ID>' });
       return;
     }
-    const character = loadCharacter(ctx.session.characterId);
-    if (!character) return;
-
     const skill = resolveSkillArg(skillArg);
-    const result = upgradeSkill(character, skill?.id ?? skillArg);
-    ctx.send({ type: 'text', text: result.message });
-    if (result.ok) {
-      const state = loadCharacterState(character.id);
-      if (state) ctx.send({ type: 'state', character: state });
-      sendSkills(ctx);
-    }
+    handleUpgradeSkillMessage(ctx, skill?.id ?? skillArg);
     return;
   }
 
   if (subVerb.toLowerCase() === 'reset') {
-    const character = loadCharacter(ctx.session.characterId);
-    if (!character) return;
-
-    const result = resetSkills(character);
-    ctx.send({ type: 'text', text: result.message });
-    if (result.ok) {
-      const state = loadCharacterState(character.id);
-      if (state) ctx.send({ type: 'state', character: state });
-      sendSkills(ctx);
-    }
+    handleResetSkillsMessage(ctx);
     return;
   }
 
