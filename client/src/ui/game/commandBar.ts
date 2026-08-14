@@ -16,6 +16,11 @@ const COMMAND_VERBS = [
   'rest',
   'get',
   'drop',
+  'give',
+  'examine',
+  'ex',
+  'consider',
+  'con',
   'inventory',
   'inv',
   'equip',
@@ -144,6 +149,34 @@ function usableItemCandidates(ctx: GameContext): string[] {
   return [...names];
 }
 
+/** give는 인벤토리에 있는 아이템만 건네줄 수 있으므로, 인벤토리 이름 전체를 후보로 삼는다. */
+function inventoryItemCandidates(ctx: GameContext): string[] {
+  return [...new Set(ctx.inventoryState.map((item) => item.name))];
+}
+
+/** give의 두 번째 인자(대상)는 같은 방에 있는 다른 플레이어만 될 수 있으므로, 방의 유저 목록에서 자신을 뺀 이름을 후보로 삼는다. */
+function roomPlayerCandidates(ctx: GameContext): string[] {
+  const selfName = ctx.currentCharacterState?.name;
+  return ctx.latestRoom?.players.filter((name) => name !== selfName) ?? [];
+}
+
+/** examine/consider는 방의 몹/NPC/아이템, 그리고 examine은 인벤토리 아이템까지 대상이 될 수 있다. */
+function examineCandidates(ctx: GameContext): string[] {
+  const names = new Set<string>();
+  if (ctx.latestRoom) {
+    for (const mob of ctx.latestRoom.mobs) names.add(mob.name);
+    for (const npc of ctx.latestRoom.npcs) names.add(npc.name);
+    for (const item of ctx.latestRoom.items) names.add(item.name);
+  }
+  for (const item of ctx.inventoryState) names.add(item.name);
+  return [...names];
+}
+
+/** consider는 방에 있는 몬스터만 대상이 될 수 있다. */
+function considerCandidates(ctx: GameContext): string[] {
+  return ctx.latestRoom ? [...new Set(ctx.latestRoom.mobs.map((mob) => mob.name))] : [];
+}
+
 /** buy는 방에 있는 상인들이 파는 품목만 대상이 될 수 있으므로, 상인별 판매 목록을 모아 후보로 삼는다. */
 function shopItemCandidates(ctx: GameContext): string[] {
   const names = new Set<string>();
@@ -222,6 +255,12 @@ function handleTabComplete(ctx: GameContext): void {
       pool = usableItemCandidates(ctx);
     } else if (verb === 'buy') {
       pool = shopItemCandidates(ctx);
+    } else if (verb === 'give') {
+      pool = tokenIndex === 1 ? inventoryItemCandidates(ctx) : roomPlayerCandidates(ctx);
+    } else if (verb === 'examine' || verb === 'ex') {
+      pool = examineCandidates(ctx);
+    } else if (verb === 'consider' || verb === 'con') {
+      pool = considerCandidates(ctx);
     } else {
       pool = nameCompletionCandidates(ctx);
     }

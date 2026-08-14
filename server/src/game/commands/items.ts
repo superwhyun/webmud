@@ -2,7 +2,8 @@ import { formatItemMention, MAX_INVENTORY_SLOTS, type ItemGrade } from '@mud/sha
 import { db } from '../../db/client.js';
 import { loadCharacter, loadCharacterState } from '../characterState.js';
 import { broadcastRoomSnapshot } from '../roomSnapshot.js';
-import { broadcastToRoom } from '../sessionRegistry.js';
+import { broadcastToRoom, getSessionsInRoom } from '../sessionRegistry.js';
+import { send } from '../wsUtil.js';
 import type { CommandContext } from './context.js';
 import { equipInventoryItem, sendEquipmentAndInventory } from './equipment.js';
 
@@ -188,6 +189,85 @@ export function handleDropItemMessage(ctx: CommandContext, inventoryId: number):
   }
 
   performDrop(ctx, item);
+}
+
+/** 아이템 이름 다음 마지막 공백까지가 아이템명, 그 뒤 한 토큰이 대상 이름이다. 캐릭터 이름은 공백을 허용하지 않으므로 이 분리가 항상 안전하다. */
+export function handleGive(ctx: CommandContext, rest: string): void {
+  const trimmed = rest.trim();
+  const spaceIndex = trimmed.lastIndexOf(' ');
+  if (!trimmed || spaceIndex === -1) {
+    ctx.send({ type: 'error', text: '사용법: give <아이템> <플레이어>' });
+    return;
+  }
+
+  const itemName = trimmed.slice(0, spaceIndex).trim();
+  const targetName = trimmed.slice(spaceIndex + 1).trim();
+  if (!itemName || !targetName) {
+    ctx.send({ type: 'error', text: '사용법: give <아이템> <플레이어>' });
+    return;
+  }
+  if (targetName === ctx.session.characterName) {
+    ctx.send({ type: 'error', text: '자기 자신에게는 줄 수 없습니다.' });
+    return;
+  }
+
+  const item = findInventoryItem(ctx.session.characterId, itemName);
+  if (!item) {
+    ctx.send({ type: 'text', text: '그런 아이템을 가지고 있지 않습니다.' });
+    return;
+  }
+  if (item.equipped) {
+    ctx.send({ type: 'text', text: '장착 중인 아이템은 줄 수 없습니다. 먼저 해제하세요.' });
+    return;
+  }
+
+  const targetSession = getSessionsInRoom(ctx.session.roomId).find((s) => s.characterName === targetName);
+  if (!targetSession) {
+    ctx.send({ type: 'text', text: `'${targetName}'님은 이 방에 없습니다.` });
+    return;
+  }
+
+  const existingTarget = db
+    .prepare('SELECT id FROM inventory_items WHERE character_id = ? AND item_id = ? AND equipped = 0')
+    .get(targetSession.characterId, item.item_id) as { id: number } | undefined;
+
+  if (!existingTarget && item.type !== 'consumable') {
+    const { count } = db
+      .prepare(
+        `SELECT COUNT(*) as count FROM inventory_items inv
+         JOIN items i ON i.id = inv.item_id
+         WHERE inv.character_id = ? AND i.type != 'consumable'`,
+      )
+      .get(targetSession.characterId) as { count: number };
+    if (count >= MAX_INVENTORY_SLOTS) {
+      ctx.send({ type: 'text', text: `${targetName}님의 인벤토리가 가득 차 있습니다.` });
+      return;
+    }
+  }
+
+  const moveTx = db.transaction(() => {
+    if (item.quantity > 1) {
+      db.prepare('UPDATE inventory_items SET quantity = quantity - 1 WHERE id = ?').run(item.id);
+    } else {
+      db.prepare('DELETE FROM inventory_items WHERE id = ?').run(item.id);
+    }
+
+    if (existingTarget) {
+      db.prepare('UPDATE inventory_items SET quantity = quantity + 1 WHERE id = ?').run(existingTarget.id);
+    } else {
+      db.prepare(
+        'INSERT INTO inventory_items (character_id, item_id, quantity, equipped) VALUES (?, ?, 1, 0)',
+      ).run(targetSession.characterId, item.item_id);
+    }
+  });
+  moveTx();
+
+  const mention = formatItemMention(item.name, item.grade);
+  ctx.send({ type: 'text', text: `${targetName}님에게 ${mention}을(를) 주었습니다.` });
+  send(targetSession.ws, { type: 'text', text: `${ctx.session.characterName}님이 ${mention}을(를) 주었습니다.` });
+
+  sendEquipmentAndInventory(ctx);
+  sendEquipmentAndInventory({ session: targetSession, send: (message) => send(targetSession.ws, message) });
 }
 
 export function handleInventory(ctx: CommandContext): void {

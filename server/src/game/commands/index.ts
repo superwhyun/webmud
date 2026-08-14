@@ -1,7 +1,8 @@
 import { handleSay, handleShout, handleTell, handleWho } from './chat.js';
 import { handleAttack, handleCast, handleFlee } from './combat.js';
 import type { CommandContext } from './context.js';
-import { handleDrop, handleEquip, handleGet, handleInventory, handleUse } from './items.js';
+import { handleConsider, handleExamine } from './inspect.js';
+import { handleDrop, handleEquip, handleGet, handleGive, handleInventory, handleUse } from './items.js';
 import { describeRoom, showHelp } from './misc.js';
 import { handleEnter, handleMove, resolveDirection } from './movement.js';
 import { handleBuy, handleSell, handleShop } from './npc.js';
@@ -76,6 +77,21 @@ export function dispatchCommand(ctx: CommandContext, rawText: string): void {
 
   if (lowerVerb === 'drop') {
     handleDrop(ctx, rest);
+    return;
+  }
+
+  if (lowerVerb === 'give') {
+    handleGive(ctx, rest);
+    return;
+  }
+
+  if (lowerVerb === 'examine' || lowerVerb === 'ex') {
+    handleExamine(ctx, rest);
+    return;
+  }
+
+  if (lowerVerb === 'consider' || lowerVerb === 'con') {
+    handleConsider(ctx, rest);
     return;
   }
 
