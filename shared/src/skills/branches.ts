@@ -45,10 +45,10 @@ export function buildElementBranches(config: BranchConfig): SkillDefinition[] {
 
     const activeSkills: SkillDefinition[] = theme.actives.map((tier, i) => {
       const requires = i === 0 ? undefined : tierIds[i - 1];
-      const power = 3.2 + i * 0.6;
+      const power = 2.0 + i * 0.7;
       const base =
         config.activeKind === 'heal'
-          ? { kind: 'heal' as const, power: 40 + i * 22 }
+          ? { kind: 'heal' as const, power: 24 + i * 16 }
           : {
               kind: 'damage' as const,
               power,
@@ -61,7 +61,7 @@ export function buildElementBranches(config: BranchConfig): SkillDefinition[] {
         name: tier.name,
         description: tier.description,
         requiredLevel: BRANCH_TIER_LEVELS[i],
-        mpCost: 20 + i * 8,
+        mpCost: 12 + i * 6,
         cooldownMs: 10000 + i * 3000,
         element,
         requires,
@@ -77,7 +77,7 @@ export function buildElementBranches(config: BranchConfig): SkillDefinition[] {
       requiredLevel: BRANCH_TIER_LEVELS[3],
       kind: 'passive',
       mpCost: 0,
-      power: 24,
+      power: 16,
       passiveStat: theme.capstone.passiveStat,
       element,
       requires: tierIds[2],
