@@ -146,9 +146,16 @@ export function handleCast(ctx: CommandContext, rest: string): void {
     const hitTexts: string[] = [];
     for (const mob of targets) {
       const defense = skill.damageType === 'magic' ? mob.magicDefense : mob.physicalDefense;
-      const damage = computeDamage(attackStat, defense, playerStats.element, mob.element, perTargetPower);
+      const { damage, isCrit } = computeDamage(
+        attackStat,
+        defense,
+        playerStats.element,
+        mob.element,
+        perTargetPower,
+        playerStats.luck,
+      );
       mob.hp = Math.max(0, mob.hp - damage);
-      hitTexts.push(`${mob.name}에게 ${damage}의 피해 (${mob.hp}/${mob.maxHp})`);
+      hitTexts.push(`${mob.name}에게 ${damage}의 피해${isCrit ? ' 치명타!' : ''} (${mob.hp}/${mob.maxHp})`);
       if (mob.hp <= 0) handleMobDefeat(ctx, mob, character.id);
     }
     combat.mobs = combat.mobs.filter((m) => m.hp > 0);

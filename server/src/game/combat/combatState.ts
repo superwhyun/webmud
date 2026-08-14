@@ -137,9 +137,10 @@ function performRound(ctx: CommandContext): void {
     ctx.send({ type: 'text', text: `${target.name}가 당신의 공격을 회피했습니다!`, channel: 'combat-evade' });
   } else {
     target.hp = Math.max(0, target.hp - playerAttack.damage);
+    const critNote = playerAttack.isCrit ? ' 치명타!' : '';
     ctx.send({
       type: 'text',
-      text: `당신이 ${target.name}에게 ${playerAttack.damage}의 피해를 입혔습니다. (${target.hp}/${target.maxHp})`,
+      text: `당신이 ${target.name}에게 ${playerAttack.damage}의 피해를 입혔습니다.${critNote} (${target.hp}/${target.maxHp})`,
       channel: 'combat-hit',
     });
   }
@@ -169,8 +170,9 @@ function performRound(ctx: CommandContext): void {
       continue;
     }
     hp = Math.max(0, hp - mobAttack.damage);
+    const critNote = mobAttack.isCrit ? ' 치명타!' : '';
     attackMessages.push({
-      text: `${attacker.name}가 당신에게 ${mobAttack.damage}의 피해를 입혔습니다. (${hp}/${character.max_hp})`,
+      text: `${attacker.name}가 당신에게 ${mobAttack.damage}의 피해를 입혔습니다.${critNote} (${hp}/${character.max_hp})`,
       channel: 'combat-hurt',
     });
   }

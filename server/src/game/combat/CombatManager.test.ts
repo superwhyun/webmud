@@ -41,7 +41,8 @@ describe('resolveAttack', () => {
 
     for (let i = 0; i < 100; i++) {
       const result = resolveAttack(attacker, defender, 'physical');
-      expect(result.damage).toBeLessThanOrEqual(3); // 10 - 8 = 2, +/-1 variance
+      // 10 - 8 = 2, +/-1 variance; on a (rare, luck 0 -> 5% base) crit, 10*1.5 - 8 = 7, +/-1
+      expect(result.damage).toBeLessThanOrEqual(result.isCrit ? 8 : 3);
     }
   });
 
@@ -51,7 +52,7 @@ describe('resolveAttack', () => {
 
     for (let i = 0; i < 100; i++) {
       const result = resolveAttack(attacker, defender, 'magic');
-      expect(result.damage).toBeLessThanOrEqual(3);
+      expect(result.damage).toBeLessThanOrEqual(result.isCrit ? 8 : 3);
     }
   });
 
@@ -67,6 +68,18 @@ describe('resolveAttack', () => {
     };
 
     expect(sample(advantaged)).toBeGreaterThan(sample(neutral));
+  });
+
+  it('crits more often and for more damage as luck increases', () => {
+    const attacker = stats({ strength: 20, dexterity: 100, luck: 30 });
+    const defender = stats({ physicalDefense: 0, dexterity: 0 });
+
+    let critCount = 0;
+    for (let i = 0; i < 500; i++) {
+      if (resolveAttack(attacker, defender, 'physical').isCrit) critCount += 1;
+    }
+    // base 5% + 30 luck * 1% = 35%, capped at MAX_CRIT_CHANCE (35%)
+    expect(critCount / 500).toBeGreaterThan(0.2);
   });
 
   it('deals less average damage on an elemental disadvantage (water beats fire)', () => {

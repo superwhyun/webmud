@@ -13,6 +13,10 @@ import { send } from './wsUtil.js';
  */
 const REST_TICKS_TO_FULL = 30;
 
+/** 지혜 스탯이 마나 회복 속도에 얼마나 붙는지. 기본 비율은 REST_TICKS_TO_FULL과 동일한 틱당 1/30. */
+const BASE_MP_REGEN_RATIO = 1 / REST_TICKS_TO_FULL;
+const MP_REGEN_PER_WISDOM = 0.002;
+
 const restingSessions = new Set<WebSocket>();
 
 export function isResting(ws: WebSocket): boolean {
@@ -60,7 +64,8 @@ export function tickResting(): void {
     }
 
     const hpStep = Math.max(1, Math.ceil(character.max_hp / REST_TICKS_TO_FULL));
-    const mpStep = Math.max(1, Math.ceil(character.max_mp / REST_TICKS_TO_FULL));
+    const mpRegenRatio = BASE_MP_REGEN_RATIO + character.wisdom * MP_REGEN_PER_WISDOM;
+    const mpStep = Math.max(1, Math.round(character.max_mp * mpRegenRatio));
     const newHp = Math.min(character.max_hp, character.hp + hpStep);
     const newMp = Math.min(character.max_mp, character.mp + mpStep);
 
