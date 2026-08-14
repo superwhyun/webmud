@@ -65,10 +65,12 @@ export interface GameContext {
   equipmentState: EquipmentSnapshot;
   inventoryState: InventoryItemInfo[];
 
-  /** 방 id -> 로컬 좌표. 존이 바뀌면 새 원점(0,0)에서 다시 시작한다. */
+  /** 방 id -> 로컬 좌표. 존이 바뀌거나 방향 없는 순간이동(부활 등)으로 미지의 방에 도착하면 새 원점에서 다시 시작한다. */
   roomCoord: Map<number, { zoneId: number; x: number; y: number }>;
   coordRoom: Map<string, number>;
   roomNames: Map<number, string>;
+  /** 새 원점을 잡을 때마다 하나씩 늘려서, 같은 존 안에서 이미 쓰인 좌표와 절대 겹치지 않는 새 원점을 고른다. */
+  nextLocalOrigin: number;
   /** 마지막으로 확인한 출구 정보를 방 id별로 기억해서, 그 방을 떠난 뒤에도 미니맵에 계속 표시한다. */
   roomExits: Map<number, RoomSnapshot['exits']>;
   currentRoomId: number | null;
@@ -257,6 +259,7 @@ export function createGameContext(
     roomCoord: previous?.roomCoord ?? new Map(),
     coordRoom: previous?.coordRoom ?? new Map(),
     roomNames: previous?.roomNames ?? new Map(),
+    nextLocalOrigin: previous?.nextLocalOrigin ?? 0,
     roomExits: previous?.roomExits ?? new Map(),
     currentRoomId: previous?.currentRoomId ?? null,
     pendingDirection: null,

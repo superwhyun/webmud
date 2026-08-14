@@ -39,9 +39,19 @@ const MINIMAP_CARDINAL_DIRECTIONS = new Set(['north', 'south', 'east', 'west']);
 /** north/south/east/west/up/down이 아닌 출구는 빌더가 만든 이름 붙은 연결점(enter로 타는 포털)이다. */
 const MINIMAP_SPATIAL_DIRECTIONS = new Set(DIRECTION_VALUES);
 
+/** 같은 존 안에서 새 원점끼리 절대 겹치지 않도록, 원점을 잡을 때마다 충분히 먼 y로 밀어낸다. */
+const LOCAL_ORIGIN_GAP = 1000;
+
 function setRoomPosition(ctx: GameContext, roomId: number, zoneId: number, x: number, y: number): void {
   ctx.roomCoord.set(roomId, { zoneId, x, y });
   ctx.coordRoom.set(`${zoneId}:${x},${y}`, roomId);
+}
+
+/** 방향 없는 순간이동(부활, 포털, 관리자 이동 등)으로 미지의 방에 도착했을 때 쓸, 기존 좌표와 겹치지 않는 새 원점. */
+function nextLocalOrigin(ctx: GameContext): { x: number; y: number } {
+  const y = ctx.nextLocalOrigin * LOCAL_ORIGIN_GAP;
+  ctx.nextLocalOrigin += 1;
+  return { x: 0, y };
 }
 
 export function recordRoomVisit(ctx: GameContext, room: RoomSnapshot): void {
@@ -54,8 +64,9 @@ export function recordRoomVisit(ctx: GameContext, room: RoomSnapshot): void {
       const offset = CARDINAL_OFFSET[ctx.pendingDirection];
       setRoomPosition(ctx, room.id, room.zoneId, previous.x + offset.dx, previous.y + offset.dy);
     } else {
-      // 최초 진입이거나(전 위치 없음) 존이 바뀐 이동(포털 등 인접성 없는 이동) → 새 로컬 원점에서 시작
-      setRoomPosition(ctx, room.id, room.zoneId, 0, 0);
+      // 최초 진입이거나(전 위치 없음) 존이 바뀐 이동(부활/포털 등 인접성 없는 이동) → 기존 좌표와 겹치지 않는 새 원점에서 시작
+      const origin = nextLocalOrigin(ctx);
+      setRoomPosition(ctx, room.id, room.zoneId, origin.x, origin.y);
     }
   }
 
