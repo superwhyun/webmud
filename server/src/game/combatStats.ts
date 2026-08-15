@@ -24,6 +24,10 @@ interface BonusRow {
   magic_defense_bonus: number;
 }
 
+/** 체력 1당 물리방어, 지혜 1당 마법방어 보너스. 힘/지능은 이미 공격 쪽을 전담하므로 방어는 체력/지혜에 붙인다. */
+const PHYSICAL_DEFENSE_PER_VITALITY = 0.5;
+const MAGIC_DEFENSE_PER_WISDOM = 0.5;
+
 export function getEffectiveStats(character: CharacterRow): EffectiveStats {
   const bonuses = db
     .prepare(
@@ -47,8 +51,12 @@ export function getEffectiveStats(character: CharacterRow): EffectiveStats {
     wisdom: character.wisdom,
     luck: character.luck,
     attackPower: bonuses.attack_power_bonus,
-    physicalDefense: character.physical_defense + bonuses.physical_defense_bonus,
-    magicDefense: character.magic_defense + bonuses.magic_defense_bonus,
+    physicalDefense:
+      character.physical_defense +
+      bonuses.physical_defense_bonus +
+      Math.floor(character.vitality * PHYSICAL_DEFENSE_PER_VITALITY),
+    magicDefense:
+      character.magic_defense + bonuses.magic_defense_bonus + Math.floor(character.wisdom * MAGIC_DEFENSE_PER_WISDOM),
     element: character.element,
   };
 }
