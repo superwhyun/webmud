@@ -60,7 +60,7 @@ const WARRIOR_TRUNK: SkillDefinition[] = [
     requiredLevel: 10,
     kind: 'passive',
     mpCost: 0,
-    power: 10,
+    power: 25,
     passiveStat: 'magicDefense',
     requires: 'warrior_brute_force',
   },

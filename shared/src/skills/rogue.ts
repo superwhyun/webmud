@@ -60,7 +60,7 @@ const ROGUE_TRUNK: SkillDefinition[] = [
     requiredLevel: 10,
     kind: 'passive',
     mpCost: 0,
-    power: 10,
+    power: 25,
     passiveStat: 'magicDefense',
     requires: 'rogue_swift_feet',
   },
