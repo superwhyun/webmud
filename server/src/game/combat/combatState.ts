@@ -177,8 +177,9 @@ function performRound(ctx: CommandContext): void {
     }
     hp = Math.max(0, hp - mobAttack.damage);
     const critNote = mobAttack.isCrit ? ' 치명타!' : '';
+    const damageTypeLabel = attacker.damageType === 'magic' ? '마법' : '물리';
     attackMessages.push({
-      text: `${attacker.name}가 당신에게 ${mobAttack.damage}의 피해를 입혔습니다.${critNote} (${hp}/${character.max_hp})`,
+      text: `${attacker.name}가 당신에게 ${damageTypeLabel} 공격으로 ${mobAttack.damage}의 피해를 입혔습니다.${critNote} (${hp}/${character.max_hp})`,
       channel: 'combat-hurt',
     });
   }
