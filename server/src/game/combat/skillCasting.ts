@@ -11,7 +11,7 @@ import { getEffectiveStats } from '../combatStats.js';
 import { loadCharacter, loadCharacterState } from '../characterState.js';
 import type { CommandContext } from '../commands/context.js';
 import { findMobInRoomByName, getMobsInRoom, type MobInstance } from '../MobManager.js';
-import { getSkillRank, hasLearnedSkill, resolveSkillArg } from '../skillProgress.js';
+import { getCooldownMultiplier, getSkillRank, hasLearnedSkill, resolveSkillArg } from '../skillProgress.js';
 import { computeDamage } from './combatMath.js';
 import { handleMobDefeat } from './combatRewards.js';
 import { cleanupCombatForSession, getActiveCombat, sendCombatEnd, sendCombatStatus, startCombatInterval } from './combatState.js';
@@ -33,13 +33,15 @@ function startCooldown(characterId: number, skillId: string, cooldownMs: number)
 /** 캐릭터의 재사용 대기 중인 스킬 목록을 클라이언트가 쿨타임 바를 그릴 수 있는 형태로 스냅샷한다. */
 export function getActiveSkillCooldowns(characterId: number): SkillCooldownInfo[] {
   const now = Date.now();
+  const character = loadCharacter(characterId);
+  const multiplier = character ? getCooldownMultiplier(character) : 1;
   const cooldowns: SkillCooldownInfo[] = [];
   for (const [skillId, readyAt] of skillCooldowns.get(characterId) ?? []) {
     const remainingMs = readyAt - now;
     if (remainingMs <= 0) continue;
     const skill = getSkillById(skillId);
     if (!skill) continue;
-    cooldowns.push({ skillId, name: skill.name, remainingMs, totalMs: skill.cooldownMs ?? 0 });
+    cooldowns.push({ skillId, name: skill.name, remainingMs, totalMs: Math.round((skill.cooldownMs ?? 0) * multiplier) });
   }
   return cooldowns;
 }
@@ -151,7 +153,7 @@ export function handleCast(ctx: CommandContext, rest: string): void {
       skill.damageType === 'magic' ? playerStats.intelligence : playerStats.strength + playerStats.attackPower;
 
     db.prepare('UPDATE characters SET mp = mp - ? WHERE id = ?').run(skill.mpCost, character.id);
-    startCooldown(character.id, skill.id, skill.cooldownMs ?? 0);
+    startCooldown(character.id, skill.id, Math.round((skill.cooldownMs ?? 0) * getCooldownMultiplier(character)));
     sendSkillCooldowns(ctx, character.id);
 
     const hitTexts: string[] = [];

@@ -53,6 +53,18 @@ const ROGUE_TRUNK: SkillDefinition[] = [
     requires: 'rogue_deadly_precision',
   },
   {
+    id: 'rogue_mental_conditioning',
+    job: 'rogue',
+    name: '정신 단련',
+    description: '정신을 단련해 마법 공격에도 흔들리지 않게 됩니다. (마법방어 영구 증가)',
+    requiredLevel: 10,
+    kind: 'passive',
+    mpCost: 0,
+    power: 10,
+    passiveStat: 'magicDefense',
+    requires: 'rogue_swift_feet',
+  },
+  {
     id: 'rogue_beast_sense',
     job: 'rogue',
     name: '야수의 감각',
@@ -75,6 +87,18 @@ const ROGUE_TRUNK: SkillDefinition[] = [
     power: 8,
     passiveStat: 'strength',
     requires: 'rogue_beast_sense',
+  },
+  {
+    id: 'rogue_qi_circulation',
+    job: 'rogue',
+    name: '기 순환',
+    description: '기를 순환시켜 스킬을 더 빨리 다시 쓸 수 있게 됩니다. (모든 스킬 재사용 대기시간 감소)',
+    requiredLevel: 18,
+    kind: 'passive',
+    mpCost: 0,
+    power: 10,
+    reducesCooldown: true,
+    requires: 'rogue_stealth_ambush',
   },
 ];
 

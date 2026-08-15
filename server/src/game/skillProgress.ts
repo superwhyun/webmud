@@ -1,4 +1,5 @@
 import {
+  effectiveSkillPower,
   getSkillById,
   SKILLS,
   SKILLS_BY_JOB,
@@ -60,6 +61,17 @@ export function getSkillRank(characterId: number, skillId: string): number {
     .prepare('SELECT rank FROM character_skills WHERE character_id = ? AND skill_id = ?')
     .get(characterId, skillId) as Pick<CharacterSkillRow, 'rank'> | undefined;
   return row?.rank ?? 0;
+}
+
+/** 배운 "기 순환" 랭크만큼 쿨타임에 곱할 배율(1 = 그대로, 0.8 = 20% 감소). 최대 50%까지만 깎이도록 방어적으로 clamp. */
+export function getCooldownMultiplier(character: Pick<CharacterRow, 'id' | 'job'>): number {
+  if (!character.job) return 1;
+  const skill = SKILLS_BY_JOB[character.job].find((candidate) => candidate.reducesCooldown);
+  if (!skill) return 1;
+  const rank = getSkillRank(character.id, skill.id);
+  if (rank < 1) return 1;
+  const reductionPercent = effectiveSkillPower(skill, rank);
+  return Math.max(0.5, 1 - reductionPercent / 100);
 }
 
 function applyPassiveDelta(characterId: number, skill: SkillDefinition, rank: number): void {

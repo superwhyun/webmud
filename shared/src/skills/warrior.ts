@@ -53,6 +53,18 @@ const WARRIOR_TRUNK: SkillDefinition[] = [
     requires: 'warrior_vigor',
   },
   {
+    id: 'warrior_mental_conditioning',
+    job: 'warrior',
+    name: '정신 단련',
+    description: '정신을 단련해 마법 공격에도 흔들리지 않게 됩니다. (마법방어 영구 증가)',
+    requiredLevel: 10,
+    kind: 'passive',
+    mpCost: 0,
+    power: 10,
+    passiveStat: 'magicDefense',
+    requires: 'warrior_brute_force',
+  },
+  {
     id: 'warrior_combat_instinct',
     job: 'warrior',
     name: '전투 본능',
@@ -75,6 +87,18 @@ const WARRIOR_TRUNK: SkillDefinition[] = [
     power: 10,
     passiveStat: 'vitality',
     requires: 'warrior_combat_instinct',
+  },
+  {
+    id: 'warrior_qi_circulation',
+    job: 'warrior',
+    name: '기 순환',
+    description: '기를 순환시켜 스킬을 더 빨리 다시 쓸 수 있게 됩니다. (모든 스킬 재사용 대기시간 감소)',
+    requiredLevel: 18,
+    kind: 'passive',
+    mpCost: 0,
+    power: 10,
+    reducesCooldown: true,
+    requires: 'warrior_earth_crush',
   },
 ];
 

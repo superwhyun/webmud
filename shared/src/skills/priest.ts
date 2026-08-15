@@ -51,6 +51,18 @@ const PRIEST_TRUNK: SkillDefinition[] = [
     requires: 'priest_endurance',
   },
   {
+    id: 'priest_body_conditioning',
+    job: 'priest',
+    name: '체술 연마',
+    description: '몸을 단련해 물리적인 충격에도 버틸 수 있게 됩니다. (물리방어 영구 증가)',
+    requiredLevel: 10,
+    kind: 'passive',
+    mpCost: 0,
+    power: 10,
+    passiveStat: 'physicalDefense',
+    requires: 'priest_holy_patience',
+  },
+  {
     id: 'priest_mental_fortitude',
     job: 'priest',
     name: '정신력 강화',
@@ -73,6 +85,18 @@ const PRIEST_TRUNK: SkillDefinition[] = [
     power: 30,
     passiveStat: 'maxHp',
     requires: 'priest_mental_fortitude',
+  },
+  {
+    id: 'priest_qi_circulation',
+    job: 'priest',
+    name: '기 순환',
+    description: '기를 순환시켜 스킬을 더 빨리 다시 쓸 수 있게 됩니다. (모든 스킬 재사용 대기시간 감소)',
+    requiredLevel: 18,
+    kind: 'passive',
+    mpCost: 0,
+    power: 10,
+    reducesCooldown: true,
+    requires: 'priest_divine_grace',
   },
 ];
 

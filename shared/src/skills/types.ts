@@ -34,6 +34,12 @@ export interface SkillDefinition {
   targeting?: SkillTargeting;
   /** kind가 'passive'일 때 어떤 스탯에 영구 적용할지. */
   passiveStat?: PassiveStat;
+  /**
+   * true면 이 패시브는 스탯을 올리는 대신, 배운 사람의 모든 스킬 쿨타임을 랭크에 비례해 퍼센트로
+   * 깎아준다(effectiveSkillPower를 %로 해석). passiveStat과는 별개 경로 — 캐릭터 DB 컬럼에 쌓이는
+   * 값이 아니라 시전 시점에 랭크를 조회해서 계산한다.
+   */
+  reducesCooldown?: boolean;
   /** damage/heal 스킬의 재사용 대기시간(ms). */
   cooldownMs?: number;
   /** 이 스킬을 배우기 전에 먼저 배워야 하는 스킬 id. 트리의 선행 조건. */
