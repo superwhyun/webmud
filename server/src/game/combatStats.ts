@@ -24,9 +24,18 @@ interface BonusRow {
   magic_defense_bonus: number;
 }
 
-/** 체력 1당 물리방어, 지혜 1당 마법방어 보너스. 힘/지능은 이미 공격 쪽을 전담하므로 방어는 체력/지혜에 붙인다. */
-const PHYSICAL_DEFENSE_PER_VITALITY = 0.5;
-const MAGIC_DEFENSE_PER_WISDOM = 0.5;
+/**
+ * 체력/지혜 1당 방어 보너스 계수. 상한을 두는 대신, 레벨이 오를수록 계수 자체가 줄어드는 방식으로
+ * 완만하게 만든다 — 체력/지혜는 레벨마다 계속 늘어나는데 계수가 고정이면 방어력이 무한히 누적돼서
+ * 결국 몹 공격력을 다 씹어먹게 된다. 레벨 1에서는 거의 0.5, 레벨 25에서 절반(0.25), 레벨 50에서
+ * 1/3(0.167) 정도로 서서히 줄어든다.
+ */
+const DEFENSE_PER_POINT_BASE = 0.5;
+const DEFENSE_COEFFICIENT_HALF_LIFE_LEVEL = 25;
+
+function defensePerPointCoefficient(level: number): number {
+  return DEFENSE_PER_POINT_BASE / (1 + level / DEFENSE_COEFFICIENT_HALF_LIFE_LEVEL);
+}
 
 export function getEffectiveStats(character: CharacterRow): EffectiveStats {
   const bonuses = db
@@ -54,9 +63,11 @@ export function getEffectiveStats(character: CharacterRow): EffectiveStats {
     physicalDefense:
       character.physical_defense +
       bonuses.physical_defense_bonus +
-      Math.floor(character.vitality * PHYSICAL_DEFENSE_PER_VITALITY),
+      Math.floor(character.vitality * defensePerPointCoefficient(character.level)),
     magicDefense:
-      character.magic_defense + bonuses.magic_defense_bonus + Math.floor(character.wisdom * MAGIC_DEFENSE_PER_WISDOM),
+      character.magic_defense +
+      bonuses.magic_defense_bonus +
+      Math.floor(character.wisdom * defensePerPointCoefficient(character.level)),
     element: character.element,
   };
 }
