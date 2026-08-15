@@ -14,7 +14,7 @@ const MAGE_TRUNK: SkillDefinition[] = [
     power: 2.0,
     damageType: 'magic',
     targeting: 'single',
-    cooldownMs: 4000,
+    cooldownMs: 2000,
   },
   {
     id: 'mage_mana_flow',

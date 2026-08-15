@@ -14,7 +14,7 @@ const WARRIOR_TRUNK: SkillDefinition[] = [
     power: 1.6,
     damageType: 'physical',
     targeting: 'single',
-    cooldownMs: 4000,
+    cooldownMs: 2000,
   },
   {
     id: 'warrior_iron_skin',

@@ -12,7 +12,7 @@ const PRIEST_TRUNK: SkillDefinition[] = [
     kind: 'heal',
     mpCost: 6,
     power: 12,
-    cooldownMs: 3000,
+    cooldownMs: 2000,
   },
   {
     id: 'priest_blessing',

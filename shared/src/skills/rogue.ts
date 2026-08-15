@@ -14,7 +14,7 @@ const ROGUE_TRUNK: SkillDefinition[] = [
     power: 1.8,
     damageType: 'physical',
     targeting: 'single',
-    cooldownMs: 3500,
+    cooldownMs: 2000,
   },
   {
     id: 'rogue_shadow_step',
