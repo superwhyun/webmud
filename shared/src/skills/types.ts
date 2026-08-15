@@ -57,9 +57,21 @@ export const SKILL_RANK_POWER_STEP = 0.05;
 /** 광역(aoe) 스킬이 대상 1명에게 주는 위력은 단일 대상 스킬의 이 비율만큼 깎인다. */
 export const AOE_TARGET_PENALTY = 0.6;
 
+/**
+ * 랭크 1당 늘어나는 쿨타임 비율. 위력 성장(SKILL_RANK_POWER_STEP)보다 훨씬 완만하게 잡아서, 랭크를
+ * 올릴수록 세지긴 하되 쿨타임도 같이 조금씩 길어지는 대가가 있게 한다 — 랭크20이면 기본 쿨타임의
+ * (1 + 19*0.02) = 1.38배.
+ */
+export const SKILL_RANK_COOLDOWN_STEP = 0.02;
+
 /** 스킬의 랭크를 반영한 실제 위력. damage/heal의 배율·고정량, passive의 스탯 증가량 모두 이 함수로 계산한다. */
 export function effectiveSkillPower(skill: Pick<SkillDefinition, 'power'>, rank: number): number {
   return skill.power * (1 + (Math.max(1, rank) - 1) * SKILL_RANK_POWER_STEP);
+}
+
+/** 스킬의 랭크를 반영한 실제 쿨타임(ms). 랭크가 오를수록 위력은 크게, 쿨타임은 조금씩 늘어난다. */
+export function effectiveCooldownMs(skill: Pick<SkillDefinition, 'cooldownMs'>, rank: number): number {
+  return Math.round((skill.cooldownMs ?? 0) * (1 + (Math.max(1, rank) - 1) * SKILL_RANK_COOLDOWN_STEP));
 }
 
 /**

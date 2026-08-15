@@ -1,5 +1,6 @@
 import {
   AOE_TARGET_PENALTY,
+  effectiveCooldownMs,
   effectiveSkillPower,
   getSkillById,
   SKILLS,
@@ -41,7 +42,8 @@ export function getActiveSkillCooldowns(characterId: number): SkillCooldownInfo[
     if (remainingMs <= 0) continue;
     const skill = getSkillById(skillId);
     if (!skill) continue;
-    cooldowns.push({ skillId, name: skill.name, remainingMs, totalMs: Math.round((skill.cooldownMs ?? 0) * multiplier) });
+    const rank = getSkillRank(characterId, skillId);
+    cooldowns.push({ skillId, name: skill.name, remainingMs, totalMs: Math.round(effectiveCooldownMs(skill, rank) * multiplier) });
   }
   return cooldowns;
 }
@@ -153,7 +155,7 @@ export function handleCast(ctx: CommandContext, rest: string): void {
       skill.damageType === 'magic' ? playerStats.intelligence : playerStats.strength + playerStats.attackPower;
 
     db.prepare('UPDATE characters SET mp = mp - ? WHERE id = ?').run(skill.mpCost, character.id);
-    startCooldown(character.id, skill.id, Math.round((skill.cooldownMs ?? 0) * getCooldownMultiplier(character)));
+    startCooldown(character.id, skill.id, Math.round(effectiveCooldownMs(skill, rank) * getCooldownMultiplier(character)));
     sendSkillCooldowns(ctx, character.id);
 
     const hitTexts: string[] = [];
@@ -196,7 +198,7 @@ export function handleCast(ctx: CommandContext, rest: string): void {
   const previousHp = character.hp;
   const healedHp = Math.min(character.max_hp, character.hp + Math.round(effectiveSkillPower(skill, healRank)));
   db.prepare('UPDATE characters SET hp = ?, mp = mp - ? WHERE id = ?').run(healedHp, skill.mpCost, character.id);
-  startCooldown(character.id, skill.id, skill.cooldownMs ?? 0);
+  startCooldown(character.id, skill.id, Math.round(effectiveCooldownMs(skill, healRank) * getCooldownMultiplier(character)));
   sendSkillCooldowns(ctx, character.id);
 
   ctx.send({
