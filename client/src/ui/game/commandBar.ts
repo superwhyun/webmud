@@ -14,6 +14,7 @@ const COMMAND_VERBS = [
   'attack',
   'flee',
   'rest',
+  '휴식',
   'get',
   'drop',
   'give',

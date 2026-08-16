@@ -65,7 +65,7 @@ export function dispatchCommand(ctx: CommandContext, rawText: string): void {
     return;
   }
 
-  if (lowerVerb === 'rest') {
+  if (lowerVerb === 'rest' || lowerVerb === '휴식') {
     handleRest(ctx);
     return;
   }
