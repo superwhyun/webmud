@@ -1,15 +1,23 @@
-import type { ChatChannel } from '@mud/shared';
+import type { ChatChannel, JobType } from '@mud/shared';
 import type { WebSocket } from 'ws';
 import { db } from '../../db/client.js';
 import { getEffectiveStats } from '../combatStats.js';
 import { loadCharacter, loadCharacterState } from '../characterState.js';
 import type { CommandContext } from '../commands/context.js';
-import { getMobsInRoom, type MobInstance } from '../MobManager.js';
+import { getMobsInRoom, type DamageType, type MobInstance } from '../MobManager.js';
 import { hasElementAdvantage, mobCombatantStats, resolveAttack } from './combatMath.js';
 import { defeatCharacter, handleMobDefeat } from './combatRewards.js';
 import { stopResting } from '../rest.js';
 
 const COMBAT_TICK_MS = 2000;
+
+/** 직업별 평타(자동 공격 틱)의 피해 타입 — 캐스터는 체감상 자기 스킬과 같은 자원(지능)을 쓰는 게 맞다. */
+const JOB_BASIC_ATTACK_DAMAGE_TYPE: Record<JobType, DamageType> = {
+  warrior: 'physical',
+  rogue: 'physical',
+  mage: 'magic',
+  priest: 'magic',
+};
 
 interface Combat {
   ctx: CommandContext;
@@ -138,7 +146,8 @@ function performRound(ctx: CommandContext): void {
   const target = combat.mobs[0];
   const targetStats = mobCombatantStats(target);
 
-  const playerAttack = resolveAttack(playerStats, targetStats, 'physical');
+  const basicAttackDamageType = character.job ? JOB_BASIC_ATTACK_DAMAGE_TYPE[character.job] : 'physical';
+  const playerAttack = resolveAttack(playerStats, targetStats, basicAttackDamageType);
   if (playerAttack.evaded) {
     ctx.send({ type: 'text', text: `${target.name}가 당신의 공격을 회피했습니다!`, channel: 'combat-evade' });
   } else {

@@ -24,6 +24,8 @@ export interface CombatantStats {
   element: ElementType;
   /** 없으면(몹) 치명타 확률은 기본값만 적용된다. */
   luck?: number;
+  /** 없으면(몹) magic 공격이라도 strength를 그대로 쓴다 — 몹은 damageType으로 방어 스탯만 갈릴 뿐 공격 자원은 항상 strength 하나다. */
+  intelligence?: number;
 }
 
 export interface AttackResult {
@@ -76,14 +78,11 @@ export function resolveAttack(attacker: CombatantStats, defender: CombatantStats
   }
 
   const defense = damageType === 'magic' ? defender.magicDefense : defender.physicalDefense;
-  const { damage, isCrit } = computeDamage(
-    attacker.strength + attacker.attackPower,
-    defense,
-    attacker.element,
-    defender.element,
-    1,
-    attacker.luck,
-  );
+  const attackStat =
+    damageType === 'magic' && attacker.intelligence !== undefined
+      ? attacker.intelligence
+      : attacker.strength + attacker.attackPower;
+  const { damage, isCrit } = computeDamage(attackStat, defense, attacker.element, defender.element, 1, attacker.luck);
 
   return { damage, evaded: false, isCrit };
 }
