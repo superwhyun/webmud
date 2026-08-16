@@ -36,6 +36,9 @@ export interface CharacterSkillRow {
   character_id: number;
   skill_id: string;
   rank: number;
+  /** 이 랭크로 실제 부여된 스탯 총량(반올림 완료). 학습/강화 시점의 스킬 power로 계산해 저장하며,
+   * 나중에 스킬 power가 바뀌어도 이 값은 안 바뀐다 — 리셋할 때 실제로 부여됐던 만큼만 정확히 되돌리기 위함. */
+  granted_bonus: number;
   learned_at: string;
 }
 

@@ -79,6 +79,13 @@ function applyPassiveDelta(characterId: number, skill: SkillDefinition, rank: nu
   const column = PASSIVE_STAT_COLUMNS[skill.passiveStat];
   const delta = passiveRankDelta(skill, rank);
   db.prepare(`UPDATE characters SET ${column} = ${column} + ? WHERE id = ?`).run(delta, characterId);
+  // 이 랭크에서 실제로 부여한 총량을 같이 저장해둔다 — 나중에 스킬 power가 바뀌어도 리셋 시
+  // 이 값을 그대로 되돌리면 되므로, 밸런스 조정이 이미 투자한 캐릭터의 스탯을 조용히 틀어놓지 않는다.
+  db.prepare('UPDATE character_skills SET granted_bonus = ? WHERE character_id = ? AND skill_id = ?').run(
+    totalPassiveBonus(skill, rank),
+    characterId,
+    skill.id,
+  );
 }
 
 export interface LearnSkillResult {
@@ -161,20 +168,23 @@ export function upgradeSkill(character: CharacterRow, skillId: string): LearnSki
 }
 
 export function resetSkills(character: CharacterRow): LearnSkillResult {
-  const ranks = getLearnedSkillRanks(character.id);
-  if (ranks.size === 0) {
+  const rows = db
+    .prepare('SELECT skill_id, rank, granted_bonus FROM character_skills WHERE character_id = ?')
+    .all(character.id) as Pick<CharacterSkillRow, 'skill_id' | 'rank' | 'granted_bonus'>[];
+  if (rows.length === 0) {
     return { ok: false, message: '배운 스킬이 없습니다.' };
   }
 
   let refund = 0;
   const tx = db.transaction(() => {
-    for (const [skillId, rank] of ranks) {
-      const skill = getSkillById(skillId);
-      refund += rank;
-      if (skill && skill.kind === 'passive' && skill.passiveStat) {
+    for (const row of rows) {
+      const skill = getSkillById(row.skill_id);
+      refund += row.rank;
+      // 스킬 power가 바뀌었을 수 있으니, 현재 정의로 재계산하지 않고 학습/강화 당시 실제로
+      // 부여됐던 값(granted_bonus)을 그대로 되돌린다.
+      if (skill && skill.kind === 'passive' && skill.passiveStat && row.granted_bonus > 0) {
         const column = PASSIVE_STAT_COLUMNS[skill.passiveStat];
-        const bonus = totalPassiveBonus(skill, rank);
-        db.prepare(`UPDATE characters SET ${column} = ${column} - ? WHERE id = ?`).run(bonus, character.id);
+        db.prepare(`UPDATE characters SET ${column} = ${column} - ? WHERE id = ?`).run(row.granted_bonus, character.id);
       }
     }
     db.prepare('DELETE FROM character_skills WHERE character_id = ?').run(character.id);

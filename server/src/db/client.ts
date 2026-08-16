@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { getSkillById, totalPassiveBonus } from '@mud/shared';
 import { SCHEMA_SQL } from './schema.js';
 import { ITEMS, seed } from './seed/index.js';
 import { MOB_LOOT_POOL, MOB_TEMPLATES } from './seed/mobs/index.js';
@@ -98,8 +99,38 @@ function migrate(target: Database.Database): void {
   ensureColumn(target, 'mob_spawns', 'min_level', 'ALTER TABLE mob_spawns ADD COLUMN min_level INTEGER');
   ensureColumn(target, 'mob_spawns', 'max_level', 'ALTER TABLE mob_spawns ADD COLUMN max_level INTEGER');
   ensureColumn(target, 'character_skills', 'rank', 'ALTER TABLE character_skills ADD COLUMN rank INTEGER NOT NULL DEFAULT 1');
+  ensureColumn(
+    target,
+    'character_skills',
+    'granted_bonus',
+    'ALTER TABLE character_skills ADD COLUMN granted_bonus INTEGER NOT NULL DEFAULT 0',
+  );
   migrateMobTemplateLevelRangeColumns(target);
   dropColumnIfExists(target, 'npc_templates', 'level');
+  backfillGrantedBonus(target);
+}
+
+/**
+ * granted_bonus 컬럼이 막 추가된 기존 행(또는 이 컬럼이 생기기 전에 배운 스킬)은 0으로 시작한다.
+ * 지금 스킬 정의 기준으로 한 번 채워 넣어야, 나중에 리셋할 때 실제로 부여된 적 없는 값을 빼는
+ * 사고가 안 난다 — 이 시점 이후로 배우는/올리는 스킬은 학습/강화 시점에 바로 정확한 값이 저장된다.
+ */
+function backfillGrantedBonus(target: Database.Database): void {
+  const rows = target
+    .prepare(`SELECT id, skill_id, rank FROM character_skills WHERE granted_bonus = 0`)
+    .all() as { id: number; skill_id: string; rank: number }[];
+  if (rows.length === 0) return;
+
+  const update = target.prepare('UPDATE character_skills SET granted_bonus = ? WHERE id = ?');
+  const tx = target.transaction(() => {
+    for (const row of rows) {
+      const skill = getSkillById(row.skill_id);
+      if (!skill || skill.kind !== 'passive' || !skill.passiveStat) continue;
+      const bonus = totalPassiveBonus(skill, row.rank);
+      if (bonus > 0) update.run(bonus, row.id);
+    }
+  });
+  tx();
 }
 
 /**
