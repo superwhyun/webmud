@@ -32,30 +32,37 @@ function potionIcon(item: { healAmount: number; manaAmount: number }): string {
   return icon('heart');
 }
 
-/** 물약류(체력/마나 회복 아이템)는 인벤토리 칸을 차지하지 않으므로, 종류와 개수를 따로 모아 보여준다. */
+/**
+ * 물약류(체력/마나 회복 아이템)는 인벤토리 칸을 차지하지 않으므로, 종류와 개수를 명령 입력창 아래
+ * 한 줄로 모아 보여준다. 칩을 클릭하면 바로 사용된다(use 명령과 동일한 dedicated 메시지).
+ */
 export function renderPotionSummary(ctx: GameContext): void {
   const potions = ctx.inventoryState.filter((item) => item.healAmount > 0 || item.manaAmount > 0);
   if (potions.length === 0) {
-    ctx.sidebarPotions.innerHTML = '';
+    ctx.potionBar.innerHTML = '';
     return;
   }
 
-  ctx.sidebarPotions.innerHTML = `
-    <div class="sidebar-potions-title">물약</div>
-    ${potions
-      .map(
-        (item) => `
-          <div class="sidebar-potions-row">
-            <span class="sidebar-potions-name">
-              <span class="sidebar-potions-icon sidebar-potions-icon-${item.healAmount > 0 && item.manaAmount > 0 ? 'elixir' : item.manaAmount > 0 ? 'mana' : 'health'} sidebar-potions-icon-grade-${item.grade}">${potionIcon(item)}</span>
-              <span class="item-grade-${item.grade}">${escapeHtml(item.name)}</span>
-            </span>
-            <span class="sidebar-potions-qty">x${item.quantity}</span>
-          </div>
-        `,
-      )
-      .join('')}
-  `;
+  ctx.potionBar.innerHTML = potions
+    .map(
+      (item) => `
+        <button type="button" class="potion-chip" data-use-inventory-id="${item.inventoryId}" title="클릭하면 사용됩니다">
+          <span class="potion-chip-icon potion-chip-icon-${item.healAmount > 0 && item.manaAmount > 0 ? 'elixir' : item.manaAmount > 0 ? 'mana' : 'health'} potion-chip-icon-grade-${item.grade}">${potionIcon(item)}</span>
+          <span class="item-grade-${item.grade}">${escapeHtml(item.name)}</span>
+          <span class="potion-chip-qty">x${item.quantity}</span>
+        </button>
+      `,
+    )
+    .join('');
+
+  ctx.potionBar.querySelectorAll<HTMLButtonElement>('[data-use-inventory-id]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const inventoryId = Number(button.dataset.useInventoryId);
+      if (!inventoryId) return;
+      const message: ClientMessage = { type: 'useItem', inventoryId };
+      ctx.socket.send(JSON.stringify(message));
+    });
+  });
 }
 
 export function renderInventoryModal(ctx: GameContext): void {

@@ -16,6 +16,99 @@
   filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5));
 }
 
+.potion-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 0;
+}
+
+.potion-bar:empty {
+  display: none;
+}
+
+.potion-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.6rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  font-size: var(--text-base);
+  font-family: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), transform var(--transition-fast);
+}
+
+.potion-chip:hover {
+  border-color: var(--color-accent);
+}
+
+.potion-chip:active {
+  transform: scale(0.96);
+}
+
+.potion-chip-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  font-size: var(--text-sm);
+  line-height: 1;
+}
+
+.potion-chip-icon-health {
+  background: color-mix(in srgb, #e05a5a 32%, transparent);
+  color: #ff8a8a;
+}
+
+.potion-chip-icon-mana {
+  background: color-mix(in srgb, #4a8fe0 32%, transparent);
+  color: #7ec2ff;
+}
+
+.potion-chip-icon-elixir {
+  background: color-mix(in srgb, #c58aff 32%, transparent);
+  color: #d9b3ff;
+}
+
+/* 등급이 높을수록 아이콘 테두리에 등급색 링/글로우를 둘러서, 같은 종류의 물약이라도 등급 차이가 한눈에 보이게 한다. */
+.potion-chip-icon-grade-mid {
+  border-color: var(--grade-mid);
+}
+
+.potion-chip-icon-grade-high {
+  border-color: var(--grade-high);
+}
+
+.potion-chip-icon-grade-rare {
+  border-color: var(--grade-rare);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--grade-rare) 55%, transparent);
+}
+
+.potion-chip-icon-grade-legend {
+  border-color: var(--grade-legend);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--grade-legend) 55%, transparent);
+}
+
+.potion-chip-icon-grade-epic {
+  border-color: var(--grade-epic);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--grade-epic) 65%, transparent);
+}
+
+.potion-chip-qty {
+  color: var(--color-text-dim);
+  font-size: var(--text-sm);
+  flex-shrink: 0;
+}
+
 .command-input {
   display: flex;
   align-items: center;

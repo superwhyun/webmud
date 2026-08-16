@@ -328,6 +328,19 @@ export function handleUse(ctx: CommandContext, itemName: string): void {
     ctx.send({ type: 'text', text: '그런 아이템을 가지고 있지 않습니다.' });
     return;
   }
+  consumeInventoryItem(ctx, item);
+}
+
+export function handleUseItemMessage(ctx: CommandContext, inventoryId: number): void {
+  const item = findInventoryItemById(ctx.session.characterId, inventoryId);
+  if (!item) {
+    ctx.send({ type: 'text', text: '그런 아이템을 가지고 있지 않습니다.' });
+    return;
+  }
+  consumeInventoryItem(ctx, item);
+}
+
+function consumeInventoryItem(ctx: CommandContext, item: InventoryRow): void {
   if (item.heal_amount <= 0 && item.mana_amount <= 0) {
     ctx.send({ type: 'text', text: '사용할 수 없는 아이템입니다.' });
     return;

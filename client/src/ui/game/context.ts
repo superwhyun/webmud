@@ -37,7 +37,7 @@ export interface GameContext {
   combatPanel: HTMLDivElement;
   terminal: HTMLDivElement;
   sidebarStats: HTMLDivElement;
-  sidebarPotions: HTMLDivElement;
+  potionBar: HTMLDivElement;
   equipmentPanel: HTMLDivElement;
   cooldownPanel: HTMLDivElement;
   minimap: HTMLDivElement;
@@ -103,12 +103,12 @@ function renderShellHtml(isBuilder: boolean, isAdmin: boolean): string {
       <span class="prompt">&gt;</span>
       <input id="command" type="text" autocomplete="off" autofocus aria-label="명령어 입력" />
     </div>
+    <div class="potion-bar" id="potion-bar"></div>
     <div class="combat-panel" id="combat-panel" hidden></div>
     <div class="game-layout">
       <div class="terminal" id="terminal"></div>
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-stats" id="sidebar-stats"></div>
-        <div class="sidebar-potions" id="sidebar-potions"></div>
         <div class="equipment-panel" id="equipment-panel"></div>
         <div class="cooldown-panel" id="cooldown-panel"></div>
       </aside>
@@ -228,7 +228,7 @@ export function createGameContext(
     combatPanel: container.querySelector<HTMLDivElement>('#combat-panel')!,
     terminal,
     sidebarStats: container.querySelector<HTMLDivElement>('#sidebar-stats')!,
-    sidebarPotions: container.querySelector<HTMLDivElement>('#sidebar-potions')!,
+    potionBar: container.querySelector<HTMLDivElement>('#potion-bar')!,
     equipmentPanel: container.querySelector<HTMLDivElement>('#equipment-panel')!,
     cooldownPanel: container.querySelector<HTMLDivElement>('#cooldown-panel')!,
     minimap: container.querySelector<HTMLDivElement>('#minimap')!,
