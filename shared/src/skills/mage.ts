@@ -19,8 +19,8 @@ const MAGE_TRUNK: SkillDefinition[] = [
   {
     id: 'mage_mana_flow',
     job: 'mage',
-    name: '마나 순환',
-    description: '마나를 순환시켜 상처를 다스립니다. (HP 10 회복)',
+    name: '치유',
+    description: '마나로 상처를 다스립니다. (HP 10 회복)',
     requiredLevel: 3,
     kind: 'heal',
     mpCost: 8,
