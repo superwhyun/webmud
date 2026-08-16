@@ -10,25 +10,18 @@ import {
 import { db } from '../../db/client.js';
 import { loadCharacter } from '../characterState.js';
 import { hasElementAdvantage } from '../combat/combatMath.js';
+import { formatItemBonuses, type ItemBonusRow } from '../itemEffects.js';
 import { findMobInRoomByName, getMobsInRoom } from '../MobManager.js';
 import { findNpcInRoomByName } from '../NpcManager.js';
 import type { CommandContext } from './context.js';
 
-interface DescribableItemRow {
+interface DescribableItemRow extends ItemBonusRow {
   name: string;
   description: string;
   type: string;
   slot: EquipmentSlot | null;
   level: number;
   grade: ItemGrade;
-  strength_bonus: number;
-  dexterity_bonus: number;
-  attack_power_bonus: number;
-  intelligence_bonus: number;
-  physical_defense_bonus: number;
-  magic_defense_bonus: number;
-  heal_amount: number;
-  mana_amount: number;
 }
 
 function describeItem(item: DescribableItemRow): string {
@@ -37,16 +30,8 @@ function describeItem(item: DescribableItemRow): string {
     item.description,
   ];
 
-  const bonuses: string[] = [];
-  if (item.strength_bonus) bonuses.push(`힘 +${item.strength_bonus}`);
-  if (item.dexterity_bonus) bonuses.push(`민첩 +${item.dexterity_bonus}`);
-  if (item.attack_power_bonus) bonuses.push(`공격력 +${item.attack_power_bonus}`);
-  if (item.intelligence_bonus) bonuses.push(`지능 +${item.intelligence_bonus}`);
-  if (item.physical_defense_bonus) bonuses.push(`물리방어 +${item.physical_defense_bonus}`);
-  if (item.magic_defense_bonus) bonuses.push(`마법방어 +${item.magic_defense_bonus}`);
-  if (item.heal_amount) bonuses.push(`체력 회복 +${item.heal_amount}`);
-  if (item.mana_amount) bonuses.push(`마나 회복 +${item.mana_amount}`);
-  if (bonuses.length > 0) lines.push(bonuses.join(', '));
+  const bonuses = formatItemBonuses(item);
+  if (bonuses) lines.push(bonuses);
 
   if (item.slot) lines.push(`착용 부위: ${EQUIPMENT_SLOT_LABELS[item.slot]}`);
 

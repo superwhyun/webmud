@@ -26,6 +26,8 @@
   --font-sans:
     'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto,
     sans-serif;
+  /** 표 형태 명령 출력(shop 등)용 — 한글을 라틴 문자의 2배 폭으로 그려주는 고정폭 폰트라야 패딩으로 열이 맞는다. */
+  --font-mono: 'D2Coding', 'Nanum Gothic Coding', 'Consolas', 'Menlo', monospace;
 
   --text-xs: 0.75rem;
   --text-sm: 0.8rem;

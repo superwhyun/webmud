@@ -1,6 +1,7 @@
 import type { ItemGrade, NpcDealType, NpcType } from '@mud/shared';
 import { db } from '../db/client.js';
 import type { NpcTemplateRow } from '../db/types.js';
+import type { ItemBonusRow } from './itemEffects.js';
 
 export interface NpcInstance {
   spawnId: number;
@@ -103,7 +104,7 @@ export function getMerchants(roomId: number): NpcInstance[] {
   return getNpcsInRoom(roomId).filter((npc) => npc.type === 'merchant');
 }
 
-export interface ShopItemRow {
+export interface ShopItemRow extends ItemBonusRow {
   id: number;
   name: string;
   description: string;
@@ -113,17 +114,19 @@ export interface ShopItemRow {
   value: number;
 }
 
+const SHOP_ITEM_COLUMNS =
+  'id, name, description, type, grade, level, value, strength_bonus, dexterity_bonus, attack_power_bonus, ' +
+  'intelligence_bonus, physical_defense_bonus, magic_defense_bonus, heal_amount, mana_amount';
+
 /** 상인의 dealType/레벨에 맞는 판매 품목을 조회한다 — buy 명령과 방 스냅샷(탭 완성용) 양쪽에서 쓴다. */
 export function getMerchantCatalog(npc: NpcInstance): ShopItemRow[] {
   if (npc.dealType === 'all') {
     return db
-      .prepare('SELECT id, name, description, type, grade, level, value FROM items WHERE level <= ? ORDER BY level, id')
+      .prepare(`SELECT ${SHOP_ITEM_COLUMNS} FROM items WHERE level <= ? ORDER BY level, id`)
       .all(npc.level) as ShopItemRow[];
   }
   return db
-    .prepare(
-      'SELECT id, name, description, type, grade, level, value FROM items WHERE level <= ? AND type = ? ORDER BY level, id',
-    )
+    .prepare(`SELECT ${SHOP_ITEM_COLUMNS} FROM items WHERE level <= ? AND type = ? ORDER BY level, id`)
     .all(npc.level, npc.dealType) as ShopItemRow[];
 }
 

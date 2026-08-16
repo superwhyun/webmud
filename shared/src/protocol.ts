@@ -123,6 +123,7 @@ export type ClientMessage =
   | { type: 'equipItem'; inventoryId: number }
   | { type: 'unequipItem'; slot: EquipmentSlot }
   | { type: 'dropItem'; inventoryId: number }
+  | { type: 'useItem'; inventoryId: number }
   | { type: 'learnSkill'; skillId: string }
   | { type: 'upgradeSkill'; skillId: string }
   | { type: 'resetSkills' }
@@ -139,7 +140,8 @@ export type ChatChannel =
   | 'combat-hit'
   | 'combat-hurt'
   | 'combat-evade'
-  | 'combat-engage';
+  | 'combat-engage'
+  | 'shop';
 
 export type ServerMessage =
   | { type: 'text'; text: string; channel?: ChatChannel }

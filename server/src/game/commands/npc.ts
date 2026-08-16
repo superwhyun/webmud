@@ -1,7 +1,8 @@
 import { formatItemMention, ITEM_GRADE_LABELS, MAX_INVENTORY_SLOTS, type ItemGrade } from '@mud/shared';
 import { db } from '../../db/client.js';
 import { loadCharacter, loadCharacterState } from '../characterState.js';
-import { getMerchantCatalog, getMerchants } from '../NpcManager.js';
+import { formatItemBonuses, padVisual, visualWidth } from '../itemEffects.js';
+import { getMerchantCatalog, getMerchants, type ShopItemRow } from '../NpcManager.js';
 import type { CommandContext } from './context.js';
 import { sendEquipmentAndInventory } from './equipment.js';
 
@@ -18,6 +19,37 @@ interface SellableInventoryRow {
   value: number;
 }
 
+const SHOP_COLUMN_GAP = 2;
+const SHOP_HEADERS = { name: '아이템', level: '레벨', grade: '등급', price: '가격', effect: '효과' };
+
+/** 고정폭(--font-mono) 렌더링을 전제로 한 상점 표. 열 폭은 그 상인이 파는 품목에 맞춰 매번 다시 잰다. */
+function buildShopTable(catalog: ShopItemRow[]): string {
+  if (catalog.length === 0) return '  판매 중인 아이템이 없습니다.';
+
+  const rows = catalog.map((item) => ({
+    grade: item.grade,
+    name: item.name,
+    level: `Lv.${item.level}`,
+    gradeLabel: ITEM_GRADE_LABELS[item.grade],
+    price: `${item.value} gold`,
+    effect: formatItemBonuses(item) || '-',
+  }));
+
+  const nameWidth = Math.max(visualWidth(SHOP_HEADERS.name), ...rows.map((r) => visualWidth(r.name))) + SHOP_COLUMN_GAP;
+  const levelWidth = Math.max(visualWidth(SHOP_HEADERS.level), ...rows.map((r) => visualWidth(r.level))) + SHOP_COLUMN_GAP;
+  const gradeWidth = Math.max(visualWidth(SHOP_HEADERS.grade), ...rows.map((r) => visualWidth(r.gradeLabel))) + SHOP_COLUMN_GAP;
+  const priceWidth = Math.max(visualWidth(SHOP_HEADERS.price), ...rows.map((r) => visualWidth(r.price))) + SHOP_COLUMN_GAP;
+
+  const headerLine = `  ${padVisual(SHOP_HEADERS.name, nameWidth)}${padVisual(SHOP_HEADERS.level, levelWidth)}${padVisual(SHOP_HEADERS.grade, gradeWidth)}${padVisual(SHOP_HEADERS.price, priceWidth)}${SHOP_HEADERS.effect}`;
+  const separator = `  ${'-'.repeat(visualWidth(headerLine) - 2)}`;
+  const bodyLines = rows.map(
+    (r) =>
+      `  ${formatItemMention(padVisual(r.name, nameWidth), r.grade)}${padVisual(r.level, levelWidth)}${padVisual(r.gradeLabel, gradeWidth)}${padVisual(r.price, priceWidth)}${r.effect}`,
+  );
+
+  return [headerLine, separator, ...bodyLines].join('\n');
+}
+
 export function handleShop(ctx: CommandContext): void {
   const merchants = getMerchants(ctx.session.roomId);
   if (merchants.length === 0) {
@@ -25,16 +57,9 @@ export function handleShop(ctx: CommandContext): void {
     return;
   }
 
-  const sections = merchants.map((merchant) => {
-    const catalog = getMerchantCatalog(merchant);
-    const lines = catalog.map(
-      (item) =>
-        `  ${formatItemMention(item.name, item.grade)} (Lv.${item.level}, ${ITEM_GRADE_LABELS[item.grade]}) - ${item.value} gold`,
-    );
-    return `${merchant.name}:\n${lines.length > 0 ? lines.join('\n') : '  판매 중인 아이템이 없습니다.'}`;
-  });
+  const sections = merchants.map((merchant) => `${merchant.name}:\n${buildShopTable(getMerchantCatalog(merchant))}`);
 
-  ctx.send({ type: 'text', text: sections.join('\n\n') });
+  ctx.send({ type: 'text', text: sections.join('\n\n'), channel: 'shop' });
 }
 
 export function handleBuy(ctx: CommandContext, itemName: string): void {

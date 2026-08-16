@@ -178,6 +178,11 @@
   font-weight: bold;
 }
 
+.line-shop {
+  font-family: var(--font-mono);
+  white-space: pre;
+}
+
 .line-combat-victory {
   color: var(--color-exp);
   font-weight: bold;
