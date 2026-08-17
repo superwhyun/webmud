@@ -130,6 +130,14 @@ export function renderPalette(ctx: BuilderContext): void {
                             <li>
                               <span class="builder-palette-name">${escapeHtml(mob.name)} <span class="builder-palette-level">Lv.${formatLevelRange(mob.minLevel, mob.maxLevel)}</span></span>
                               <div class="builder-palette-actions">
+                                ${
+                                  mob.minLevel !== mob.maxLevel
+                                    ? `
+                                      <input type="number" class="builder-palette-num-input builder-palette-num-input-narrow" data-mob-min-level="${mob.id}" value="${mob.minLevel}" min="${mob.minLevel}" max="${mob.maxLevel}" title="이 스폰에서 굴릴 최소 레벨" />
+                                      <input type="number" class="builder-palette-num-input builder-palette-num-input-narrow" data-mob-max-level="${mob.id}" value="${mob.maxLevel}" min="${mob.minLevel}" max="${mob.maxLevel}" title="이 스폰에서 굴릴 최대 레벨" />
+                                    `
+                                    : ''
+                                }
                                 <input type="number" class="builder-palette-num-input" data-mob-respawn="${mob.id}" value="20" min="5" />
                                 <button type="button" data-place-mob="${mob.id}" ${room ? '' : 'disabled'}>배치</button>
                               </div>
@@ -241,7 +249,11 @@ export function renderPalette(ctx: BuilderContext): void {
       const mobTemplateId = Number(button.dataset.placeMob);
       const respawnInput = ctx.palette.querySelector<HTMLInputElement>(`[data-mob-respawn="${mobTemplateId}"]`)!;
       const respawnSeconds = Number(respawnInput.value) || 20;
-      placeBuilderMobSpawn(ctx.token, room.id, mobTemplateId, respawnSeconds)
+      const minLevelInput = ctx.palette.querySelector<HTMLInputElement>(`[data-mob-min-level="${mobTemplateId}"]`);
+      const maxLevelInput = ctx.palette.querySelector<HTMLInputElement>(`[data-mob-max-level="${mobTemplateId}"]`);
+      const minLevel = minLevelInput ? Number(minLevelInput.value) || null : null;
+      const maxLevel = maxLevelInput ? Number(maxLevelInput.value) || null : null;
+      placeBuilderMobSpawn(ctx.token, room.id, mobTemplateId, respawnSeconds, minLevel, maxLevel)
         .then(() => refreshPalette(ctx))
         .catch((error: unknown) => {
           showToolbarError(ctx, error instanceof Error ? error.message : '배치에 실패했습니다.');
@@ -311,14 +323,18 @@ function renderPlacedInRoom(ctx: BuilderContext, room: BuilderRoomDto | undefine
     <ul class="builder-palette-list">
       ${
         placedMobs
-          .map(
-            (row) => `
+          .map((row) => {
+            const hasOverride = row.overrideMinLevel !== null && row.overrideMaxLevel !== null;
+            const levelLabel = hasOverride
+              ? `Lv.${formatLevelRange(row.overrideMinLevel!, row.overrideMaxLevel!)}`
+              : `Lv.${formatLevelRange(row.mobMinLevel, row.mobMaxLevel)} (전체 범위)`;
+            return `
                   <li>
-                    <span>${escapeHtml(row.mobName)} <span class="builder-palette-level">Lv.${formatLevelRange(row.mobMinLevel, row.mobMaxLevel)}</span> (리스폰 ${row.respawnSeconds}초)</span>
+                    <span>${escapeHtml(row.mobName)} <span class="builder-palette-level">${levelLabel}</span> (리스폰 ${row.respawnSeconds}초)</span>
                     <button type="button" class="builder-exit-delete" data-remove-mob="${row.id}">제거</button>
                   </li>
-                `,
-          )
+                `;
+          })
           .join('') || '<li class="builder-panel-empty">배치된 몹이 없습니다.</li>'
       }
     </ul>

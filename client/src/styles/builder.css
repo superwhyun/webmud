@@ -548,6 +548,10 @@
   gap: 0.4rem;
 }
 
+.builder-palette-num-input-narrow {
+  width: 40px;
+}
+
 .builder-palette-num-input {
   width: 56px;
   background: var(--color-bg);

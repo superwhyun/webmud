@@ -15,7 +15,9 @@ builderRouter.get('/mob-templates', (_req, res) => {
 builderRouter.get('/mob-spawns', (_req, res) => {
   const rows = db
     .prepare(
-      `SELECT ms.id, ms.room_id, ms.mob_template_id, ms.respawn_seconds, r.name as room_name, r.zone_id as zone_id,
+      `SELECT ms.id, ms.room_id, ms.mob_template_id, ms.respawn_seconds,
+              ms.min_level as override_min_level, ms.max_level as override_max_level,
+              r.name as room_name, r.zone_id as zone_id,
               mt.name as mob_name, mt.min_level as mob_min_level, mt.max_level as mob_max_level
        FROM mob_spawns ms JOIN rooms r ON r.id = ms.room_id JOIN mob_templates mt ON mt.id = ms.mob_template_id
        ORDER BY ms.id`,
@@ -25,6 +27,8 @@ builderRouter.get('/mob-spawns', (_req, res) => {
     room_id: number;
     mob_template_id: number;
     respawn_seconds: number;
+    override_min_level: number | null;
+    override_max_level: number | null;
     room_name: string;
     zone_id: number;
     mob_name: string;
@@ -42,23 +46,35 @@ builderRouter.get('/mob-spawns', (_req, res) => {
       mobName: row.mob_name,
       mobMinLevel: row.mob_min_level,
       mobMaxLevel: row.mob_max_level,
+      overrideMinLevel: row.override_min_level,
+      overrideMaxLevel: row.override_max_level,
       respawnSeconds: row.respawn_seconds,
     })),
   });
 });
 
-const mobSpawnSchema = z.object({
-  roomId: z.number().int(),
-  mobTemplateId: z.number().int(),
-  respawnSeconds: z.number().int().min(5).default(20),
-});
+const mobSpawnSchema = z
+  .object({
+    roomId: z.number().int(),
+    mobTemplateId: z.number().int(),
+    respawnSeconds: z.number().int().min(5).default(20),
+    minLevel: z.number().int().min(1).nullable().optional(),
+    maxLevel: z.number().int().min(1).nullable().optional(),
+  })
+  .refine((data) => !data.minLevel || !data.maxLevel || data.minLevel <= data.maxLevel, {
+    message: 'minLevel은 maxLevel보다 클 수 없습니다.',
+  });
 
 export type CreateMobSpawnInput = z.infer<typeof mobSpawnSchema>;
 export type CreateMobSpawnOutcome = { spawnId: number } | { error: string; status: number };
 
-/** Validates and inserts a mob spawn, registering it with MobManager. Shared by the HTTP route and the map assistant's apply step. */
+/**
+ * 레벨대(min_level < max_level)를 갖는 몹 템플릿은 스폰 시점에 이 범위 안에서 레벨을 굴린다
+ * (MobManager.rollMobStats). 존의 의도된 레벨보다 몹이 과하게 세거나 약하게 나오는 걸 막으려면
+ * 스폰마다 이 굴림 범위를 zone의 레벨대로 좁혀줘야 한다 — 비워두면(null) 템플릿 전체 범위 그대로 굴러간다.
+ */
 export function createMobSpawnRecord(input: CreateMobSpawnInput): CreateMobSpawnOutcome {
-  const { roomId, mobTemplateId, respawnSeconds } = input;
+  const { roomId, mobTemplateId, respawnSeconds, minLevel, maxLevel } = input;
   if (!getRoom(roomId)) {
     return { error: '방을 찾을 수 없습니다.', status: 404 };
   }
@@ -70,12 +86,15 @@ export function createMobSpawnRecord(input: CreateMobSpawnInput): CreateMobSpawn
     return { error: '몹 템플릿을 찾을 수 없습니다.', status: 404 };
   }
 
+  const overrideMinLevel = minLevel ?? null;
+  const overrideMaxLevel = maxLevel ?? null;
+
   const info = db
-    .prepare('INSERT INTO mob_spawns (room_id, mob_template_id, respawn_seconds) VALUES (?, ?, ?)')
-    .run(roomId, mobTemplateId, respawnSeconds);
+    .prepare('INSERT INTO mob_spawns (room_id, mob_template_id, respawn_seconds, min_level, max_level) VALUES (?, ?, ?, ?, ?)')
+    .run(roomId, mobTemplateId, respawnSeconds, overrideMinLevel, overrideMaxLevel);
   const spawnId = Number(info.lastInsertRowid);
 
-  registerMobSpawn(spawnId, roomId, template, respawnSeconds);
+  registerMobSpawn(spawnId, roomId, template, respawnSeconds, overrideMinLevel, overrideMaxLevel);
   broadcastRoomSnapshot(roomId);
 
   return { spawnId };

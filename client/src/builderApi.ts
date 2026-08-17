@@ -93,6 +93,9 @@ export interface MobSpawnDto {
   mobName: string;
   mobMinLevel: number;
   mobMaxLevel: number;
+  /** 이 스폰에만 적용되는 굴림 레벨 범위. null이면 템플릿 전체 범위(mobMinLevel~mobMaxLevel) 그대로 굴러간다. */
+  overrideMinLevel: number | null;
+  overrideMaxLevel: number | null;
   respawnSeconds: number;
 }
 
@@ -233,11 +236,13 @@ export function placeBuilderMobSpawn(
   roomId: number,
   mobTemplateId: number,
   respawnSeconds: number,
+  minLevel?: number | null,
+  maxLevel?: number | null,
 ): Promise<{ spawnId: number }> {
   return apiRequest('/builder/mob-spawns', {
     method: 'POST',
     headers: authHeader(token),
-    body: JSON.stringify({ roomId, mobTemplateId, respawnSeconds }),
+    body: JSON.stringify({ roomId, mobTemplateId, respawnSeconds, minLevel, maxLevel }),
   });
 }
 

@@ -258,14 +258,16 @@ export function registerMobSpawn(
   roomId: number,
   template: MobTemplateRow,
   respawnSeconds: number,
+  overrideMinLevel: number | null = null,
+  overrideMaxLevel: number | null = null,
 ): MobInstance {
   const instance = toMobInstance({
     spawnId,
     roomId,
     respawnSeconds,
     template,
-    overrideMinLevel: null,
-    overrideMaxLevel: null,
+    overrideMinLevel,
+    overrideMaxLevel,
   });
   mobs.set(spawnId, instance);
   return instance;
