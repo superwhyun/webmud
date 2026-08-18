@@ -6,5 +6,6 @@ import './items.js';
 import './mobs.js';
 import './npcs.js';
 import './mapAssistant/routes.js';
+import './mapExport.js';
 
 export { builderRouter };

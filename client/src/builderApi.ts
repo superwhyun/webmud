@@ -335,3 +335,23 @@ export function applyMapAssistantChanges(
     body: JSON.stringify({ operations }),
   });
 }
+
+/** 계정/캐릭터는 빠진, zone/room/exit/spawn과 그 템플릿(아이템/몹/NPC)만 담긴 콘텐츠 스냅샷. */
+export interface MapExportPayload {
+  version: number;
+  exportedAt: string;
+  tables: Record<string, Record<string, unknown>[]>;
+}
+
+export function fetchMapExport(token: string): Promise<MapExportPayload> {
+  return apiRequest('/builder/map-export', { headers: authHeader(token) });
+}
+
+/** 서버 전체 콘텐츠 데이터를 이 파일 내용으로 통째로 교체한다 — 어드민 권한 필요. */
+export function importMapExport(token: string, payload: MapExportPayload): Promise<{ ok: true }> {
+  return apiRequest('/builder/map-import', {
+    method: 'POST',
+    headers: authHeader(token),
+    body: JSON.stringify(payload),
+  });
+}

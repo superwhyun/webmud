@@ -54,6 +54,9 @@ export interface BuilderContext {
   addRoomButton: HTMLButtonElement;
   backButton: HTMLButtonElement;
   toolbarError: HTMLSpanElement;
+  exportButton: HTMLButtonElement;
+  importButton: HTMLButtonElement;
+  importFileInput: HTMLInputElement;
 
   assistantPromptInput: HTMLTextAreaElement;
   assistantProposeButton: HTMLButtonElement;
@@ -98,6 +101,9 @@ function renderShellHtml(): string {
       <div class="builder-toolbar">
         <span class="builder-title">빌더</span>
         <button type="button" id="builder-add-room">+ 방 추가</button>
+        <button type="button" id="builder-export" title="계정/캐릭터를 제외한 존/방/스폰/템플릿을 JSON으로 내려받습니다.">맵 내보내기</button>
+        <button type="button" id="builder-import" title="JSON 파일로 콘텐츠 데이터 전체를 교체합니다. (어드민 권한 필요)">맵 가져오기</button>
+        <input type="file" id="builder-import-file" accept="application/json" hidden />
         <span class="builder-toolbar-error" id="builder-toolbar-error"></span>
         <button type="button" id="builder-back">게임으로 돌아가기</button>
       </div>
@@ -140,6 +146,9 @@ export function createBuilderContext(container: HTMLElement, token: string, onBa
     addRoomButton: container.querySelector<HTMLButtonElement>('#builder-add-room')!,
     backButton: container.querySelector<HTMLButtonElement>('#builder-back')!,
     toolbarError: container.querySelector<HTMLSpanElement>('#builder-toolbar-error')!,
+    exportButton: container.querySelector<HTMLButtonElement>('#builder-export')!,
+    importButton: container.querySelector<HTMLButtonElement>('#builder-import')!,
+    importFileInput: container.querySelector<HTMLInputElement>('#builder-import-file')!,
 
     assistantPromptInput: container.querySelector<HTMLTextAreaElement>('#builder-assistant-prompt')!,
     assistantProposeButton: container.querySelector<HTMLButtonElement>('#builder-assistant-propose')!,
