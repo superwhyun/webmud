@@ -314,7 +314,7 @@ export function attachCommandBarListeners(ctx: GameContext): void {
 
   /** 모달이 열려있거나 다른 입력/버튼에 포커스가 있는 게 아니라면, 키보드 입력이 항상 명령창으로 가도록 되돌려놓는다. */
   function isFocusStealExempt(): boolean {
-    if ([ctx.equipModal, ctx.jobModal, ctx.skillModal, ctx.macroModal].some((modal) => !modal.hidden)) return true;
+    if ([ctx.characterSheetModal, ctx.jobModal, ctx.macroModal].some((modal) => !modal.hidden)) return true;
     const active = document.activeElement;
     if (!active || active === ctx.commandInput) return false;
     const tag = active.tagName;

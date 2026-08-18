@@ -1,4 +1,7 @@
 import { formatItemMention, MAX_INVENTORY_SLOTS, type ItemGrade } from '@mud/shared';
+
+/** 상점 판매가(0.5배)의 1/10 — NPC 없이 인벤토리에서 바로 분해할 수 있는 대가로, 판매보다 훨씬 낮게 잡는다. */
+const SALVAGE_PRICE_RATIO = 0.05;
 import { db } from '../../db/client.js';
 import { loadCharacter, loadCharacterState } from '../characterState.js';
 import { broadcastRoomSnapshot } from '../roomSnapshot.js';
@@ -19,6 +22,7 @@ interface InventoryRow {
   grade: ItemGrade;
   heal_amount: number;
   mana_amount: number;
+  value: number;
 }
 
 interface RoomItemRow {
@@ -33,7 +37,7 @@ interface RoomItemRow {
 function loadInventoryItemRows(characterId: number): InventoryRow[] {
   return db
     .prepare(
-      `SELECT inv.id, inv.item_id, inv.quantity, inv.equipped, i.name, i.type, i.slot, i.level, i.grade, i.heal_amount, i.mana_amount
+      `SELECT inv.id, inv.item_id, inv.quantity, inv.equipped, i.name, i.type, i.slot, i.level, i.grade, i.heal_amount, i.mana_amount, i.value
        FROM inventory_items inv
        JOIN items i ON i.id = inv.item_id
        WHERE inv.character_id = ?`,
@@ -371,6 +375,40 @@ function consumeInventoryItem(ctx: CommandContext, item: InventoryRow): void {
   ctx.send({
     type: 'text',
     text: `${formatItemMention(item.name, item.grade)}을(를) 사용해 ${effects.length > 0 ? effects.join(' ') : '하지만 효과가 없었습니다.'}`,
+  });
+
+  const state = loadCharacterState(ctx.session.characterId);
+  if (state) ctx.send({ type: 'state', character: state });
+  sendEquipmentAndInventory(ctx);
+}
+
+/** 인벤토리 화면에서 아이템을 휴지통에 드래그해 즉시 분해한다 — NPC 상점 없이 어디서나 가능한 대신 판매가의 1/10만 받는다. */
+export function handleSalvageItemMessage(ctx: CommandContext, inventoryId: number): void {
+  const item = findInventoryItemById(ctx.session.characterId, inventoryId);
+  if (!item) {
+    ctx.send({ type: 'error', text: '그런 아이템을 가지고 있지 않습니다.' });
+    return;
+  }
+  if (item.equipped) {
+    ctx.send({ type: 'error', text: '장착 중인 아이템은 분해할 수 없습니다. 먼저 해제하세요.' });
+    return;
+  }
+
+  const salvagePrice = Math.floor(item.value * SALVAGE_PRICE_RATIO);
+
+  const salvageTx = db.transaction(() => {
+    if (item.quantity > 1) {
+      db.prepare('UPDATE inventory_items SET quantity = quantity - 1 WHERE id = ?').run(item.id);
+    } else {
+      db.prepare('DELETE FROM inventory_items WHERE id = ?').run(item.id);
+    }
+    db.prepare('UPDATE characters SET gold = gold + ? WHERE id = ?').run(salvagePrice, ctx.session.characterId);
+  });
+  salvageTx();
+
+  ctx.send({
+    type: 'text',
+    text: `${formatItemMention(item.name, item.grade)}을(를) 분해해 ${salvagePrice} gold를 얻었습니다.`,
   });
 
   const state = loadCharacterState(ctx.session.characterId);

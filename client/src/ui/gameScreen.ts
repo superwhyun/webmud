@@ -2,22 +2,12 @@ import type { ClientMessage, ServerMessage } from '@mud/shared';
 import { renderAdminScreen } from './adminScreen';
 import { renderBuilderScreen } from './builderScreen';
 import { attachCommandBarListeners } from './game/commandBar';
+import { closeCharacterSheet, isCharacterSheetTabOpen, openCharacterSheet, renderCharacterSheetBody } from './game/characterSheet';
 import { appendLine, createGameContext, type GameContext } from './game/context';
-import {
-  closeEquipModal,
-  closeInventoryModal,
-  openEquipModal,
-  openInventoryModal,
-  renderEquipModal,
-  renderEquipmentPanel,
-  renderInventoryCount,
-  renderInventoryModal,
-  renderPotionSummary,
-} from './game/equipment';
+import { renderEquipmentPanel, renderInventoryCount, renderPotionSummary } from './game/equipment';
 import { closeMacroModal, openMacroModal } from './game/macroPanel';
 import { recordRoomVisit, renderMinimap } from './game/minimap';
 import { hideCombat, renderCombat, renderRoom, showJobModal } from './game/room';
-import { closeSkillModal, openSkillModal, renderSkillModal } from './game/skills';
 import { renderCooldownPanel, renderState } from './game/state';
 import { closeSuggestionModal, openSuggestionModal } from './game/suggestions';
 
@@ -60,6 +50,7 @@ export function renderGameScreen(
         appendLine(ctx, message.text, 'error');
       } else if (message.type === 'state') {
         renderState(ctx, message.character);
+        if (isCharacterSheetTabOpen(ctx, 'equip')) renderCharacterSheetBody(ctx);
       } else if (message.type === 'room') {
         ctx.latestRoom = message.room;
         recordRoomVisit(ctx, message.room);
@@ -77,17 +68,16 @@ export function renderGameScreen(
       } else if (message.type === 'equipment') {
         ctx.equipmentState = message.slots;
         renderEquipmentPanel(ctx);
-        if (!ctx.equipModal.hidden) renderEquipModal(ctx);
+        if (isCharacterSheetTabOpen(ctx, 'equip')) renderCharacterSheetBody(ctx);
       } else if (message.type === 'inventory') {
         ctx.inventoryState = message.items;
         renderInventoryCount(ctx);
         renderPotionSummary(ctx);
-        if (!ctx.inventoryModal.hidden) renderInventoryModal(ctx);
-        if (!ctx.equipModal.hidden) renderEquipModal(ctx);
+        if (isCharacterSheetTabOpen(ctx, 'equip')) renderCharacterSheetBody(ctx);
       } else if (message.type === 'skills') {
         ctx.learnedSkillIds = message.learnedSkillIds;
         ctx.learnedSkillRanks = message.learnedSkillRanks;
-        if (!ctx.skillModal.hidden) renderSkillModal(ctx);
+        if (isCharacterSheetTabOpen(ctx, 'skill')) renderCharacterSheetBody(ctx);
       } else if (message.type === 'skillCooldowns') {
         const now = Date.now();
         const activeIds = new Set(message.cooldowns.map((cooldown) => cooldown.skillId));
@@ -146,23 +136,19 @@ export function renderGameScreen(
   });
 
   const equipSwapButton = container.querySelector<HTMLButtonElement>('#equip-swap-button')!;
-  equipSwapButton.addEventListener('click', () => openEquipModal(ctx));
-
-  const equipModalCloseButton = container.querySelector<HTMLButtonElement>('#equip-modal-close')!;
-  equipModalCloseButton.addEventListener('click', () => closeEquipModal(ctx));
-
-  ctx.equipModal.addEventListener('click', (event) => {
-    if (event.target === ctx.equipModal) closeEquipModal(ctx);
-  });
+  equipSwapButton.addEventListener('click', () => openCharacterSheet(ctx, 'equip'));
 
   const skillButton = container.querySelector<HTMLButtonElement>('#skill-button')!;
-  skillButton.addEventListener('click', () => openSkillModal(ctx));
+  skillButton.addEventListener('click', () => openCharacterSheet(ctx, 'skill'));
 
-  const skillModalCloseButton = container.querySelector<HTMLButtonElement>('#skill-modal-close')!;
-  skillModalCloseButton.addEventListener('click', () => closeSkillModal(ctx));
+  const inventoryButton = container.querySelector<HTMLButtonElement>('#inventory-button')!;
+  inventoryButton.addEventListener('click', () => openCharacterSheet(ctx, 'equip'));
 
-  ctx.skillModal.addEventListener('click', (event) => {
-    if (event.target === ctx.skillModal) closeSkillModal(ctx);
+  const characterSheetCloseButton = container.querySelector<HTMLButtonElement>('#character-sheet-close')!;
+  characterSheetCloseButton.addEventListener('click', () => closeCharacterSheet(ctx));
+
+  ctx.characterSheetModal.addEventListener('click', (event) => {
+    if (event.target === ctx.characterSheetModal) closeCharacterSheet(ctx);
   });
 
   const macroButton = container.querySelector<HTMLButtonElement>('#macro-button')!;
@@ -175,16 +161,6 @@ export function renderGameScreen(
     if (event.target === ctx.macroModal) closeMacroModal(ctx);
   });
 
-  const inventoryButton = container.querySelector<HTMLButtonElement>('#inventory-button')!;
-  inventoryButton.addEventListener('click', () => openInventoryModal(ctx));
-
-  const inventoryModalCloseButton = container.querySelector<HTMLButtonElement>('#inventory-modal-close')!;
-  inventoryModalCloseButton.addEventListener('click', () => closeInventoryModal(ctx));
-
-  ctx.inventoryModal.addEventListener('click', (event) => {
-    if (event.target === ctx.inventoryModal) closeInventoryModal(ctx);
-  });
-
   const suggestionButton = container.querySelector<HTMLButtonElement>('#suggestion-button')!;
   suggestionButton.addEventListener('click', () => openSuggestionModal(ctx));
 
@@ -194,4 +170,13 @@ export function renderGameScreen(
   ctx.suggestionModal.addEventListener('click', (event) => {
     if (event.target === ctx.suggestionModal) closeSuggestionModal(ctx);
   });
+
+  if (isInitialConnect) {
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape' || !currentCtx) return;
+      if (!currentCtx.characterSheetModal.hidden) closeCharacterSheet(currentCtx);
+      else if (!currentCtx.macroModal.hidden) closeMacroModal(currentCtx);
+      else if (!currentCtx.suggestionModal.hidden) closeSuggestionModal(currentCtx);
+    });
+  }
 }

@@ -7,7 +7,7 @@ import { cleanupCombatForSession, sendSkillCooldowns } from './combat/CombatMana
 import { getEffectiveStats } from './combatStats.js';
 import { dispatchCommand } from './commands/index.js';
 import { handleEquipItemMessage, handleUnequipItemMessage, sendEquipmentAndInventory } from './commands/equipment.js';
-import { handleDropItemMessage, handleUseItemMessage } from './commands/items.js';
+import { handleDropItemMessage, handleSalvageItemMessage, handleUseItemMessage } from './commands/items.js';
 import {
   handleLearnSkillMessage,
   handleResetSkillsMessage,
@@ -154,6 +154,9 @@ export function handleConnection(ws: WebSocket): void {
     } else if (message.type === 'useItem') {
       const session = requireSession(ws);
       if (session) handleUseItemMessage({ session, send: (m) => send(ws, m) }, message.inventoryId);
+    } else if (message.type === 'salvageItem') {
+      const session = requireSession(ws);
+      if (session) handleSalvageItemMessage({ session, send: (m) => send(ws, m) }, message.inventoryId);
     } else if (message.type === 'learnSkill') {
       const session = requireSession(ws);
       if (session) handleLearnSkillMessage({ session, send: (m) => send(ws, m) }, message.skillId);

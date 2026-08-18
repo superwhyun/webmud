@@ -51,6 +51,27 @@
   transform: scale(0.96);
 }
 
+/* 캐릭터 시트 아이템 카드와 같은 등급 glow 토큰을 써서, 물약도 등급이 높으면 칩 테두리 전체가 은은히 빛나게 한다. */
+.potion-chip-grade-mid {
+  box-shadow: var(--grade-glow-mid);
+}
+
+.potion-chip-grade-high {
+  box-shadow: var(--grade-glow-high);
+}
+
+.potion-chip-grade-rare {
+  box-shadow: var(--grade-glow-rare);
+}
+
+.potion-chip-grade-legend {
+  box-shadow: var(--grade-glow-legend);
+}
+
+.potion-chip-grade-epic {
+  box-shadow: var(--grade-glow-epic);
+}
+
 .potion-chip-icon {
   flex-shrink: 0;
   display: inline-flex;

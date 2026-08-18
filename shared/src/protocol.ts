@@ -104,8 +104,17 @@ export interface InventoryItemInfo {
   equipped: boolean;
   slot: EquipmentSlot | null;
   grade: ItemGrade;
+  level: number;
   healAmount: number;
   manaAmount: number;
+  strengthBonus: number;
+  dexterityBonus: number;
+  intelligenceBonus: number;
+  physicalDefenseBonus: number;
+  magicDefenseBonus: number;
+  attackPowerBonus: number;
+  /** 상점 판매가 — 분해(salvage) 시 이 값의 1/10을 돌려받는다. */
+  value: number;
 }
 
 export type EquipmentSnapshot = Partial<Record<EquipmentSlot, InventoryItemInfo>>;
@@ -124,6 +133,7 @@ export type ClientMessage =
   | { type: 'unequipItem'; slot: EquipmentSlot }
   | { type: 'dropItem'; inventoryId: number }
   | { type: 'useItem'; inventoryId: number }
+  | { type: 'salvageItem'; inventoryId: number }
   | { type: 'learnSkill'; skillId: string }
   | { type: 'upgradeSkill'; skillId: string }
   | { type: 'resetSkills' }

@@ -1,12 +1,63 @@
 import {
   EQUIPMENT_SLOTS,
   EQUIPMENT_SLOT_LABELS,
+  ITEM_GRADE_LABELS,
   type ClientMessage,
   type EquipmentSlot,
+  type InventoryItemInfo,
 } from '@mud/shared';
 import { escapeHtml } from '../../domUtils';
-import { icon } from '../icons';
+import { icon, type IconName } from '../icons';
 import type { GameContext } from './context';
+
+const SLOT_ICONS: Record<EquipmentSlot, IconName> = {
+  hat: 'slot-hat',
+  earring: 'slot-earring',
+  necklace: 'slot-necklace',
+  top: 'slot-top',
+  bottom: 'slot-bottom',
+  gloves: 'slot-gloves',
+  shoes: 'slot-shoes',
+  weapon: 'slot-weapon',
+  shield: 'slot-shield',
+  ring: 'slot-ring',
+};
+
+/**
+ * 사람 실루엣 위에서 슬롯이 놓일 좌표(%) — 디아블로류 종이인형 배치.
+ * 슬롯이 고정 크기 원형 소켓(4.2rem)이라, 실제 아이템 이름 길이와 무관하게 항상 같은 크기다.
+ * 좌표는 어떤 두 슬롯도 중심간 거리가 소켓 지름(67.2px, 360px 폭 컨테이너 기준)보다 항상
+ * 크도록 계산해서 잡았다 — 예전엔 슬롯 안에 아이템명을 직접 넣어서 카드 높이가 이름 길이에 따라
+ * 늘어나 옆 슬롯과 겹쳤는데(#Round4 버그), 지금은 크기가 고정이라 좌표만 맞으면 절대 안 겹친다.
+ */
+const SLOT_POSITIONS: Record<EquipmentSlot, { top: number; left: number }> = {
+  hat: { top: 5, left: 50 },
+  earring: { top: 18, left: 88 },
+  necklace: { top: 24, left: 50 },
+  top: { top: 44, left: 50 },
+  weapon: { top: 48, left: 12 },
+  shield: { top: 48, left: 88 },
+  bottom: { top: 65, left: 50 },
+  gloves: { top: 70, left: 12 },
+  ring: { top: 70, left: 88 },
+  shoes: { top: 92, left: 50 },
+};
+
+/**
+ * 실루엣은 사람 형상을 어렴풋이 알아볼 정도의 와이어프레임 — 아이템 그림이 아니라 슬롯 배치용
+ * 배경일 뿐이다. viewBox를 몸통보다 넓게 잡아서(200폭에 몸통은 가운데 60~140 정도) 양옆 무기/방패
+ * 슬롯이 놓일 여백을 만든다.
+ */
+const SILHOUETTE_SVG = `
+  <svg class="equip-silhouette" viewBox="0 0 260 300" preserveAspectRatio="xMidYMin meet" aria-hidden="true">
+    <circle cx="130" cy="34" r="24" />
+    <path d="M104 60c0-6 6-9 11-9h30c5 0 11 3 11 9l7 80c0 5-4 10-10 10H107c-6 0-10-5-10-10z" />
+    <path d="M104 63 82 145l15 6 20-73z" />
+    <path d="M156 63l22 82-15 6-20-73z" />
+    <path d="M112 150l-9 145h22l6-130z" />
+    <path d="M148 150l9 145h-22l-6-130z" />
+  </svg>
+`;
 
 export function renderEquipmentPanel(ctx: GameContext): void {
   ctx.equipmentPanel.innerHTML = EQUIPMENT_SLOTS.map((slot) => {
@@ -46,7 +97,7 @@ export function renderPotionSummary(ctx: GameContext): void {
   ctx.potionBar.innerHTML = potions
     .map(
       (item) => `
-        <button type="button" class="potion-chip" data-use-inventory-id="${item.inventoryId}" title="클릭하면 사용됩니다">
+        <button type="button" class="potion-chip potion-chip-grade-${item.grade}" data-use-inventory-id="${item.inventoryId}" title="클릭하면 사용됩니다">
           <span class="potion-chip-icon potion-chip-icon-${item.healAmount > 0 && item.manaAmount > 0 ? 'elixir' : item.manaAmount > 0 ? 'mana' : 'health'} potion-chip-icon-grade-${item.grade}">${potionIcon(item)}</span>
           <span class="item-grade-${item.grade}">${escapeHtml(item.name)}</span>
           <span class="potion-chip-qty">x${item.quantity}</span>
@@ -65,127 +116,279 @@ export function renderPotionSummary(ctx: GameContext): void {
   });
 }
 
-export function renderInventoryModal(ctx: GameContext): void {
-  ctx.inventoryModalBody.innerHTML =
-    ctx.inventoryState
-      .map((item) => {
-        const canEquip = Boolean(item.slot) && !item.equipped;
-        return `
-          <div class="inventory-panel-row">
-            <div class="inventory-panel-info">
-              <span class="item-grade-${item.grade}">${escapeHtml(item.name)}</span>
-              <span class="inventory-panel-qty">${item.quantity > 1 ? `x${item.quantity}` : ''}${item.equipped ? ' [장착중]' : ''}</span>
-            </div>
-            <div class="inventory-panel-actions">
-              ${canEquip ? `<button type="button" class="inventory-panel-btn" data-equip-inventory-id="${item.inventoryId}">장착</button>` : ''}
-              ${item.equipped ? `<button type="button" class="inventory-panel-btn" data-unequip-slot="${item.slot}">해제</button>` : ''}
-              <button
-                type="button"
-                class="inventory-panel-btn inventory-panel-btn-danger"
-                data-drop-inventory-id="${item.inventoryId}"
-                ${item.equipped ? 'disabled title="장착 중인 아이템은 버릴 수 없습니다. 먼저 해제하세요."' : ''}
-              >버리기</button>
-            </div>
-          </div>
-        `;
-      })
-      .join('') || '<div class="inventory-panel-empty">비어있음</div>';
-
-  ctx.inventoryModalBody.querySelectorAll<HTMLButtonElement>('[data-equip-inventory-id]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const inventoryId = Number(button.dataset.equipInventoryId);
-      if (!inventoryId) return;
-      const message: ClientMessage = { type: 'equipItem', inventoryId };
-      ctx.socket.send(JSON.stringify(message));
-    });
-  });
-
-  ctx.inventoryModalBody.querySelectorAll<HTMLButtonElement>('[data-unequip-slot]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const slot = button.dataset.unequipSlot as EquipmentSlot;
-      const message: ClientMessage = { type: 'unequipItem', slot };
-      ctx.socket.send(JSON.stringify(message));
-    });
-  });
-
-  ctx.inventoryModalBody.querySelectorAll<HTMLButtonElement>('[data-drop-inventory-id]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const inventoryId = Number(button.dataset.dropInventoryId);
-      if (!inventoryId) return;
-      const message: ClientMessage = { type: 'dropItem', inventoryId };
-      ctx.socket.send(JSON.stringify(message));
-    });
-  });
+function sendEquip(ctx: GameContext, inventoryId: number): void {
+  const message: ClientMessage = { type: 'equipItem', inventoryId };
+  ctx.socket.send(JSON.stringify(message));
 }
 
-export function openInventoryModal(ctx: GameContext): void {
-  renderInventoryModal(ctx);
-  ctx.inventoryModal.hidden = false;
+function sendUnequip(ctx: GameContext, slot: EquipmentSlot): void {
+  ctx.lastEquipFlashSlot = slot;
+  const message: ClientMessage = { type: 'unequipItem', slot };
+  ctx.socket.send(JSON.stringify(message));
 }
 
-export function closeInventoryModal(ctx: GameContext): void {
-  ctx.inventoryModal.hidden = true;
+function sendSalvage(ctx: GameContext, inventoryId: number): void {
+  const message: ClientMessage = { type: 'salvageItem', inventoryId };
+  ctx.socket.send(JSON.stringify(message));
 }
 
-export function renderEquipModal(ctx: GameContext): void {
-  ctx.equipModalBody.innerHTML = EQUIPMENT_SLOTS.map((slot) => {
+/** 카드가 너무 많을 때 등장 애니메이션 딜레이가 한없이 길어지지 않도록 인덱스를 여기서 자른다. */
+const MAX_STAGGER_INDEX = 24;
+
+/** 지금 드래그 중인 인벤토리 아이템 — dragover 시점엔 dataTransfer.getData를 못 읽는 브라우저가 있어서 모듈 스코프에 따로 들고 있는다. */
+let draggedItem: InventoryItemInfo | null = null;
+
+const STAT_BONUS_LABELS: Array<{ key: keyof InventoryItemInfo; label: string }> = [
+  { key: 'attackPowerBonus', label: '공격력' },
+  { key: 'strengthBonus', label: '힘' },
+  { key: 'dexterityBonus', label: '민첩' },
+  { key: 'intelligenceBonus', label: '지능' },
+  { key: 'physicalDefenseBonus', label: '물리방어' },
+  { key: 'magicDefenseBonus', label: '마법방어' },
+];
+
+/**
+ * 디아블로류 아이템 툴팁 — 슬롯/카드는 아이콘만 보여주고, 이름·등급·스탯 수치는 전부 여기로 몬다.
+ * 슬롯 안에 이름 텍스트를 직접 넣으면 긴 아이템명이 카드 높이를 늘려 종이인형 위 이웃 슬롯과
+ * 겹치는 문제가 있었다 — 아이콘만 고정 크기로 두고 상세 정보는 hover 시에만 뜨는 툴팁으로 분리.
+ */
+function buildItemTooltipHtml(item: InventoryItemInfo, slotLabel: string): string {
+  const statLines = STAT_BONUS_LABELS.filter(({ key }) => (item[key] as number) > 0)
+    .map(({ key, label }) => `<div class="item-tooltip-stat">${label} +${item[key] as number}</div>`)
+    .join('');
+  const potionLines = [
+    item.healAmount > 0 ? `<div class="item-tooltip-stat">HP 회복 +${item.healAmount}</div>` : '',
+    item.manaAmount > 0 ? `<div class="item-tooltip-stat">MP 회복 +${item.manaAmount}</div>` : '',
+  ].join('');
+
+  return `
+    <div class="item-tooltip-name item-grade-${item.grade}">${escapeHtml(item.name)}</div>
+    <div class="item-tooltip-meta">${ITEM_GRADE_LABELS[item.grade]} · ${escapeHtml(slotLabel)} · Lv.${item.level}</div>
+    ${statLines || potionLines ? `<div class="item-tooltip-stats">${statLines}${potionLines}</div>` : ''}
+    <div class="item-tooltip-value">가치 ${item.value} gold</div>
+  `;
+}
+
+function emptySlotTooltipHtml(slotLabel: string): string {
+  return `<div class="item-tooltip-meta">${escapeHtml(slotLabel)} · 비어있음</div>`;
+}
+
+/** 인벤토리(가방) 칸 하나 — 이미지가 없으니 장비 타입 아이콘으로 "칸에 뭔가 들어있다"는 인벤토리다운 느낌을 준다. */
+function renderItemCard(item: InventoryItemInfo, index: number): string {
+  const delay = Math.min(index, MAX_STAGGER_INDEX) * 20;
+  const slotIcon = item.slot ? SLOT_ICONS[item.slot] : 'gear';
+
+  return `
+    <div
+      class="hud-card hud-card-enter item-card item-card-grade-${item.grade}"
+      style="animation-delay: ${delay}ms"
+      draggable="true"
+      data-inventory-id="${item.inventoryId}"
+      data-item-slot="${item.slot ?? ''}"
+    >
+      ${item.quantity > 1 ? `<span class="item-card-qty">x${item.quantity}</span>` : ''}
+      <span class="item-card-icon">${icon(slotIcon)}</span>
+    </div>
+  `;
+}
+
+function findInventoryItem(ctx: GameContext, inventoryId: number): InventoryItemInfo | undefined {
+  return ctx.inventoryState.find((item) => item.inventoryId === inventoryId);
+}
+
+const CHARACTER_STAT_STRIP: Array<{ key: 'attackPower' | 'physicalDefense' | 'magicDefense' | 'strength' | 'dexterity' | 'intelligence'; label: string }> = [
+  { key: 'attackPower', label: '공격력' },
+  { key: 'physicalDefense', label: '물리방어' },
+  { key: 'magicDefense', label: '마법방어' },
+  { key: 'strength', label: '힘' },
+  { key: 'dexterity', label: '민첩' },
+  { key: 'intelligence', label: '지능' },
+];
+
+/**
+ * 장비/인벤토리 화면만 봐서는 "지금 뭘 입고 있고 그게 캐릭터에 어떤 효과를 주는지" 전혀 안 보인다는
+ * 지적을 받아 추가한 패널 — 종이인형은 hover로만 상세를 보여주므로, hover 없이도 항상 보이는
+ * 요약(이름 목록 + 합산 스탯)을 가방 위에 얹는다. 파이퍼돌의 소켓 좌표/크기는 절대 건드리지
+ * 않는다(#Round4 겹침 버그가 이름 텍스트 때문에 생겼던 걸 좌표 재설계로 잡았기 때문).
+ */
+function buildEquipSummaryHtml(ctx: GameContext): string {
+  const state = ctx.currentCharacterState;
+  const statStripHtml = state
+    ? CHARACTER_STAT_STRIP.map(({ key, label }) => `<span class="equip-stat-chip">${label} <b>${state[key]}</b></span>`).join('')
+    : '';
+
+  const rowsHtml = EQUIPMENT_SLOTS.map((slot) => {
     const equipped = ctx.equipmentState[slot];
-    const options = ctx.inventoryState.filter((item) => item.slot === slot && !item.equipped);
+    const nameHtml = equipped ? `<span class="item-grade-${equipped.grade}">${escapeHtml(equipped.name)}</span>` : '<span class="equip-summary-empty">비어있음</span>';
+    return `<div class="equip-summary-row" title="${equipped ? escapeHtml(equipped.name) : ''}"><span class="equip-summary-label">${EQUIPMENT_SLOT_LABELS[slot]}</span>${nameHtml}</div>`;
+  }).join('');
+
+  return `
+    <div class="equip-summary">
+      ${statStripHtml ? `<div class="equip-stat-strip">${statStripHtml}</div>` : ''}
+      <div class="equip-summary-grid">${rowsHtml}</div>
+    </div>
+  `;
+}
+
+/** 장비 탭(장비+인벤토리 통합 화면). 장착은 드래그 앤 드롭으로만 하고, 슬롯을 hover하면 낄 수 있는 아이템만 인벤토리에서 밝아진다. */
+export function renderEquipTab(ctx: GameContext): void {
+  const slotsHtml = EQUIPMENT_SLOTS.map((slot, index) => {
+    const equipped = ctx.equipmentState[slot];
+    const stateClasses = [
+      equipped ? `equip-slot-grade-${equipped.grade}` : 'is-empty',
+      ctx.lastEquipFlashSlot === slot ? 'is-flashing' : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+    const position = SLOT_POSITIONS[slot];
+
     return `
-      <div class="equip-modal-row">
-        <div class="equip-modal-slot-label">${EQUIPMENT_SLOT_LABELS[slot]}</div>
-        <div class="equip-modal-current">
-          ${equipped ? `<span class="item-grade-${equipped.grade}">${escapeHtml(equipped.name)}</span>` : '비어있음'}
-          ${equipped ? `<button type="button" class="equip-modal-unequip-btn" data-unequip-slot="${slot}">해제</button>` : ''}
-        </div>
-        <div class="equip-modal-options">
-          ${
-            options.length > 0
-              ? `<select data-slot-select="${slot}">
-                  ${options.map((item) => `<option value="${item.inventoryId}" class="item-grade-${item.grade}">${escapeHtml(item.name)}${item.quantity > 1 ? ` x${item.quantity}` : ''}</option>`).join('')}
-                </select>
-                <button type="button" class="equip-modal-equip-btn" data-equip-slot="${slot}">장착</button>`
-              : '<span class="equip-modal-empty">착용 가능한 아이템 없음</span>'
-          }
-        </div>
+      <div
+        class="hud-card hud-card-enter equip-slot ${stateClasses}"
+        style="top: ${position.top}%; left: ${position.left}%; animation-delay: ${index * 25}ms"
+        data-equip-slot="${slot}"
+      >
+        <span class="equip-slot-icon">${icon(SLOT_ICONS[slot])}</span>
+        ${equipped ? `<button type="button" class="equip-slot-unequip" data-unequip-slot="${slot}" title="해제">✕</button>` : ''}
       </div>
     `;
   }).join('');
 
-  ctx.equipModalBody.querySelectorAll<HTMLSelectElement>('[data-slot-select]').forEach((select) => {
-    const syncColor = () => {
-      const selected = select.selectedOptions[0];
-      select.style.color = selected ? getComputedStyle(selected).color : '';
-    };
-    syncColor();
-    select.addEventListener('change', syncColor);
-  });
+  ctx.lastEquipFlashSlot = null;
 
-  ctx.equipModalBody.querySelectorAll<HTMLButtonElement>('[data-equip-slot]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const slot = button.dataset.equipSlot!;
-      const select = ctx.equipModalBody.querySelector<HTMLSelectElement>(`[data-slot-select="${slot}"]`);
-      const inventoryId = Number(select?.value);
-      if (!inventoryId) return;
-      const message: ClientMessage = { type: 'equipItem', inventoryId };
-      ctx.socket.send(JSON.stringify(message));
+  const bagItems = ctx.inventoryState.filter((item) => !item.equipped);
+  const bagHtml = bagItems.map((item, index) => renderItemCard(item, index)).join('');
+
+  ctx.characterSheetBody.innerHTML = `
+    <div class="equip-combined">
+      <div class="equip-paperdoll">
+        ${SILHOUETTE_SVG}
+        ${slotsHtml}
+      </div>
+      <div class="equip-bag">
+        <div class="equip-bag-header">
+          <span>가방</span>
+          <button type="button" class="equip-bag-trash" data-salvage-drop title="아이템을 여기로 끌어오면 분해해서 골드로 바꿉니다.">${icon('trash')}</button>
+        </div>
+        ${buildEquipSummaryHtml(ctx)}
+        <div class="item-card-grid">${bagHtml || '<p class="inventory-panel-empty">비어있습니다.</p>'}</div>
+      </div>
+    </div>
+    <div class="item-tooltip" hidden></div>
+  `;
+
+  wireEquipTabInteractions(ctx);
+}
+
+/** 마우스를 따라다니되 모달/뷰포트 밖으로 나가지 않도록 살짝 안쪽으로 당겨준다. */
+function positionTooltip(tooltip: HTMLDivElement, clientX: number, clientY: number): void {
+  const margin = 16;
+  const rect = tooltip.getBoundingClientRect();
+  const maxLeft = window.innerWidth - rect.width - margin;
+  const maxTop = window.innerHeight - rect.height - margin;
+  tooltip.style.left = `${Math.min(clientX + margin, Math.max(margin, maxLeft))}px`;
+  tooltip.style.top = `${Math.min(clientY + margin, Math.max(margin, maxTop))}px`;
+}
+
+function wireEquipTabInteractions(ctx: GameContext): void {
+  const root = ctx.characterSheetBody;
+  const tooltip = root.querySelector<HTMLDivElement>('.item-tooltip')!;
+
+  function showTooltip(html: string, event: MouseEvent): void {
+    tooltip.innerHTML = html;
+    tooltip.hidden = false;
+    positionTooltip(tooltip, event.clientX, event.clientY);
+  }
+  function hideTooltip(): void {
+    tooltip.hidden = true;
+  }
+
+  // 슬롯 해제 버튼
+  root.querySelectorAll<HTMLButtonElement>('[data-unequip-slot]').forEach((button) => {
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      sendUnequip(ctx, button.dataset.unequipSlot as EquipmentSlot);
     });
   });
 
-  ctx.equipModalBody.querySelectorAll<HTMLButtonElement>('[data-unequip-slot]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const slot = button.dataset.unequipSlot as EquipmentSlot;
-      const message: ClientMessage = { type: 'unequipItem', slot };
-      ctx.socket.send(JSON.stringify(message));
+  // 슬롯 hover → 낄 수 있는 인벤토리 아이템만 밝아짐(장착 가능 미리보기) + 장착된 아이템의 스탯 툴팁
+  root.querySelectorAll<HTMLDivElement>('[data-equip-slot]').forEach((slotEl) => {
+    const slot = slotEl.dataset.equipSlot as EquipmentSlot;
+
+    slotEl.addEventListener('mouseenter', () => {
+      root.querySelectorAll<HTMLDivElement>(`[data-item-slot="${slot}"]`).forEach((card) => card.classList.add('is-eligible'));
+    });
+    slotEl.addEventListener('mouseleave', () => {
+      root.querySelectorAll<HTMLDivElement>(`[data-item-slot="${slot}"]`).forEach((card) => card.classList.remove('is-eligible'));
+      hideTooltip();
+    });
+    slotEl.addEventListener('mousemove', (event) => {
+      const equipped = ctx.equipmentState[slot];
+      const html = equipped ? buildItemTooltipHtml(equipped, EQUIPMENT_SLOT_LABELS[slot]) : emptySlotTooltipHtml(EQUIPMENT_SLOT_LABELS[slot]);
+      showTooltip(html, event);
+    });
+
+    // 드래그 중인 아이템이 이 슬롯에 맞는지에 따라 드롭 허용 여부와 색을 다르게 표시
+    slotEl.addEventListener('dragover', (event) => {
+      if (!draggedItem || draggedItem.slot !== slot) return;
+      event.preventDefault();
+      slotEl.classList.add('is-drop-valid');
+    });
+    slotEl.addEventListener('dragleave', () => {
+      slotEl.classList.remove('is-drop-valid');
+    });
+    slotEl.addEventListener('drop', (event) => {
+      event.preventDefault();
+      slotEl.classList.remove('is-drop-valid');
+      if (!draggedItem || draggedItem.slot !== slot) return;
+      ctx.lastEquipFlashSlot = slot;
+      sendEquip(ctx, draggedItem.inventoryId);
+      draggedItem = null;
     });
   });
-}
 
-export function openEquipModal(ctx: GameContext): void {
-  renderEquipModal(ctx);
-  ctx.equipModal.hidden = false;
-}
+  // 인벤토리 카드: 드래그 시작점 + hover 시 스탯 툴팁
+  root.querySelectorAll<HTMLDivElement>('[data-inventory-id]').forEach((card) => {
+    card.addEventListener('dragstart', (event) => {
+      const inventoryId = Number(card.dataset.inventoryId);
+      draggedItem = findInventoryItem(ctx, inventoryId) ?? null;
+      event.dataTransfer?.setData('text/plain', String(inventoryId));
+      if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+      card.classList.add('is-dragging');
+      hideTooltip();
+    });
+    card.addEventListener('dragend', () => {
+      card.classList.remove('is-dragging');
+      draggedItem = null;
+    });
+    card.addEventListener('mousemove', (event) => {
+      const inventoryId = Number(card.dataset.inventoryId);
+      const item = findInventoryItem(ctx, inventoryId);
+      if (!item) return;
+      const slotLabel = item.slot ? EQUIPMENT_SLOT_LABELS[item.slot] : '소모품';
+      showTooltip(buildItemTooltipHtml(item, slotLabel), event);
+    });
+    card.addEventListener('mouseleave', hideTooltip);
+  });
 
-export function closeEquipModal(ctx: GameContext): void {
-  ctx.equipModal.hidden = true;
+  // 휴지통: 아무 아이템이나 끌어다 놓으면 분해(골드 환급)
+  const trash = root.querySelector<HTMLButtonElement>('[data-salvage-drop]');
+  if (trash) {
+    trash.addEventListener('dragover', (event) => {
+      if (!draggedItem) return;
+      event.preventDefault();
+      trash.classList.add('is-drop-valid');
+    });
+    trash.addEventListener('dragleave', () => {
+      trash.classList.remove('is-drop-valid');
+    });
+    trash.addEventListener('drop', (event) => {
+      event.preventDefault();
+      trash.classList.remove('is-drop-valid');
+      if (!draggedItem) return;
+      sendSalvage(ctx, draggedItem.inventoryId);
+      draggedItem = null;
+    });
+  }
 }

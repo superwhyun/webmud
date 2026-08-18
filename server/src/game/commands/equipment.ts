@@ -17,14 +17,24 @@ interface InventoryQueryRow {
   equipped: number;
   slot: string | null;
   grade: ItemGrade;
+  level: number;
   heal_amount: number;
   mana_amount: number;
+  strength_bonus: number;
+  dexterity_bonus: number;
+  intelligence_bonus: number;
+  physical_defense_bonus: number;
+  magic_defense_bonus: number;
+  attack_power_bonus: number;
+  value: number;
 }
 
 function loadInventoryRows(characterId: number): InventoryQueryRow[] {
   return db
     .prepare(
-      `SELECT inv.id, i.name, inv.quantity, inv.equipped, i.slot, i.grade, i.heal_amount, i.mana_amount
+      `SELECT inv.id, i.name, inv.quantity, inv.equipped, i.slot, i.grade, i.level,
+              i.heal_amount, i.mana_amount, i.strength_bonus, i.dexterity_bonus, i.intelligence_bonus,
+              i.physical_defense_bonus, i.magic_defense_bonus, i.attack_power_bonus, i.value
        FROM inventory_items inv
        JOIN items i ON i.id = inv.item_id
        WHERE inv.character_id = ?`,
@@ -40,8 +50,16 @@ function toInventoryItemInfo(row: InventoryQueryRow): InventoryItemInfo {
     equipped: Boolean(row.equipped),
     slot: (row.slot as EquipmentSlot | null) ?? null,
     grade: row.grade,
+    level: row.level,
     healAmount: row.heal_amount,
     manaAmount: row.mana_amount,
+    strengthBonus: row.strength_bonus,
+    dexterityBonus: row.dexterity_bonus,
+    intelligenceBonus: row.intelligence_bonus,
+    physicalDefenseBonus: row.physical_defense_bonus,
+    magicDefenseBonus: row.magic_defense_bonus,
+    attackPowerBonus: row.attack_power_bonus,
+    value: row.value,
   };
 }
 

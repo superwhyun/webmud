@@ -3,6 +3,7 @@ import {
   MAX_INVENTORY_SLOTS,
   type CharacterState,
   type CombatMobInfo,
+  type EquipmentSlot,
   type EquipmentSnapshot,
   type InventoryItemInfo,
   type RoomSnapshot,
@@ -21,6 +22,9 @@ export interface TabCompletionState {
   candidates: string[];
   index: number;
 }
+
+/** 장비+인벤토리(한 화면에 같이 보임)/스킬을 전환하는 캐릭터 시트의 탭. */
+export type CharacterSheetTab = 'equip' | 'skill';
 
 export interface GameContext {
   container: HTMLElement;
@@ -43,16 +47,18 @@ export interface GameContext {
   minimap: HTMLDivElement;
   inventoryCountLabel: HTMLSpanElement;
   commandInput: HTMLInputElement;
-  equipModal: HTMLDivElement;
-  equipModalBody: HTMLDivElement;
+  characterSheetModal: HTMLDivElement;
+  characterSheetTabs: HTMLDivElement;
+  characterSheetBody: HTMLDivElement;
+  characterSheetActiveTab: CharacterSheetTab;
+  /** 방금 장착/해제한 슬롯 — 다음 렌더에서 이 슬롯 카드에 한 번만 flash를 재생하고 지운다. */
+  lastEquipFlashSlot: EquipmentSlot | null;
+  /** 방금 배우거나 강화한 스킬 id — 다음 렌더에서 이 노드에 한 번만 unlock-pulse를 재생하고 지운다. */
+  lastSkillUnlockId: string | null;
   jobModal: HTMLDivElement;
   jobModalBody: HTMLDivElement;
-  skillModal: HTMLDivElement;
-  skillModalBody: HTMLDivElement;
   macroModal: HTMLDivElement;
   macroModalBody: HTMLDivElement;
-  inventoryModal: HTMLDivElement;
-  inventoryModalBody: HTMLDivElement;
   suggestionModal: HTMLDivElement;
   suggestionModalBody: HTMLDivElement;
 
@@ -140,13 +146,13 @@ function renderShellHtml(isBuilder: boolean, isAdmin: boolean): string {
         }
       </aside>
     </div>
-    <div class="modal-overlay" id="equip-modal" hidden>
-      <div class="modal-content">
-        <div class="modal-header">
-          <span>장비 교체</span>
-          <button type="button" id="equip-modal-close" class="modal-close-btn" aria-label="닫기">✕</button>
+    <div class="modal-overlay" id="character-sheet-modal" hidden>
+      <div class="modal-content modal-content-xl character-sheet">
+        <div class="modal-header character-sheet-header">
+          <div class="character-sheet-tabs" id="character-sheet-tabs"></div>
+          <button type="button" id="character-sheet-close" class="modal-close-btn" aria-label="닫기">✕</button>
         </div>
-        <div class="modal-body" id="equip-modal-body"></div>
+        <div class="modal-body" id="character-sheet-body"></div>
       </div>
     </div>
     <div class="modal-overlay" id="job-modal" hidden>
@@ -157,15 +163,6 @@ function renderShellHtml(isBuilder: boolean, isAdmin: boolean): string {
         <div class="modal-body" id="job-modal-body"></div>
       </div>
     </div>
-    <div class="modal-overlay" id="skill-modal" hidden>
-      <div class="modal-content modal-content-xl">
-        <div class="modal-header">
-          <span>스킬</span>
-          <button type="button" id="skill-modal-close" class="modal-close-btn" aria-label="닫기">✕</button>
-        </div>
-        <div class="modal-body" id="skill-modal-body"></div>
-      </div>
-    </div>
     <div class="modal-overlay" id="macro-modal" hidden>
       <div class="modal-content">
         <div class="modal-header">
@@ -173,15 +170,6 @@ function renderShellHtml(isBuilder: boolean, isAdmin: boolean): string {
           <button type="button" id="macro-modal-close" class="modal-close-btn" aria-label="닫기">✕</button>
         </div>
         <div class="modal-body" id="macro-modal-body"></div>
-      </div>
-    </div>
-    <div class="modal-overlay" id="inventory-modal" hidden>
-      <div class="modal-content">
-        <div class="modal-header">
-          <span>인벤토리</span>
-          <button type="button" id="inventory-modal-close" class="modal-close-btn" aria-label="닫기">✕</button>
-        </div>
-        <div class="modal-body" id="inventory-modal-body"></div>
       </div>
     </div>
     <div class="modal-overlay" id="suggestion-modal" hidden>
@@ -234,16 +222,16 @@ export function createGameContext(
     minimap: container.querySelector<HTMLDivElement>('#minimap')!,
     inventoryCountLabel: container.querySelector<HTMLSpanElement>('#inventory-count')!,
     commandInput: container.querySelector<HTMLInputElement>('#command')!,
-    equipModal: container.querySelector<HTMLDivElement>('#equip-modal')!,
-    equipModalBody: container.querySelector<HTMLDivElement>('#equip-modal-body')!,
+    characterSheetModal: container.querySelector<HTMLDivElement>('#character-sheet-modal')!,
+    characterSheetTabs: container.querySelector<HTMLDivElement>('#character-sheet-tabs')!,
+    characterSheetBody: container.querySelector<HTMLDivElement>('#character-sheet-body')!,
+    characterSheetActiveTab: previous?.characterSheetActiveTab ?? 'equip',
+    lastEquipFlashSlot: null,
+    lastSkillUnlockId: null,
     jobModal: container.querySelector<HTMLDivElement>('#job-modal')!,
     jobModalBody: container.querySelector<HTMLDivElement>('#job-modal-body')!,
-    skillModal: container.querySelector<HTMLDivElement>('#skill-modal')!,
-    skillModalBody: container.querySelector<HTMLDivElement>('#skill-modal-body')!,
     macroModal: container.querySelector<HTMLDivElement>('#macro-modal')!,
     macroModalBody: container.querySelector<HTMLDivElement>('#macro-modal-body')!,
-    inventoryModal: container.querySelector<HTMLDivElement>('#inventory-modal')!,
-    inventoryModalBody: container.querySelector<HTMLDivElement>('#inventory-modal-body')!,
     suggestionModal: container.querySelector<HTMLDivElement>('#suggestion-modal')!,
     suggestionModalBody: container.querySelector<HTMLDivElement>('#suggestion-modal-body')!,
 

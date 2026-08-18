@@ -7,8 +7,8 @@ import {
   type StatKey,
 } from '@mud/shared';
 import { escapeHtml } from '../../domUtils';
+import { isCharacterSheetTabOpen, renderCharacterSheetBody } from './characterSheet';
 import { hpLevel, type GameContext } from './context';
-import { renderSkillModal } from './skills';
 
 const STAT_ALLOC_ENTRIES: { key: StatKey; label: string; pick: (c: CharacterState) => number }[] = [
   { key: 'str', label: '힘', pick: (c) => c.strength },
@@ -114,5 +114,5 @@ export function renderState(ctx: GameContext, character: CharacterState): void {
     });
   });
 
-  if (!ctx.skillModal.hidden) renderSkillModal(ctx);
+  if (isCharacterSheetTabOpen(ctx, 'skill')) renderCharacterSheetBody(ctx);
 }
