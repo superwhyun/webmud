@@ -6,3 +6,4 @@ dist/
 *.sqlite-shm
 .env
 .DS_Store
+tools/qa-agent/.sessions/
