@@ -92,7 +92,8 @@ CREATE TABLE IF NOT EXISTS inventory_items (
   character_id INTEGER NOT NULL REFERENCES characters(id),
   item_id INTEGER NOT NULL REFERENCES items(id),
   quantity INTEGER NOT NULL DEFAULT 1,
-  equipped INTEGER NOT NULL DEFAULT 0
+  equipped INTEGER NOT NULL DEFAULT 0,
+  sort_order INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS room_items (

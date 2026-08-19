@@ -37,7 +37,8 @@ function loadInventoryRows(characterId: number): InventoryQueryRow[] {
               i.physical_defense_bonus, i.magic_defense_bonus, i.attack_power_bonus, i.value
        FROM inventory_items inv
        JOIN items i ON i.id = inv.item_id
-       WHERE inv.character_id = ?`,
+       WHERE inv.character_id = ?
+       ORDER BY inv.sort_order ASC, inv.id ASC`,
     )
     .all(characterId) as InventoryQueryRow[];
 }
@@ -161,4 +162,27 @@ export function handleUnequipItemMessage(ctx: CommandContext, slot: EquipmentSlo
   sendEquipmentAndInventory(ctx);
   const state = loadCharacterState(ctx.session.characterId);
   if (state) ctx.send({ type: 'state', character: state });
+}
+
+/**
+ * 가방 안에서 드래그로 옮긴 새 순서를 통째로 받아 sort_order에 그대로 반영한다. 클라이언트가
+ * 보낸 id 중 이 캐릭터 소유가 아니거나 이미 장착된 아이템은 조용히 무시한다(다른 탭에서 먼저
+ * 장착했다거나 하는 경쟁 상황에도 서버 쪽 진실을 깨지 않기 위함).
+ */
+export function handleReorderInventoryMessage(ctx: CommandContext, inventoryIds: number[]): void {
+  const ownedRows = db
+    .prepare('SELECT id FROM inventory_items WHERE character_id = ? AND equipped = 0')
+    .all(ctx.session.characterId) as { id: number }[];
+  const ownedIds = new Set(ownedRows.map((row) => row.id));
+
+  const update = db.prepare('UPDATE inventory_items SET sort_order = ? WHERE id = ? AND character_id = ?');
+  const reorderTx = db.transaction(() => {
+    inventoryIds.forEach((inventoryId, index) => {
+      if (!ownedIds.has(inventoryId)) return;
+      update.run(index, inventoryId, ctx.session.characterId);
+    });
+  });
+  reorderTx();
+
+  sendEquipmentAndInventory(ctx);
 }

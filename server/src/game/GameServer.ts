@@ -6,7 +6,12 @@ import { loadCharacter, toCharacterState } from './characterState.js';
 import { cleanupCombatForSession, sendSkillCooldowns } from './combat/CombatManager.js';
 import { getEffectiveStats } from './combatStats.js';
 import { dispatchCommand } from './commands/index.js';
-import { handleEquipItemMessage, handleUnequipItemMessage, sendEquipmentAndInventory } from './commands/equipment.js';
+import {
+  handleEquipItemMessage,
+  handleReorderInventoryMessage,
+  handleUnequipItemMessage,
+  sendEquipmentAndInventory,
+} from './commands/equipment.js';
 import { handleDropItemMessage, handleSalvageItemMessage, handleUseItemMessage } from './commands/items.js';
 import {
   handleLearnSkillMessage,
@@ -157,6 +162,9 @@ export function handleConnection(ws: WebSocket): void {
     } else if (message.type === 'salvageItem') {
       const session = requireSession(ws);
       if (session) handleSalvageItemMessage({ session, send: (m) => send(ws, m) }, message.inventoryId);
+    } else if (message.type === 'reorderInventory') {
+      const session = requireSession(ws);
+      if (session) handleReorderInventoryMessage({ session, send: (m) => send(ws, m) }, message.inventoryIds);
     } else if (message.type === 'learnSkill') {
       const session = requireSession(ws);
       if (session) handleLearnSkillMessage({ session, send: (m) => send(ws, m) }, message.skillId);

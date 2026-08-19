@@ -134,6 +134,7 @@ export type ClientMessage =
   | { type: 'dropItem'; inventoryId: number }
   | { type: 'useItem'; inventoryId: number }
   | { type: 'salvageItem'; inventoryId: number }
+  | { type: 'reorderInventory'; inventoryIds: number[] }
   | { type: 'learnSkill'; skillId: string }
   | { type: 'upgradeSkill'; skillId: string }
   | { type: 'resetSkills' }

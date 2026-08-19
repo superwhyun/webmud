@@ -25,10 +25,12 @@ const SLOT_ICONS: Record<EquipmentSlot, IconName> = {
 
 /**
  * 사람 실루엣 위에서 슬롯이 놓일 좌표(%) — 디아블로류 종이인형 배치.
- * 슬롯이 고정 크기 원형 소켓(4.2rem)이라, 실제 아이템 이름 길이와 무관하게 항상 같은 크기다.
- * 좌표는 어떤 두 슬롯도 중심간 거리가 소켓 지름(67.2px, 360px 폭 컨테이너 기준)보다 항상
- * 크도록 계산해서 잡았다 — 예전엔 슬롯 안에 아이템명을 직접 넣어서 카드 높이가 이름 길이에 따라
+ * 슬롯이 고정 크기 원형 소켓(6rem, 520px 폭 컨테이너 기준)이라, 실제 아이템 이름 길이와
+ * 무관하게 항상 같은 크기다. 좌표는 어떤 두 슬롯도 중심간 거리가 소켓 지름보다 항상 크도록
+ * 계산해서 잡았다 — 예전엔 슬롯 안에 아이템명을 직접 넣어서 카드 높이가 이름 길이에 따라
  * 늘어나 옆 슬롯과 겹쳤는데(#Round4 버그), 지금은 크기가 고정이라 좌표만 맞으면 절대 안 겹친다.
+ * 소켓/아이콘을 키울 땐(#Round5 "아이콘 2배") 이 컨테이너 폭도 같은 비율로 키워야
+ * 퍼센트 좌표 간 실제 픽셀 간격이 유지되어 겹침이 재발하지 않는다.
  */
 const SLOT_POSITIONS: Record<EquipmentSlot, { top: number; left: number }> = {
   hat: { top: 5, left: 50 },
@@ -132,6 +134,16 @@ function sendSalvage(ctx: GameContext, inventoryId: number): void {
   ctx.socket.send(JSON.stringify(message));
 }
 
+function sendDrop(ctx: GameContext, inventoryId: number): void {
+  const message: ClientMessage = { type: 'dropItem', inventoryId };
+  ctx.socket.send(JSON.stringify(message));
+}
+
+function sendReorder(ctx: GameContext, inventoryIds: number[]): void {
+  const message: ClientMessage = { type: 'reorderInventory', inventoryIds };
+  ctx.socket.send(JSON.stringify(message));
+}
+
 /** 카드가 너무 많을 때 등장 애니메이션 딜레이가 한없이 길어지지 않도록 인덱스를 여기서 자른다. */
 const MAX_STAGGER_INDEX = 24;
 
@@ -173,27 +185,51 @@ function emptySlotTooltipHtml(slotLabel: string): string {
   return `<div class="item-tooltip-meta">${escapeHtml(slotLabel)} · 비어있음</div>`;
 }
 
-/** 인벤토리(가방) 칸 하나 — 이미지가 없으니 장비 타입 아이콘으로 "칸에 뭔가 들어있다"는 인벤토리다운 느낌을 준다. */
-function renderItemCard(item: InventoryItemInfo, index: number): string {
+/** 인벤토리(가방) 한 줄 — 아이콘 · 이름 · 버리기(휴지통) · 분해 버튼을 한 행에 나란히 보여주는 목록형 UI. */
+function renderItemRow(item: InventoryItemInfo, index: number): string {
   const delay = Math.min(index, MAX_STAGGER_INDEX) * 20;
   const slotIcon = item.slot ? SLOT_ICONS[item.slot] : 'gear';
 
   return `
     <div
-      class="hud-card hud-card-enter item-card item-card-grade-${item.grade}"
+      class="hud-card hud-card-enter item-row item-row-grade-${item.grade}"
       style="animation-delay: ${delay}ms"
       draggable="true"
       data-inventory-id="${item.inventoryId}"
       data-item-slot="${item.slot ?? ''}"
     >
-      ${item.quantity > 1 ? `<span class="item-card-qty">x${item.quantity}</span>` : ''}
-      <span class="item-card-icon">${icon(slotIcon)}</span>
+      <span class="item-row-icon">${icon(slotIcon)}</span>
+      <span class="item-row-name item-grade-${item.grade}" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>
+      ${item.quantity > 1 ? `<span class="item-row-qty">x${item.quantity}</span>` : ''}
+      <button type="button" class="item-row-btn item-row-btn-drop" data-drop-inventory-id="${item.inventoryId}" title="버리기">${icon('trash')}</button>
+      <button type="button" class="item-row-btn item-row-btn-salvage" data-salvage-inventory-id="${item.inventoryId}" title="분해 (${Math.floor(item.value * 0.05)} gold)">${icon('wrench')}</button>
     </div>
   `;
 }
 
 function findInventoryItem(ctx: GameContext, inventoryId: number): InventoryItemInfo | undefined {
   return ctx.inventoryState.find((item) => item.inventoryId === inventoryId);
+}
+
+/** 화면에 지금 보이는 가방 순서 그대로의 inventoryId 목록 — 재정렬 계산의 기준선. */
+function currentBagOrder(ctx: GameContext): number[] {
+  return ctx.inventoryState.filter((item) => !item.equipped).map((item) => item.inventoryId);
+}
+
+/** dragged 아이템을 targetInventoryId 바로 앞자리로 옮긴 새 순서를 계산해서 서버로 보낸다. targetInventoryId가 null이면 맨 뒤로 보낸다. */
+function reorderBag(ctx: GameContext, draggedInventoryId: number, targetInventoryId: number | null): void {
+  const order = currentBagOrder(ctx);
+  const fromIndex = order.indexOf(draggedInventoryId);
+  if (fromIndex === -1) return;
+  order.splice(fromIndex, 1);
+  if (targetInventoryId === null) {
+    order.push(draggedInventoryId);
+  } else {
+    const toIndex = order.indexOf(targetInventoryId);
+    if (toIndex === -1) return;
+    order.splice(toIndex, 0, draggedInventoryId);
+  }
+  sendReorder(ctx, order);
 }
 
 const CHARACTER_STAT_STRIP: Array<{ key: 'attackPower' | 'physicalDefense' | 'magicDefense' | 'strength' | 'dexterity' | 'intelligence'; label: string }> = [
@@ -258,7 +294,7 @@ export function renderEquipTab(ctx: GameContext): void {
   ctx.lastEquipFlashSlot = null;
 
   const bagItems = ctx.inventoryState.filter((item) => !item.equipped);
-  const bagHtml = bagItems.map((item, index) => renderItemCard(item, index)).join('');
+  const bagHtml = bagItems.map((item, index) => renderItemRow(item, index)).join('');
 
   ctx.characterSheetBody.innerHTML = `
     <div class="equip-combined">
@@ -269,10 +305,9 @@ export function renderEquipTab(ctx: GameContext): void {
       <div class="equip-bag">
         <div class="equip-bag-header">
           <span>가방</span>
-          <button type="button" class="equip-bag-trash" data-salvage-drop title="아이템을 여기로 끌어오면 분해해서 골드로 바꿉니다.">${icon('trash')}</button>
         </div>
         ${buildEquipSummaryHtml(ctx)}
-        <div class="item-card-grid">${bagHtml || '<p class="inventory-panel-empty">비어있습니다.</p>'}</div>
+        <div class="item-list">${bagHtml || '<p class="inventory-panel-empty">비어있습니다.</p>'}</div>
       </div>
     </div>
     <div class="item-tooltip" hidden></div>
@@ -348,46 +383,74 @@ function wireEquipTabInteractions(ctx: GameContext): void {
     });
   });
 
-  // 인벤토리 카드: 드래그 시작점 + hover 시 스탯 툴팁
-  root.querySelectorAll<HTMLDivElement>('[data-inventory-id]').forEach((card) => {
-    card.addEventListener('dragstart', (event) => {
-      const inventoryId = Number(card.dataset.inventoryId);
+  // 인벤토리 행: 드래그 시작점 + 행 위로 끌어오면 그 자리로 재정렬 + hover 시 스탯 툴팁 + 버리기/분해 버튼
+  root.querySelectorAll<HTMLDivElement>('[data-inventory-id]').forEach((row) => {
+    const inventoryId = Number(row.dataset.inventoryId);
+
+    row.addEventListener('dragstart', (event) => {
       draggedItem = findInventoryItem(ctx, inventoryId) ?? null;
       event.dataTransfer?.setData('text/plain', String(inventoryId));
       if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
-      card.classList.add('is-dragging');
+      row.classList.add('is-dragging');
       hideTooltip();
     });
-    card.addEventListener('dragend', () => {
-      card.classList.remove('is-dragging');
+    row.addEventListener('dragend', () => {
+      row.classList.remove('is-dragging');
       draggedItem = null;
     });
-    card.addEventListener('mousemove', (event) => {
-      const inventoryId = Number(card.dataset.inventoryId);
+
+    // 다른 가방 행 위로 끌어오면(장비 슬롯이 아니라 행끼리) 순서를 바꾼다.
+    row.addEventListener('dragover', (event) => {
+      if (!draggedItem || draggedItem.inventoryId === inventoryId) return;
+      event.preventDefault();
+      row.classList.add('is-reorder-target');
+    });
+    row.addEventListener('dragleave', () => {
+      row.classList.remove('is-reorder-target');
+    });
+    row.addEventListener('drop', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      row.classList.remove('is-reorder-target');
+      if (!draggedItem || draggedItem.inventoryId === inventoryId) return;
+      reorderBag(ctx, draggedItem.inventoryId, inventoryId);
+      draggedItem = null;
+    });
+
+    row.addEventListener('mousemove', (event) => {
       const item = findInventoryItem(ctx, inventoryId);
       if (!item) return;
       const slotLabel = item.slot ? EQUIPMENT_SLOT_LABELS[item.slot] : '소모품';
       showTooltip(buildItemTooltipHtml(item, slotLabel), event);
     });
-    card.addEventListener('mouseleave', hideTooltip);
+    row.addEventListener('mouseleave', hideTooltip);
   });
 
-  // 휴지통: 아무 아이템이나 끌어다 놓으면 분해(골드 환급)
-  const trash = root.querySelector<HTMLButtonElement>('[data-salvage-drop]');
-  if (trash) {
-    trash.addEventListener('dragover', (event) => {
+  // 버리기(휴지통, 골드 없이 그 자리에 버림) / 분해(판매가의 1/10 골드로 환급) — 행마다 바로 누를 수 있다.
+  root.querySelectorAll<HTMLButtonElement>('[data-drop-inventory-id]').forEach((button) => {
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      sendDrop(ctx, Number(button.dataset.dropInventoryId));
+    });
+  });
+  root.querySelectorAll<HTMLButtonElement>('[data-salvage-inventory-id]').forEach((button) => {
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      sendSalvage(ctx, Number(button.dataset.salvageInventoryId));
+    });
+  });
+
+  // 가방의 빈 공간(행이 아닌 곳)으로 끌어다 놓으면 맨 뒤로 보낸다.
+  const bagList = root.querySelector<HTMLDivElement>('.item-list');
+  if (bagList) {
+    bagList.addEventListener('dragover', (event) => {
       if (!draggedItem) return;
       event.preventDefault();
-      trash.classList.add('is-drop-valid');
     });
-    trash.addEventListener('dragleave', () => {
-      trash.classList.remove('is-drop-valid');
-    });
-    trash.addEventListener('drop', (event) => {
+    bagList.addEventListener('drop', (event) => {
       event.preventDefault();
-      trash.classList.remove('is-drop-valid');
       if (!draggedItem) return;
-      sendSalvage(ctx, draggedItem.inventoryId);
+      reorderBag(ctx, draggedItem.inventoryId, null);
       draggedItem = null;
     });
   }

@@ -105,9 +105,25 @@ function migrate(target: Database.Database): void {
     'granted_bonus',
     'ALTER TABLE character_skills ADD COLUMN granted_bonus INTEGER NOT NULL DEFAULT 0',
   );
+  ensureColumn(
+    target,
+    'inventory_items',
+    'sort_order',
+    'ALTER TABLE inventory_items ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0',
+  );
   migrateMobTemplateLevelRangeColumns(target);
   dropColumnIfExists(target, 'npc_templates', 'level');
   backfillGrantedBonus(target);
+  backfillInventorySortOrder(target);
+}
+
+/**
+ * sort_order 컬럼이 막 추가된 기존 행은 전부 0이라 정렬 기준이 없다 — id(생성 순서)로
+ * 한 번만 채워 넣는다. 이미 값이 채워진 행(0이 아닌 id 자신)은 다시 덮어쓰지 않으므로 매
+ * 시작마다 재실행해도 안전하다(id가 0인 행은 존재하지 않는다).
+ */
+function backfillInventorySortOrder(target: Database.Database): void {
+  target.prepare('UPDATE inventory_items SET sort_order = id WHERE sort_order = 0').run();
 }
 
 /**
