@@ -10,6 +10,11 @@ import {
 } from '@mud/shared';
 import { escapeHtml } from '../../domUtils';
 import type { GameContext } from './context';
+import { skillArtPath } from './skillAssets';
+
+function escapeHtmlAttribute(value: string): string {
+  return escapeHtml(value).replaceAll('"', '&quot;').replaceAll("'", '&#39;');
+}
 
 function findSkillByIdInList(skills: SkillDefinition[], id: string): SkillDefinition | undefined {
   return skills.find((skill) => skill.id === id);
@@ -38,50 +43,61 @@ function powerLabel(skill: SkillDefinition, rank: number): string {
   return `피해 ${effectiveSkillPower(skill, rank).toFixed(2)}배${skill.targeting === 'aoe' ? ' (광역)' : ''}`;
 }
 
-/** 랭크(0~20)를 conic-gradient 링으로 표시한다 — 텍스트 "[Lv3/20]" 대신 한눈에 진행률이 보이게. */
-function renderRankRing(rank: number): string {
-  const pct = Math.round((rank / SKILL_MAX_RANK) * 100);
+/** 직업/오행 문장 위에 현재 랭크를 작은 금속 배지로 겹쳐 표시한다. */
+function renderSkillMedallion(skill: SkillDefinition, rank: number): string {
   return `
-    <span class="skill-rank-ring" style="--rank-pct: ${pct}">
-      <span class="skill-rank-ring-inner">${rank > 0 ? rank : '-'}</span>
+    <span class="skill-medallion">
+      <img src="${skillArtPath(skill)}" alt="" aria-hidden="true" draggable="false">
+      <span class="skill-rank-badge">${rank}/${SKILL_MAX_RANK}</span>
     </span>
   `;
 }
 
-/** 스킬 노드 카드 자체(랭크 링 + 이름/상태 + 버튼). 트렁크 그리드에서는 이 카드만, 분기 칼럼에서는 이걸 점+선 래퍼로 감싼다. */
+/** 스킬 노드 카드 자체(문장 + 이름/상태 + 버튼). 트렁크 그리드에서는 이 카드만, 분기 칼럼에서는 이걸 점+선 래퍼로 감싼다. */
 function renderSkillCard(ctx: GameContext, skill: SkillDefinition, jobSkills: SkillDefinition[], index: number): string {
   const rank = ctx.learnedSkillRanks[skill.id] ?? 0;
   const learned = rank > 0;
   const hasPoints = (ctx.currentCharacterState?.unallocatedSkillPoints ?? 0) > 0;
   const unlocking = ctx.lastSkillUnlockId === skill.id;
+  const reason = learned ? undefined : lockReason(ctx, skill, jobSkills);
+  const maxed = rank >= SKILL_MAX_RANK;
 
   let statusText: string;
   let actionHtml = '';
-  let lockTierClass = '';
 
   if (learned) {
-    const maxed = rank >= SKILL_MAX_RANK;
-    statusText = maxed ? '만렙' : powerLabel(skill, rank);
+    statusText = maxed ? '최고 등급' : powerLabel(skill, rank);
     if (!maxed && hasPoints) {
-      actionHtml = `<button type="button" class="skill-upgrade-btn" data-skill-id="${skill.id}">강화</button>`;
+      actionHtml = `<button type="button" class="skill-upgrade-btn" data-skill-id="${escapeHtmlAttribute(skill.id)}">강화</button>`;
     }
   } else {
-    const reason = lockReason(ctx, skill, jobSkills);
     statusText = reason?.text ?? '습득 가능';
-    lockTierClass = reason ? ` skill-node-locked-${reason.tier}` : '';
     if (!reason && hasPoints) {
-      actionHtml = `<button type="button" class="skill-learn-btn" data-skill-id="${skill.id}">배우기</button>`;
+      actionHtml = `<button type="button" class="skill-learn-btn" data-skill-id="${escapeHtmlAttribute(skill.id)}">배우기</button>`;
     }
   }
 
   const title = `${skill.description} (MP ${skill.mpCost})`;
+  const stateClass = learned
+    ? ` is-learned${maxed ? ' is-maxed' : ''}`
+    : reason
+      ? ` skill-node-locked-${reason.tier}`
+      : ' is-available';
+  const kindLabel = skill.kind === 'passive'
+    ? '지속 효과'
+    : skill.kind === 'heal'
+      ? '회복'
+      : skill.targeting === 'aoe'
+        ? '광역 공격'
+        : '공격';
 
   return `
-    <div class="hud-card hud-card-enter skill-node${lockTierClass}${unlocking ? ' is-unlocking' : ''}" style="animation-delay: ${index * 25}ms" title="${escapeHtml(title)}">
-      ${renderRankRing(rank)}
+    <div class="hud-card hud-card-enter skill-node${stateClass}${unlocking ? ' is-unlocking' : ''}" style="animation-delay: ${index * 25}ms" title="${escapeHtmlAttribute(title)}">
+      ${renderSkillMedallion(skill, rank)}
       <div class="skill-node-info">
         <span class="skill-row-name">${escapeHtml(skill.name)}</span>
-        <span class="skill-row-status">${statusText}</span>
+        <span class="skill-row-status">${escapeHtml(statusText)}</span>
+        <span class="skill-row-meta">Lv.${skill.requiredLevel} · ${kindLabel}${skill.mpCost > 0 ? ` · MP ${skill.mpCost}` : ''}</span>
       </div>
       ${actionHtml}
     </div>

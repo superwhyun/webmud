@@ -220,64 +220,64 @@
 
 .skill-row-name {
   font-weight: bold;
-  color: var(--color-accent);
+  color: #d8c29b;
   font-size: var(--text-md);
+  letter-spacing: 0.02em;
 }
 
 .skill-row-status {
   font-weight: normal;
-  color: var(--color-text-dim);
+  color: #9b8b73;
   font-size: var(--text-xs);
   font-family: var(--font-mono);
-  /* 한글은 기본적으로 음절 단위로 줄바꿈돼서 좁은 칸에서 "습득 가능"이 "습득/가/능"처럼 조각난다.
-     띄어쓰기에서만 끊기게 해서 자연스럽게 보이게 한다. */
   word-break: keep-all;
 }
 
-.skill-row-desc {
-  font-size: 0.78rem;
-  color: var(--color-text-dim);
-  line-height: 1.3;
-}
-
-.skill-row-mp {
+.skill-row-meta {
+  color: #aa987b;
+  font-size: 0.72rem;
   font-family: var(--font-mono);
-  color: var(--color-mana);
+  word-break: keep-all;
 }
 
-/* 스킬 노드 카드: 랭크 링 + 이름/상태 한 줄 + 배우기/강화 버튼. 설명은 title 툴팁으로 옮겨서 한 줄로 압축했다. */
+/* 낡은 철제 스킬 명판. 문장은 직업/오행을, 테두리는 잠김/습득 상태를 나타낸다. */
 .skill-node {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.5rem 0.65rem;
-  margin: 0.15rem 0;
+  gap: 0.55rem;
+  min-height: 4.15rem;
+  padding: 0.45rem 0.5rem;
+  margin: 0.12rem 0;
+  overflow: hidden;
+  border: 1px solid #44392d;
+  border-radius: 2px;
+  background:
+    linear-gradient(100deg, rgba(73, 54, 35, 0.25), transparent 48%),
+    linear-gradient(#18140f, #100d0a);
+  box-shadow: inset 0 0 0 1px rgba(188, 143, 77, 0.04), 0 2px 5px rgba(0, 0, 0, 0.42);
+  transform: none;
+}
+
+.skill-node:hover {
+  transform: none;
+  border-color: #66513a;
 }
 
 .skill-node-info {
   flex: 1;
   min-width: 0;
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.4rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.08rem;
 }
 
 .skill-node-info .skill-row-name {
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/*
- * 분기 칼럼은 5개가 한 줄에 나란히 있어서 폭이 좁다 — 이름을 한 줄로 자르면(트렁크와 같은 방식)
- * "가시넝쿨 폭발" 같은 긴 이름이 다 잘려서 안 읽힌다. 여기서만 이름을 2줄까지 줄바꿈하고
- * 상태 텍스트를 아래 줄로 내려서, 폭 대신 세로 공간을 조금 더 쓰는 쪽으로 바꾼다.
- */
-.skill-tree-branches .skill-node-info {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.1rem;
 }
 
 .skill-tree-branches .skill-node-info .skill-row-name {
@@ -287,56 +287,109 @@
 }
 
 .skill-node.is-unlocking {
-  border-color: var(--color-accent);
+  border-color: #d09a4e;
+  box-shadow: 0 0 13px rgba(208, 121, 47, 0.42), inset 0 0 9px rgba(208, 121, 47, 0.16);
+}
+
+.skill-node.is-learned {
+  border-color: #775b37;
+  background:
+    linear-gradient(100deg, rgba(127, 76, 31, 0.22), transparent 52%),
+    linear-gradient(#1d1710, #110e0a);
+}
+
+.skill-node.is-maxed {
+  border-color: #a57a3e;
+}
+
+.skill-node.is-available {
+  border-color: #9b6b34;
+  box-shadow: inset 0 0 9px rgba(188, 109, 38, 0.11), 0 2px 5px rgba(0, 0, 0, 0.42);
+}
+
+.skill-node.is-available .skill-row-status {
+  color: #d59a4f;
 }
 
 .skill-node-locked-level {
-  opacity: 0.75;
+  filter: saturate(0.55);
+}
+
+.skill-node-locked-level .skill-medallion {
+  opacity: 0.7;
 }
 
 .skill-node-locked-level .skill-row-status {
-  color: var(--color-warning);
+  color: #b88345;
 }
 
 .skill-node-locked-blocked {
-  opacity: 0.45;
+  filter: grayscale(0.78) saturate(0.3);
+  border-color: #342e27;
 }
 
-.skill-rank-ring {
+.skill-node-locked-blocked .skill-medallion {
+  opacity: 0.38;
+}
+
+.skill-medallion {
+  position: relative;
   flex-shrink: 0;
-  width: 2.1rem;
-  height: 2.1rem;
+  width: 3.15rem;
+  height: 3.15rem;
   border-radius: 50%;
-  background: conic-gradient(var(--color-accent) calc(var(--rank-pct, 0) * 1%), var(--color-border) 0);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background var(--transition-fast);
+  border: 2px solid #514331;
+  background: #090806;
+  box-shadow: inset 0 0 0 1px #17120d, 0 1px 4px #000;
 }
 
-.skill-rank-ring-inner {
-  width: 1.55rem;
-  height: 1.55rem;
+.skill-medallion img {
+  display: block;
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
-  background: var(--color-surface);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  object-fit: cover;
+  filter: brightness(0.72) saturate(0.65);
+}
+
+.skill-node.is-learned .skill-medallion,
+.skill-node.is-available .skill-medallion {
+  border-color: #9a6b34;
+}
+
+.skill-node.is-learned .skill-medallion img,
+.skill-node.is-available .skill-medallion img {
+  filter: brightness(0.98) saturate(0.92);
+}
+
+.skill-rank-badge {
+  position: absolute;
+  right: -0.35rem;
+  bottom: -0.22rem;
+  min-width: 1.85rem;
+  padding: 0.08rem 0.22rem;
+  border: 1px solid #655039;
+  border-radius: 2px;
+  background: #100d09;
+  box-shadow: 0 1px 3px #000;
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--color-text);
+  font-size: 0.58rem;
+  line-height: 1.1;
+  color: #b9a17d;
+  text-align: center;
 }
 
-/*
- * 스킬 트리 레이아웃: 공통(트렁크)은 위에 2열 그리드로 압축해서 절반 높이로 줄이고, 그 아래
- * 원소별 5칼럼(분기)을 붙인다. 트렁크까지 6칼럼으로 한 줄에 다 밀어넣어봤더니 1200px 폭에서
- * 칼럼당 공간이 너무 좁아져 이름이 다 잘려서(예: "강." "화...") 오히려 못 읽었다 — 세로로
- * 두 단 쌓는 대신 각 단의 가로 폭을 넉넉히 쓰는 쪽이 이 폭에서는 더 낫다.
- */
 .skill-tree {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  overflow-x: auto;
+  padding: 0.35rem;
+  border: 1px solid #372f27;
+  background:
+    radial-gradient(circle at 50% 0, rgba(116, 70, 34, 0.1), transparent 45%),
+    #0d0b09;
+  scrollbar-color: #5d4932 #17120d;
 }
 
 .skill-tree-trunk-grid {
@@ -350,6 +403,7 @@
   grid-template-columns: repeat(5, 1fr);
   gap: 0 1rem;
   align-items: start;
+  min-width: 940px;
 }
 
 .skill-tree-column {
@@ -367,13 +421,14 @@
   top: 0.6rem;
   bottom: 0.6rem;
   width: 2px;
-  background: var(--color-border);
+  background: linear-gradient(#765631, #30271f 18%, #30271f 82%, #765631);
+  box-shadow: 1px 0 0 #080706;
 }
 
 .skill-tree-node {
   position: relative;
   padding: 0.55rem 0 0.55rem 0.85rem;
-  border-bottom: 1px dashed var(--color-border);
+  border-bottom: 1px solid rgba(105, 82, 55, 0.28);
 }
 
 .skill-tree-node:last-child {
@@ -388,12 +443,15 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--color-border);
+  border: 1px solid #473a2b;
+  background: #17120e;
+  box-shadow: 0 0 0 2px #0b0907;
 }
 
 .skill-tree-node.is-learned::before {
-  background: var(--color-accent);
-  box-shadow: var(--glow-accent);
+  border-color: #b27c3a;
+  background: #c47731;
+  box-shadow: 0 0 7px rgba(206, 113, 42, 0.62), 0 0 0 2px #0b0907;
 }
 
 .skill-tree-column-header {
@@ -401,8 +459,10 @@
   font-size: var(--text-base);
   margin-bottom: 0.5rem;
   padding-bottom: 0.3rem;
-  border-bottom: 2px solid var(--color-border);
-  color: var(--color-text);
+  border-bottom: 2px solid #57432d;
+  color: #c6ad87;
+  letter-spacing: 0.08em;
+  text-shadow: 0 1px 2px #000;
 }
 
 .skill-tree-column-sub {
@@ -412,12 +472,16 @@
 }
 
 .skill-tree-column:not(.is-own-element) {
-  opacity: 0.55;
+  background: linear-gradient(rgba(20, 18, 15, 0.55), transparent 42%);
+}
+
+.skill-tree-column:not(.is-own-element) .skill-tree-column-header {
+  opacity: 0.72;
 }
 
 .skill-tree-column.is-own-element {
-  background: rgba(77, 255, 136, 0.05);
-  border-radius: 6px;
+  background: linear-gradient(rgba(117, 74, 35, 0.11), transparent 40%);
+  border-radius: 2px;
   padding-top: 0.3rem;
   padding-bottom: 0.3rem;
 }
@@ -485,35 +549,39 @@
 
 .skill-learn-btn {
   flex-shrink: 0;
-  background: var(--color-bg);
-  border: 1px solid var(--color-accent);
-  color: var(--color-accent);
-  padding: 0.35rem 0.75rem;
-  border-radius: 4px;
+  background: linear-gradient(#5b3920, #2c1b11);
+  border: 1px solid #a66c32;
+  color: #e0bd82;
+  padding: 0.3rem 0.58rem;
+  border-radius: 2px;
   cursor: pointer;
   font-family: var(--font-sans);
-  transition: box-shadow var(--transition-fast);
+  font-size: var(--text-sm);
+  text-shadow: 0 1px #000;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .skill-learn-btn:hover {
-  box-shadow: var(--glow-accent);
+  border-color: #d3954d;
+  box-shadow: 0 0 8px rgba(199, 110, 40, 0.38);
 }
 
 .skill-upgrade-btn {
   flex-shrink: 0;
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  color: var(--color-text);
-  padding: 0.35rem 0.75rem;
-  border-radius: 4px;
+  background: linear-gradient(#33291e, #1a1510);
+  border: 1px solid #665039;
+  color: #c8b08b;
+  padding: 0.3rem 0.58rem;
+  border-radius: 2px;
   cursor: pointer;
   font-family: var(--font-sans);
-  transition: box-shadow var(--transition-fast);
+  font-size: var(--text-sm);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .skill-upgrade-btn:hover {
-  border-color: var(--color-accent);
-  box-shadow: var(--glow-accent);
+  border-color: #aa763b;
+  box-shadow: 0 0 7px rgba(173, 105, 43, 0.3);
 }
 
 .skill-modal-header {
@@ -521,7 +589,11 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  margin-bottom: 0.4rem;
+  margin-bottom: 0.55rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid #493a2b;
+  background: linear-gradient(90deg, #1d1711, #110e0b 62%, #1a1410);
+  box-shadow: inset 0 0 0 1px rgba(190, 142, 74, 0.04);
 }
 
 .skill-modal-header p {
@@ -530,17 +602,17 @@
 
 .skill-points-value {
   font-family: var(--font-mono);
-  color: var(--color-accent);
+  color: #d39a50;
   font-weight: bold;
 }
 
 #skill-reset-btn {
   flex-shrink: 0;
   background: transparent;
-  border: 1px solid var(--color-border);
-  color: var(--color-text-dim);
+  border: 1px solid #594638;
+  color: #99856c;
   padding: 0.3rem 0.7rem;
-  border-radius: 4px;
+  border-radius: 2px;
   cursor: pointer;
   font-family: var(--font-sans);
   font-size: var(--text-sm);
