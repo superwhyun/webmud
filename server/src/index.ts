@@ -31,3 +31,22 @@ startVillageTick();
 httpServer.listen(PORT, () => {
   console.log(`MUD server listening on http://localhost:${PORT}`);
 });
+
+// nested npm/concurrently/tsx-watch 프로세스 체인 아래에서는 Ctrl-C의 SIGINT가
+// 열려있는 WS 연결과 함께 온전히 전파되지 않을 때가 있어, tsx가 5초 뒤 강제
+// 종료하는 상황이 생긴다. 신호를 받는 즉시 소켓을 정리하고 바로 exit해서
+// 그 타임아웃에 걸리지 않도록 한다.
+function shutdown(signal: NodeJS.Signals): void {
+  console.log(`\n${signal} received, shutting down...`);
+  for (const client of wss.clients) {
+    client.terminate();
+  }
+  wss.close();
+  httpServer.closeAllConnections();
+  httpServer.close(() => {
+    process.exit(0);
+  });
+}
+
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
