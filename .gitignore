@@ -7,3 +7,4 @@ dist/
 .env
 .DS_Store
 tools/qa-agent/.sessions/
+tools/qa-agent/runs/
