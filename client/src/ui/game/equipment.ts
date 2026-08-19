@@ -7,21 +7,9 @@ import {
   type InventoryItemInfo,
 } from '@mud/shared';
 import { escapeHtml } from '../../domUtils';
-import { icon, type IconName } from '../icons';
+import { icon } from '../icons';
 import type { GameContext } from './context';
-
-const SLOT_ICONS: Record<EquipmentSlot, IconName> = {
-  hat: 'slot-hat',
-  earring: 'slot-earring',
-  necklace: 'slot-necklace',
-  top: 'slot-top',
-  bottom: 'slot-bottom',
-  gloves: 'slot-gloves',
-  shoes: 'slot-shoes',
-  weapon: 'slot-weapon',
-  shield: 'slot-shield',
-  ring: 'slot-ring',
-};
+import { equipmentArt, PAPERDOLL_ART } from './equipmentAssets';
 
 /**
  * 사람 실루엣 위에서 슬롯이 놓일 좌표(%) — 디아블로류 종이인형 배치.
@@ -44,22 +32,6 @@ const SLOT_POSITIONS: Record<EquipmentSlot, { top: number; left: number }> = {
   ring: { top: 70, left: 88 },
   shoes: { top: 92, left: 50 },
 };
-
-/**
- * 실루엣은 사람 형상을 어렴풋이 알아볼 정도의 와이어프레임 — 아이템 그림이 아니라 슬롯 배치용
- * 배경일 뿐이다. viewBox를 몸통보다 넓게 잡아서(200폭에 몸통은 가운데 60~140 정도) 양옆 무기/방패
- * 슬롯이 놓일 여백을 만든다.
- */
-const SILHOUETTE_SVG = `
-  <svg class="equip-silhouette" viewBox="0 0 260 300" preserveAspectRatio="xMidYMin meet" aria-hidden="true">
-    <circle cx="130" cy="34" r="24" />
-    <path d="M104 60c0-6 6-9 11-9h30c5 0 11 3 11 9l7 80c0 5-4 10-10 10H107c-6 0-10-5-10-10z" />
-    <path d="M104 63 82 145l15 6 20-73z" />
-    <path d="M156 63l22 82-15 6-20-73z" />
-    <path d="M112 150l-9 145h22l6-130z" />
-    <path d="M148 150l9 145h-22l-6-130z" />
-  </svg>
-`;
 
 export function renderEquipmentPanel(ctx: GameContext): void {
   ctx.equipmentPanel.innerHTML = EQUIPMENT_SLOTS.map((slot) => {
@@ -188,7 +160,7 @@ function emptySlotTooltipHtml(slotLabel: string): string {
 /** 인벤토리(가방) 한 줄 — 아이콘 · 이름 · 버리기(휴지통) · 분해 버튼을 한 행에 나란히 보여주는 목록형 UI. */
 function renderItemRow(item: InventoryItemInfo, index: number): string {
   const delay = Math.min(index, MAX_STAGGER_INDEX) * 20;
-  const slotIcon = item.slot ? SLOT_ICONS[item.slot] : 'gear';
+  const slotIcon = item.slot ? equipmentArt(item.slot, 'item-row-art') : icon('gear');
 
   return `
     <div
@@ -198,7 +170,7 @@ function renderItemRow(item: InventoryItemInfo, index: number): string {
       data-inventory-id="${item.inventoryId}"
       data-item-slot="${item.slot ?? ''}"
     >
-      <span class="item-row-icon">${icon(slotIcon)}</span>
+      <span class="item-row-icon">${slotIcon}</span>
       <span class="item-row-name item-grade-${item.grade}" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>
       ${item.quantity > 1 ? `<span class="item-row-qty">x${item.quantity}</span>` : ''}
       <button type="button" class="item-row-btn item-row-btn-drop" data-drop-inventory-id="${item.inventoryId}" title="버리기">${icon('trash')}</button>
@@ -285,7 +257,7 @@ export function renderEquipTab(ctx: GameContext): void {
         style="top: ${position.top}%; left: ${position.left}%; animation-delay: ${index * 25}ms"
         data-equip-slot="${slot}"
       >
-        <span class="equip-slot-icon">${icon(SLOT_ICONS[slot])}</span>
+        <span class="equip-slot-icon">${equipmentArt(slot, 'equip-slot-art')}</span>
         ${equipped ? `<button type="button" class="equip-slot-unequip" data-unequip-slot="${slot}" title="해제">✕</button>` : ''}
       </div>
     `;
@@ -299,7 +271,7 @@ export function renderEquipTab(ctx: GameContext): void {
   ctx.characterSheetBody.innerHTML = `
     <div class="equip-combined">
       <div class="equip-paperdoll">
-        ${SILHOUETTE_SVG}
+        <img class="equip-paperdoll-art" src="${PAPERDOLL_ART}" alt="" aria-hidden="true" draggable="false" />
         ${slotsHtml}
       </div>
       <div class="equip-bag">
