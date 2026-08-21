@@ -2,7 +2,11 @@ import { buildElementBranches } from './branches.js';
 import type { SkillDefinition } from './types.js';
 
 const PRIEST_TRUNK: SkillDefinition[] = [
-  // 사제 — 회복/지원. 공통 트리는 초반 액티브 1개 + 이후 전부 패시브로, 특성화(원소 분기)에서 액티브(회복기)를 더 배운다.
+  // 사제 — 회복/지원. 트리 전체(트렁크+원소 분기)에 데미지 스킬이 하나도 없어서 평타(지혜 기반
+  // 마법)만으로 싸워야 했다 — 밸런스 조사용 플레이봇 실측 결과 Lv10 이후 한 레벨 업에 9~10분씩
+  // 걸릴 만큼 딜이 부족했다. priest_smite를 추가해서 다른 직업처럼 평타+스킬 콤보로 딜이
+  // 나오게 하되, 힐(priest_heal)과 같은 갈래(둘 다 lv3에서 갈라짐)로 둬서 지원형으로 계속
+  // 키우고 싶으면 축복 쪽만 타도 되게 했다.
   {
     id: 'priest_heal',
     job: 'priest',
@@ -13,6 +17,20 @@ const PRIEST_TRUNK: SkillDefinition[] = [
     mpCost: 6,
     power: 12,
     cooldownMs: 2000,
+  },
+  {
+    id: 'priest_smite',
+    job: 'priest',
+    name: '심판의 빛',
+    description: '성스러운 빛으로 적을 심판합니다. (마법 피해 1.8배)',
+    requiredLevel: 3,
+    kind: 'damage',
+    mpCost: 5,
+    power: 1.8,
+    damageType: 'magic',
+    targeting: 'single',
+    cooldownMs: 2000,
+    requires: 'priest_heal',
   },
   {
     id: 'priest_blessing',

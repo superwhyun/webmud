@@ -68,7 +68,18 @@ export function computeDamage(
   return { damage: Math.max(MIN_DAMAGE, rawDamage), isCrit };
 }
 
-export function resolveAttack(attacker: CombatantStats, defender: CombatantStats, damageType: DamageType): AttackResult {
+/**
+ * attackStatOverride를 넘기면 그 값을 그대로 위력 스탯으로 쓴다 — 직업별로 실제 성장시키는
+ * 스탯(예: 도적=민첩, 사제=지혜)이 힘/지능과 다를 수 있어서, 어떤 스탯을 쓸지는 job을 아는
+ * 호출부(combatState.ts)에서 미리 계산해 넘긴다. 안 넘기면(몹 공격, 습격전 등 기존 호출부)
+ * 예전과 똑같이 물리=힘, 마법=지능(있으면)으로 계산해 하위 호환을 유지한다.
+ */
+export function resolveAttack(
+  attacker: CombatantStats,
+  defender: CombatantStats,
+  damageType: DamageType,
+  attackStatOverride?: number,
+): AttackResult {
   const evasionChance = Math.min(
     MAX_EVASION,
     Math.max(0, BASE_EVASION + (defender.dexterity - attacker.dexterity) * EVASION_PER_DEX),
@@ -79,9 +90,11 @@ export function resolveAttack(attacker: CombatantStats, defender: CombatantStats
 
   const defense = damageType === 'magic' ? defender.magicDefense : defender.physicalDefense;
   const attackStat =
-    damageType === 'magic' && attacker.intelligence !== undefined
-      ? attacker.intelligence
-      : attacker.strength + attacker.attackPower;
+    attackStatOverride !== undefined
+      ? attackStatOverride
+      : damageType === 'magic' && attacker.intelligence !== undefined
+        ? attacker.intelligence
+        : attacker.strength + attacker.attackPower;
   const { damage, isCrit } = computeDamage(attackStat, defense, attacker.element, defender.element, 1, attacker.luck);
 
   return { damage, evaded: false, isCrit };

@@ -33,6 +33,13 @@ const MAX_ACTIONS = 20_000;
 const DEFAULT_ELEMENT = { warrior: 'fire', rogue: 'wood', mage: 'water', priest: 'earth' };
 const JOBS = ['warrior', 'rogue', 'mage', 'priest'];
 
+// 트렁크 1레벨 데미지 스킬 — 전투 시작 시 한 번씩 질러서 평타만으로는 못 보는 스킬 피해를 반영한다.
+// 사제도 예전엔 트리 전체에 데미지 스킬이 없어서 빠져 있었는데, priest_smite(심판의 빛, Lv3)를
+// 추가한 뒤로는 다른 직업과 동일하게 반영한다.
+const DAMAGE_SKILL_NAME = { warrior: '강타', rogue: '급소 찌르기', mage: '파이어볼', priest: '심판의 빛' };
+// 트렁크 1레벨 자힐 — 물약보다 먼저 시도한다(무료로 재사용 가능, MP만 있으면 됨).
+const HEAL_SKILL_NAME = { mage: '치유', priest: '소생의 손길' };
+
 // 레벨업 시 스탯 포인트를 분배할 순서 — 생존(vit)을 항상 앞쪽에 섞어 죽음으로 인한 시간 낭비를 줄인다.
 const STAT_PRIORITY = {
   warrior: ['vit', 'str', 'str', 'vit', 'dex', 'luk'],
@@ -61,6 +68,13 @@ const REST_TRIGGER_HP_RATIO = 0.9;
 const REST_TRIGGER_MP_RATIO = 0.5;
 const REST_DONE_HP_RATIO = 0.97;
 const REST_DONE_MP_RATIO = 0.9;
+// 도망친 몹은 한동안만 피한다 — 레벨업 때만 초기화하면(원래 설계) 정체된 캐릭터는 근처 몹을
+// 전부 영구 블랙리스트에 넣고 더 이상 아무것도 공격 못 하는 채로 방황만 하다가, 방황 중 만나는
+// 적대 몹에게 수동적으로 계속 죽는 악순환에 빠진다(실제로 레벨업이 막힌 도적 봇에서 관측됨).
+// 처음엔 3분으로 짧게 잡았다가, 그러면 "진짜 못 이기는" 몹(예: 마법사 대비 바위골렘)까지 계속
+// 재시도하게 돼서 오히려 죽음이 늘어나는 걸 관측했다(레벨업이 잘 되는 캐릭터에서 사망 28/35건이
+// 같은 몹 하나에 몰림) — 레벨업 정체를 풀어주는 최후의 수단 정도로만 쓰이도록 길게 늘렸다.
+const AVOID_TTL_MS = 10 * 60_000;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -115,9 +129,10 @@ class PlaybotSession {
     this.kills = 0;
     this.deaths = 0;
     this.seenLevel = null;
-    // 도망친 적은(같은 방에 있는 한) 다시 붙지 않는다 — 안 그러면 못 이기는 몹 하나와
-    // 공격→도주→휴식을 무한 반복하게 된다. 레벨업하면 판정 기준 자체가 바뀌므로 비운다.
-    this.avoidKeys = new Set();
+    // 도망친 적은(같은 방에 있는 한) 한동안 다시 붙지 않는다 — 안 그러면 못 이기는 몹 하나와
+    // 공격→도주→휴식을 무한 반복하게 된다. 레벨업하면 판정 기준 자체가 바뀌므로 전체를 비우고,
+    // 레벨업이 막힌 경우를 대비해 각 항목은 AVOID_TTL_MS가 지나면 개별적으로도 만료된다(key -> 만료 시각).
+    this.avoidKeys = new Map();
   }
 
   log(msg) {
@@ -258,6 +273,24 @@ class PlaybotSession {
     return this.inventory.find((item) => !item.equipped && item.healAmount > 0 && item.quantity > 0);
   }
 
+  /** 자힐 스킬을 배웠고 MP가 있으면 시도한다 — 재사용 대기/MP 부족이면 서버가 그냥 에러 텍스트만
+      보내고 아무 부작용도 없으므로, 쿨타임을 따로 추적하지 않고 매번 시도해도 안전하다. */
+  async tryHealSkill() {
+    const name = HEAL_SKILL_NAME[this.job];
+    if (!name || !this.character || this.character.mp <= 0) return false;
+    await this.act(`cast ${name}`, 250);
+    return true;
+  }
+
+  /** 전투 시작 직후 한 번 데미지 스킬을 질러본다 — 평타만으로는 스킬 피해를 반영 못 해 실제 딜량을
+      과소평가하게 된다. 사제처럼 데미지 스킬이 아예 없는 직업은 DAMAGE_SKILL_NAME에 없으니 조용히 스킵. */
+  async tryDamageSkill(mobName) {
+    const name = DAMAGE_SKILL_NAME[this.job];
+    if (!name || !this.character || this.character.mp <= 0) return false;
+    await this.act(`cast ${name} ${mobName}`, 250);
+    return true;
+  }
+
   gearScore(item) {
     const primaryKey = PRIMARY_STAT_BONUS_KEY[this.job];
     return (
@@ -365,7 +398,17 @@ class PlaybotSession {
     return `${this.room?.id}:${mobName}`;
   }
 
+  /** 만료된 회피 항목을 걷어낸다 — 레벨업이 막힌 캐릭터가 도망친 몹을 영원히 블랙리스트에 두고
+      더 이상 아무것도 공격 못 하는 채로 방황만 하다가 죽는 걸 막는 안전장치. */
+  pruneExpiredAvoidKeys() {
+    const now = Date.now();
+    for (const [key, expiresAt] of this.avoidKeys) {
+      if (expiresAt <= now) this.avoidKeys.delete(key);
+    }
+  }
+
   pickTarget() {
+    this.pruneExpiredAvoidKeys();
     const mobs = (this.room?.mobs ?? []).filter((m) => !this.avoidKeys.has(this.avoidKey(m.name)));
     if (mobs.length === 0) return null;
     const safe = mobs.filter((m) => m.level - this.character.level <= SAFE_LEVEL_DIFF);
@@ -388,27 +431,41 @@ class PlaybotSession {
     return cautious.reduce((best, m) => (m.level < best.level ? m : best));
   }
 
-  async fight(mobName) {
-    this.logger.event('engage', { mob: mobName });
-    await this.act(`attack ${mobName}`, 200);
-
+  /**
+   * 지금 걸려있는 전투(inCombat)를 끝날 때까지(또는 타임아웃까지) 지켜보며 HP가 낮으면
+   * 물약/도주로 대응한다. mobName은 회피 목록에 기록할 때만 쓰이므로, 누가 시작했는지 모르는
+   * 전투(mobName === null)에도 그대로 적용할 수 있다.
+   *
+   * 원래는 fight()가 스스로 attack을 보낸 뒤 이 로직을 인라인으로 갖고 있었는데, 그러다 보니
+   * "내가 attack을 보내서 시작한 전투"만 안전장치(도주/물약/타임아웃)의 보호를 받았다.
+   * 부활 직후 다시 공격당하는 등 봇이 스스로 시작하지 않은 전투는 runLoop 최상단의
+   * `if (this.inCombat)` 분기가 대신 지켜보고 있었는데, 그 분기는 그냥 sleep만 반복할 뿐 아무
+   * 대응도, 타임아웃도 없어서 실제로 몇 분씩 완전히 멈춰버리는 게 관측됐다 — 이제 두 경로 모두
+   * 이 메서드 하나를 거치므로 항상 같은 보호를 받는다.
+   */
+  async superviseCombat(mobName) {
     const deadline = Date.now() + COMBAT_TIMEOUT_MS;
     let fled = false;
     while (this.inCombat && Date.now() < deadline) {
       await sleep(IDLE_POLL_MS);
       if (!this.character) continue;
       if (this.hpRatio() <= FLEE_HP_RATIO) {
+        // 위급할 땐 재사용 대기 없이 바로 먹히는 물약을 최우선으로 쓴다. 물약이 없을 때만
+        // 자힐을 시도하고(쿨타임이면 실패할 수 있음), 그마저 없으면 도망친다.
         const potion = this.findPotion();
         if (potion) {
           this.send({ type: 'useItem', inventoryId: potion.inventoryId });
-        } else {
+        } else if (!(await this.tryHealSkill())) {
           await this.act('flee', 300);
           fled = true;
           break;
         }
       } else if (this.hpRatio() <= POTION_HP_RATIO) {
-        const potion = this.findPotion();
-        if (potion) this.send({ type: 'useItem', inventoryId: potion.inventoryId });
+        // 덜 급할 땐 MP만 있으면 무한정 다시 쓸 수 있는 자힐을 물약보다 먼저 시도해 물약을 아낀다.
+        if (!(await this.tryHealSkill())) {
+          const potion = this.findPotion();
+          if (potion) this.send({ type: 'useItem', inventoryId: potion.inventoryId });
+        }
       }
     }
     if (this.inCombat) {
@@ -417,7 +474,16 @@ class PlaybotSession {
       this.logger.event('combat-timeout', { mob: mobName });
       fled = true;
     }
-    if (fled) this.avoidKeys.add(this.avoidKey(mobName));
+    if (fled && mobName) this.avoidKeys.set(this.avoidKey(mobName), Date.now() + AVOID_TTL_MS);
+  }
+
+  async fight(mobName) {
+    this.logger.event('engage', { mob: mobName });
+    await this.act(`attack ${mobName}`, 200);
+    // 평타는 서버가 알아서 라운드마다 자동 처리하지만, 액티브 데미지 스킬은 따로 안 쓰면 영원히
+    // 반영이 안 된다 — 교전 시작 시 한 번 질러서 실제 스킬 딜량까지 포함된 성장 속도를 잰다.
+    await this.tryDamageSkill(mobName);
+    await this.superviseCombat(mobName);
   }
 
   async wander() {
@@ -438,7 +504,10 @@ class PlaybotSession {
   async runLoop() {
     while (!this.isDone() && !this.isExpired()) {
       if (this.inCombat) {
-        await sleep(IDLE_POLL_MS);
+        // 내가 attack을 보내서 시작한 게 아닌 전투(부활 직후 반격 등)도 반드시 안전장치를 거치게
+        // 한다 — 안 그러면 여기서 그냥 sleep만 반복하며 몇 분씩 완전히 멈춰버릴 수 있다.
+        this.logger.event('unsolicited-combat');
+        await this.superviseCombat(null);
         continue;
       }
       if (!this.character || !this.room) {

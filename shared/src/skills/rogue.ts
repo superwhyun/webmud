@@ -17,14 +17,17 @@ const ROGUE_TRUNK: SkillDefinition[] = [
     cooldownMs: 2000,
   },
   {
+    // 민첩은 도적의 공격력과 회피율을 동시에 올려주는 유일한 스탯인데, 그 보너스가 레벨을 타고
+    // 쌓이기 전(초반)엔 존재감이 없어서 저레벨 몹에게도 자주 죽는 문제가 있었다 — 습득 레벨을
+    // 3→2로 낮추고 증가량도 키워서 초반부터 확실히 체감되게 했다.
     id: 'rogue_shadow_step',
     job: 'rogue',
     name: '그림자 걸음',
     description: '그림자처럼 가볍게 움직입니다. (민첩 영구 증가)',
-    requiredLevel: 3,
+    requiredLevel: 2,
     kind: 'passive',
     mpCost: 0,
-    power: 3,
+    power: 5,
     passiveStat: 'dexterity',
     requires: 'rogue_backstab',
   },

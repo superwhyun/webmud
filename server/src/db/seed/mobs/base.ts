@@ -6,6 +6,13 @@ import type { MobTemplateSeed } from '../types.js';
  * 레벨 폭은 10 이하로 좁혀서 같은 이름이 너무 넓은 레벨대에 걸쳐 있지 않게 하고, 계열마다
  * 레벨 구간(1-10/11-20/21-30/31-40/41-50)에 맞는 이름으로 갈아입는다. min/max 스탯은 예전에
  * Lv1과 Lv50 앵커로 손으로 만들었던 값 사이를 선형 보간해 각 구간의 경계값을 그대로 옮겨왔다.
+ *
+ * 1레벨 티어 7종의 physicalDefense는 밸런스 조사용 플레이봇으로 실측한 뒤 낮췄다: 1레벨 캐릭터의
+ * 위력 스탯(힘/민첩/지능/지혜)이 대략 7 안팎인데 physicalDefense가 5~7이면 평타 순피해가
+ * 1~2에 불과해(전투 1회에 20~40회 이상 공격이 필요) 전사/도적처럼 물리 공격을 쓰는 직업이
+ * 근소한 불운에도 죽음을 맞기 쉬웠다. magicDefense(대부분 그대로 6, 일부는 원래부터 0)는 건드리지
+ * 않고 physicalDefense만 낮춰서, 물리 공격 직업의 초반 전투 속도를 마법 공격 직업과 비슷한
+ * 수준으로 맞춘다.
  */
 export const MOB_TEMPLATES_BASE: MobTemplateSeed[] = [
   {
@@ -17,8 +24,8 @@ export const MOB_TEMPLATES_BASE: MobTemplateSeed[] = [
     strengthMax: 4,
     dexterity: 4,
     dexterityMax: 4,
-    physicalDefense: 5,
-    physicalDefenseMax: 5,
+    physicalDefense: 3,
+    physicalDefenseMax: 3,
     magicDefense: 0,
     magicDefenseMax: 5,
     element: 'water',
@@ -39,8 +46,8 @@ export const MOB_TEMPLATES_BASE: MobTemplateSeed[] = [
     strengthMax: 4,
     dexterity: 4,
     dexterityMax: 4,
-    physicalDefense: 6,
-    physicalDefenseMax: 6,
+    physicalDefense: 3,
+    physicalDefenseMax: 3,
     magicDefense: 6,
     magicDefenseMax: 6,
     element: 'fire',
@@ -61,7 +68,7 @@ export const MOB_TEMPLATES_BASE: MobTemplateSeed[] = [
     strengthMax: 33,
     dexterity: 4,
     dexterityMax: 30,
-    physicalDefense: 6,
+    physicalDefense: 3,
     physicalDefenseMax: 31,
     magicDefense: 6,
     magicDefenseMax: 19,
@@ -171,7 +178,7 @@ export const MOB_TEMPLATES_BASE: MobTemplateSeed[] = [
     strengthMax: 41,
     dexterity: 4,
     dexterityMax: 28,
-    physicalDefense: 5,
+    physicalDefense: 3,
     physicalDefenseMax: 22,
     magicDefense: 6,
     magicDefenseMax: 19,
@@ -281,7 +288,7 @@ export const MOB_TEMPLATES_BASE: MobTemplateSeed[] = [
     strengthMax: 28,
     dexterity: 4,
     dexterityMax: 28,
-    physicalDefense: 7,
+    physicalDefense: 4,
     physicalDefenseMax: 34,
     magicDefense: 6,
     magicDefenseMax: 20,
@@ -391,7 +398,7 @@ export const MOB_TEMPLATES_BASE: MobTemplateSeed[] = [
     strengthMax: 44,
     dexterity: 4,
     dexterityMax: 33,
-    physicalDefense: 6,
+    physicalDefense: 3,
     physicalDefenseMax: 29,
     magicDefense: 0,
     magicDefenseMax: 17,
@@ -501,7 +508,7 @@ export const MOB_TEMPLATES_BASE: MobTemplateSeed[] = [
     strengthMax: 35,
     dexterity: 4,
     dexterityMax: 30,
-    physicalDefense: 6,
+    physicalDefense: 3,
     physicalDefenseMax: 31,
     magicDefense: 0,
     magicDefenseMax: 17,

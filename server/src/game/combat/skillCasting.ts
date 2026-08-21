@@ -15,7 +15,14 @@ import { findMobInRoomByName, getMobsInRoom, type MobInstance } from '../MobMana
 import { getCooldownMultiplier, getSkillRank, hasLearnedSkill, resolveSkillArg } from '../skillProgress.js';
 import { computeDamage } from './combatMath.js';
 import { handleMobDefeat } from './combatRewards.js';
-import { cleanupCombatForSession, getActiveCombat, sendCombatEnd, sendCombatStatus, startCombatInterval } from './combatState.js';
+import {
+  cleanupCombatForSession,
+  getActiveCombat,
+  playerPowerStat,
+  sendCombatEnd,
+  sendCombatStatus,
+  startCombatInterval,
+} from './combatState.js';
 
 /** characterId -> skillId -> 재사용 가능 시각(ms). */
 const skillCooldowns = new Map<number, Map<string, number>>();
@@ -152,7 +159,7 @@ export function handleCast(ctx: CommandContext, rest: string): void {
 
     const playerStats = getEffectiveStats(character);
     const attackStat =
-      skill.damageType === 'magic' ? playerStats.intelligence : playerStats.strength + playerStats.attackPower;
+      playerPowerStat(character.job, playerStats) + (skill.damageType === 'physical' ? playerStats.attackPower : 0);
 
     db.prepare('UPDATE characters SET mp = mp - ? WHERE id = ?').run(skill.mpCost, character.id);
     startCooldown(character.id, skill.id, Math.round(effectiveCooldownMs(skill, rank) * getCooldownMultiplier(character)));

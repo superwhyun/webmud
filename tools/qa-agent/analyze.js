@@ -28,6 +28,9 @@ function summarizeFile(filePath) {
   const equips = events.filter((e) => e.type === 'equip').length;
   const engages = events.filter((e) => e.type === 'engage').length;
   const combatTimeouts = events.filter((e) => e.type === 'combat-timeout').length;
+  // 내가 attack을 보내서 시작하지 않은 전투(부활 직후 반격 등) — 잦으면 특정 직업이 유독
+  // 수동적으로 죽는지(밸런스 신호) 가늠할 실마리가 된다.
+  const unsolicitedCombats = events.filter((e) => e.type === 'unsolicited-combat').length;
   const serverErrors = events.filter((e) => e.type === 'server-error');
   const summaryEvent = events.filter((e) => e.type === 'summary').pop();
 
@@ -44,6 +47,7 @@ function summarizeFile(filePath) {
     engages,
     equips,
     combatTimeouts,
+    unsolicitedCombats,
     serverErrorCount: serverErrors.length,
     serverErrorSamples: [...new Set(serverErrors.map((e) => e.text))].slice(0, 5),
     totalElapsedMs: summaryEvent?.elapsedMs ?? levelTimeline.at(-1)?.atMs ?? 0,
@@ -56,7 +60,21 @@ function msToMin(ms) {
 }
 
 function printTable(rows) {
-  const headers = ['username', 'job', 'element', 'level', 'target?', 'min', 'deaths', 'engages', 'equips', 'gold', 'errs'];
+  const headers = [
+    'username',
+    'job',
+    'element',
+    'level',
+    'target?',
+    'min',
+    'deaths',
+    'engages',
+    'unsolicited',
+    'timeouts',
+    'equips',
+    'gold',
+    'errs',
+  ];
   const data = rows.map((r) => [
     r.username,
     r.job,
@@ -66,6 +84,8 @@ function printTable(rows) {
     msToMin(r.totalElapsedMs),
     r.deaths,
     r.engages,
+    r.unsolicitedCombats,
+    r.combatTimeouts,
     r.equips,
     r.finalGold,
     r.serverErrorCount,

@@ -27,10 +27,16 @@ export interface JobStatBlock {
   mp: number;
 }
 
-/** 직업별 캐릭터 생성 시 시작 스탯. */
+/**
+ * 직업별 캐릭터 생성 시 시작 스탯.
+ * 도적 HP/체력은 마법사(순수 후방 캐스터) 다음으로 낮았는데, 회피(민첩)와 치명타(행운)로 버티는
+ * 근접 스킬미셔 컨셉인데도 그 보너스가 누적되기 전인 초반 레벨엔 거의 도움이 안 돼서 저레벨
+ * 몹에게도 자주 죽는 게 플레이봇으로 확인됐다 — 전사보단 여전히 약하지만 사제 수준으로 올려서
+ * 회피/치명타가 쌓이기 전까지 버틸 여력을 준다.
+ */
 export const JOB_BASE_STATS: Record<JobType, JobStatBlock> = {
   warrior: { strength: 7, dexterity: 3, intelligence: 1, vitality: 6, wisdom: 1, luck: 2, hp: 30, mp: 5 },
-  rogue: { strength: 4, dexterity: 7, intelligence: 2, vitality: 3, wisdom: 2, luck: 4, hp: 22, mp: 8 },
+  rogue: { strength: 4, dexterity: 7, intelligence: 2, vitality: 4, wisdom: 2, luck: 4, hp: 28, mp: 8 },
   mage: { strength: 1, dexterity: 3, intelligence: 7, vitality: 2, wisdom: 5, luck: 2, hp: 16, mp: 20 },
   priest: { strength: 2, dexterity: 2, intelligence: 4, vitality: 4, wisdom: 7, luck: 1, hp: 20, mp: 18 },
 };
@@ -41,6 +47,20 @@ export const JOB_GROWTH_PER_LEVEL: Record<JobType, JobStatBlock> = {
   rogue: { strength: 1, dexterity: 3, intelligence: 1, vitality: 1, wisdom: 1, luck: 2, hp: 8, mp: 4 },
   mage: { strength: 0, dexterity: 1, intelligence: 3, vitality: 1, wisdom: 2, luck: 1, hp: 6, mp: 8 },
   priest: { strength: 0, dexterity: 1, intelligence: 1, vitality: 2, wisdom: 3, luck: 1, hp: 8, mp: 7 },
+};
+
+/**
+ * 직업별 평타/스킬 피해량 계산에 실제로 쓰이는 "위력 스탯". 전사<->도적은 힘/민첩을,
+ * 마법사<->사제는 지능/지혜를 서로 뒤바꿔 성장치를 몰아주도록 설계돼 있었는데(위 두 테이블 참고),
+ * 정작 전투 공식은 이 설계를 반영하지 않고 물리=힘, 마법=지능만 고정으로 써서 도적/사제가
+ * 자기 성장 스탯으로는 전혀 피해를 못 늘리는 채로 방치돼 있었다. 밸런스 조사용 플레이봇으로
+ * 4직업을 실제로 굴려본 뒤 발견한 문제라 여기서 바로잡는다.
+ */
+export const JOB_POWER_STAT: Record<JobType, 'strength' | 'dexterity' | 'intelligence' | 'wisdom'> = {
+  warrior: 'strength',
+  rogue: 'dexterity',
+  mage: 'intelligence',
+  priest: 'wisdom',
 };
 
 /** 레벨업 시 자유 분배로 지급되는 스탯 포인트 수. */
