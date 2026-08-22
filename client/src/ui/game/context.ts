@@ -62,8 +62,8 @@ export interface GameContext {
   characterSheetTabs: HTMLDivElement;
   characterSheetBody: HTMLDivElement;
   characterSheetActiveTab: CharacterSheetTab;
-  /** 스킬 탭에서 지금 열려 있는 다른 속성 분기 서랍 — 한 번에 하나의 속성 페이지만 연다. */
-  skillBranchOpenElement: ElementType | null;
+  /** 스킬 창에서 현재 보고 있는 오행 페이지. 창을 새로 열 때는 캐릭터 오행으로 초기화한다. */
+  activeSkillElement: ElementType | null;
   /** 방금 장착/해제한 슬롯 — 다음 렌더에서 이 슬롯 카드에 한 번만 flash를 재생하고 지운다. */
   lastEquipFlashSlot: EquipmentSlot | null;
   /** 방금 배우거나 강화한 스킬 id — 다음 렌더에서 이 노드에 한 번만 unlock-pulse를 재생하고 지운다. */
@@ -242,7 +242,7 @@ export function createGameContext(
     characterSheetTabs: container.querySelector<HTMLDivElement>('#character-sheet-tabs')!,
     characterSheetBody: container.querySelector<HTMLDivElement>('#character-sheet-body')!,
     characterSheetActiveTab: previous?.characterSheetActiveTab ?? 'equip',
-    skillBranchOpenElement: previous?.skillBranchOpenElement ?? null,
+    activeSkillElement: previous?.activeSkillElement ?? null,
     lastEquipFlashSlot: null,
     lastSkillUnlockId: null,
     jobModal: container.querySelector<HTMLDivElement>('#job-modal')!,

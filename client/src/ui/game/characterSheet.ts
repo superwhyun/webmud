@@ -29,6 +29,7 @@ export function renderCharacterSheetBody(ctx: GameContext): void {
 }
 
 export function selectCharacterSheetTab(ctx: GameContext, tab: CharacterSheetTab): void {
+  if (tab === 'skill' && ctx.characterSheetActiveTab !== 'skill') ctx.activeSkillElement = null;
   ctx.characterSheetActiveTab = tab;
   renderTabBar(ctx);
   renderCharacterSheetBody(ctx);
@@ -36,6 +37,7 @@ export function selectCharacterSheetTab(ctx: GameContext, tab: CharacterSheetTab
 
 export function openCharacterSheet(ctx: GameContext, tab: CharacterSheetTab): void {
   ctx.characterSheetModal.hidden = false;
+  if (tab === 'skill') ctx.activeSkillElement = null;
   selectCharacterSheetTab(ctx, tab);
 }
 

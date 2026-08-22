@@ -115,12 +115,52 @@ function renderSkillCard(ctx: GameContext, skill: SkillDefinition, jobSkills: Sk
   `;
 }
 
-/** 오행 분기 그리드 한 칸 수 — 지금은 원소당 3티어+캡스톤 4개뿐이지만, 나중에 티어가
- * 늘어날 걸 감안해 4x2(=8칸)로 잡고 남는 칸은 빈 칸으로 둔다. */
-const BRANCH_GRID_SLOTS = 8;
+function renderSkillNode(ctx: GameContext, skill: SkillDefinition, jobSkills: SkillDefinition[], index: number): string {
+  const learned = (ctx.learnedSkillRanks[skill.id] ?? 0) > 0;
+  return `
+    <div class="skill-tree-node ${learned ? 'is-learned' : ''}">
+      ${renderSkillCard(ctx, skill, jobSkills, index)}
+    </div>
+  `;
+}
 
-function renderEmptySkillSlot(): string {
-  return `<div class="skill-node skill-node-empty" aria-hidden="true"></div>`;
+export function orderElementPages(elements: readonly ElementType[], ownElement: ElementType): ElementType[] {
+  return [ownElement, ...elements.filter((element) => element !== ownElement)];
+}
+
+export function fillElementSkillSlots<T>(skills: readonly T[], minimumSlots = 8): Array<T | null> {
+  return [...skills, ...Array<T | null>(Math.max(0, minimumSlots - skills.length)).fill(null)];
+}
+
+function selectElementPage(ctx: GameContext, index: number): void {
+  const track = ctx.characterSheetBody.querySelector<HTMLElement>('.skill-element-track');
+  const tabs = [...ctx.characterSheetBody.querySelectorAll<HTMLButtonElement>('.skill-element-tab')];
+  const pages = [...ctx.characterSheetBody.querySelectorAll<HTMLElement>('.skill-element-page')];
+  const selectedTab = tabs[index];
+  if (!track || !selectedTab) return;
+
+  ctx.activeSkillElement = selectedTab.dataset.element as ElementType;
+  track.style.setProperty('--skill-element-index', String(index));
+
+  tabs.forEach((tab, tabIndex) => {
+    const active = tabIndex === index;
+    tab.classList.toggle('is-active', active);
+    tab.hidden = active;
+  });
+  pages.forEach((page, pageIndex) => {
+    const active = pageIndex === index;
+    page.classList.toggle('is-active-page', active);
+    page.setAttribute('aria-hidden', String(!active));
+    page.toggleAttribute('inert', !active);
+  });
+  pages[index]?.querySelector<HTMLElement>('.skill-tree-column-header')?.focus({ preventScroll: true });
+}
+
+function bindElementTabs(ctx: GameContext): void {
+  const tabs = [...ctx.characterSheetBody.querySelectorAll<HTMLButtonElement>('.skill-element-tab')];
+  tabs.forEach((tab, index) => {
+    tab.addEventListener('click', () => selectElementPage(ctx, index));
+  });
 }
 
 export function renderSkillTab(ctx: GameContext): void {
@@ -143,25 +183,50 @@ export function renderSkillTab(ctx: GameContext): void {
     </div>
   `;
 
-  // 오행 분기는 항상 4x2 카드 그리드로 그린다 — 지금은 원소당 4개(3티어+캡스톤)뿐이라
-  // 나머지 칸은 빈 칸으로 남아 "나중에 더 늘어날 수 있다"는 여지를 보여준다.
-  const renderElementColumn = (element: ElementType): string => {
+  const elementPages = orderElementPages(ELEMENT_VALUES, character.element);
+  const activeElement = ctx.activeSkillElement && elementPages.includes(ctx.activeSkillElement)
+    ? ctx.activeSkillElement
+    : character.element;
+  const activeIndex = elementPages.indexOf(activeElement);
+  ctx.activeSkillElement = activeElement;
+
+  const elementTabsHtml = elementPages.map((element, index) => {
+    const active = index === activeIndex;
+    return `
+      <button
+        type="button"
+        class="skill-element-tab${active ? ' is-active' : ''}"
+        aria-controls="skill-element-page-${element}"
+        aria-label="${ELEMENT_LABELS[element]} 스킬 보기"
+        ${active ? 'hidden' : ''}
+        data-element="${element}"
+      ><span class="skill-element-tab-label">${ELEMENT_LABELS[element]}</span></button>
+    `;
+  }).join('');
+
+  const elementPagesHtml = elementPages.map((element: ElementType, pageIndex) => {
     const skills = jobSkills.filter((skill) => skill.element === element).sort((a, b) => a.requiredLevel - b.requiredLevel);
     const isOwnElement = element === character.element;
-    const cards = skills.map((skill, index) => renderSkillCard(ctx, skill, jobSkills, index));
-    const placeholders = Array.from({ length: Math.max(0, BRANCH_GRID_SLOTS - cards.length) }, renderEmptySkillSlot);
+    const active = pageIndex === activeIndex;
     return `
-      <div class="skill-tree-column ${isOwnElement ? 'is-own-element' : ''}" data-element="${element}">
-        <div class="skill-tree-column-header">${ELEMENT_LABELS[element]}${isOwnElement ? '' : ' <span class="skill-tree-column-sub">(다른 속성)</span>'}</div>
-        <div class="skill-tree-column-grid">${[...cards, ...placeholders].join('')}</div>
-      </div>
+      <section
+        class="skill-tree-column skill-element-page${isOwnElement ? ' is-own-element' : ''}${active ? ' is-active-page' : ''}"
+        id="skill-element-page-${element}"
+        role="region"
+        aria-labelledby="skill-element-heading-${element}"
+        aria-hidden="${!active}"
+        ${active ? '' : 'inert'}
+        data-element="${element}"
+      >
+        <div class="skill-tree-column-header" id="skill-element-heading-${element}" tabindex="-1">${ELEMENT_LABELS[element]}${isOwnElement ? '' : ' <span class="skill-tree-column-sub">(다른 속성)</span>'}</div>
+        <div class="skill-element-grid">
+          ${fillElementSkillSlots(skills).map((skill, index) => skill
+            ? renderSkillNode(ctx, skill, jobSkills, index)
+            : '<div class="skill-tree-empty-slot" aria-hidden="true"></div>').join('')}
+        </div>
+      </section>
     `;
-  };
-
-  // 다른 속성은 4개를 한 서랍에 몰아 보여주지 않고, 속성별로 각자의 책갈피 탭 +
-  // 전용 드로어 페이지를 둔다 — 한 번에 하나의 속성만 펼쳐 본다.
-  const otherElements = ELEMENT_VALUES.filter((element: ElementType) => element !== character.element);
-  const openElement = ctx.skillBranchOpenElement;
+  }).join('');
 
   ctx.characterSheetBody.innerHTML = `
     <div class="skill-modal-header">
@@ -171,31 +236,22 @@ export function renderSkillTab(ctx: GameContext): void {
     <div class="skill-tree">
       ${trunkSectionHtml}
       <div class="skill-tree-branches">
-        <div class="skill-tree-branches-main">${renderElementColumn(character.element)}</div>
-        <div class="skill-tree-branch-tabs">
-          ${otherElements
-            .map(
-              (element) => `
-            <button type="button" class="skill-tree-branch-tab${element === openElement ? ' is-active' : ''}"
-                    data-element="${element}" aria-expanded="${element === openElement}">
-              ${ELEMENT_LABELS[element]}
-            </button>
-          `,
-            )
-            .join('')}
+        <div class="skill-element-viewport">
+          <div class="skill-element-track" style="--skill-element-index: ${activeIndex}">
+            ${elementPagesHtml}
+          </div>
         </div>
-        <div class="skill-tree-branches-others${openElement ? ' is-open' : ''}" id="skill-branch-others">
-          ${openElement ? renderElementColumn(openElement) : ''}
+        <div class="skill-element-tabs" aria-label="다른 오행 스킬 페이지">
+          ${elementTabsHtml}
         </div>
       </div>
     </div>
   `;
 
   ctx.lastSkillUnlockId = null;
+  bindElementTabs(ctx);
 
-  // 탭을 눌러 서랍 내용을 통째로 새 HTML로 갈아끼우면 그 안의 배우기/강화 버튼은
-  // 최초 렌더 때 한 번 돈 리스너 연결에 걸리지 않는다 — 스코프를 받아 어디서든
-  // 다시 불러 연결할 수 있게 함수로 뺐다.
+  // 현재 렌더된 페이지 안의 배우기/강화 버튼을 한곳에서 연결한다.
   const wireSkillButtons = (scope: ParentNode): void => {
     scope.querySelectorAll<HTMLButtonElement>('.skill-learn-btn').forEach((button) => {
       button.addEventListener('click', () => {
@@ -213,26 +269,6 @@ export function renderSkillTab(ctx: GameContext): void {
       });
     });
   };
-
-  const branchTabs = ctx.characterSheetBody.querySelectorAll<HTMLButtonElement>('.skill-tree-branch-tab');
-  const branchOthersEl = ctx.characterSheetBody.querySelector<HTMLDivElement>('#skill-branch-others')!;
-  branchTabs.forEach((tab) => {
-    tab.addEventListener('click', () => {
-      // 여기서 전체를 다시 그리면 서랍이 이미 열린/닫힌 상태로 새로 생성되어 트랜지션이
-      // 재생되지 않는다 — 같은 노드의 클래스/내용만 바꿔서 실제로 슬라이딩되게 한다.
-      const clickedElement = tab.dataset.element as ElementType;
-      const closing = ctx.skillBranchOpenElement === clickedElement;
-      ctx.skillBranchOpenElement = closing ? null : clickedElement;
-      branchOthersEl.classList.toggle('is-open', !closing);
-      branchOthersEl.innerHTML = closing ? '' : renderElementColumn(clickedElement);
-      if (!closing) wireSkillButtons(branchOthersEl);
-      branchTabs.forEach((t) => {
-        const active = !closing && t.dataset.element === clickedElement;
-        t.classList.toggle('is-active', active);
-        t.setAttribute('aria-expanded', String(active));
-      });
-    });
-  });
 
   wireSkillButtons(ctx.characterSheetBody);
 
