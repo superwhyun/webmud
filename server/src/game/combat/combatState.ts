@@ -1,7 +1,7 @@
-import { basicAttackPower, JOB_POWER_STAT, josaIGa, withJosa, type ChatChannel, type JobType } from '@mud/shared';
+import { basicAttackPower, josaIGa, withJosa, type ChatChannel, type JobType } from '@mud/shared';
 import type { WebSocket } from 'ws';
 import { db } from '../../db/client.js';
-import { getEffectiveStats, type EffectiveStats } from '../combatStats.js';
+import { getEffectiveStats } from '../combatStats.js';
 import { loadCharacter, loadCharacterState } from '../characterState.js';
 import type { CommandContext } from '../commands/context.js';
 import { getMobsInRoom, type DamageType, type MobInstance } from '../MobManager.js';
@@ -18,12 +18,6 @@ const JOB_BASIC_ATTACK_DAMAGE_TYPE: Record<JobType, DamageType> = {
   mage: 'magic',
   priest: 'magic',
 };
-
-/** 직업의 위력 스탯 값을 뽑아온다 — job이 없는 예외 상황(있을 수 없지만 타입상 optional)엔 힘으로 폴백. */
-export function playerPowerStat(job: JobType | null, stats: EffectiveStats): number {
-  if (!job) return stats.strength;
-  return stats[JOB_POWER_STAT[job]];
-}
 
 interface Combat {
   ctx: CommandContext;

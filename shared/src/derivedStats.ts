@@ -19,8 +19,17 @@ interface BasicAttackStats {
 }
 
 export function basicAttackPower(job: JobType | null, stats: BasicAttackStats): number {
+  return !job || PHYSICAL_JOBS.has(job) ? physicalAttackPower(job, stats) : magicAttackPower(job, stats);
+}
+
+export function physicalAttackPower(job: JobType | null, stats: BasicAttackStats): number {
   const powerStat = job ? JOB_POWER_STAT[job] : 'strength';
-  return stats[powerStat] + (!job || PHYSICAL_JOBS.has(job) ? stats.attackPower : 0);
+  return stats[powerStat] + stats.attackPower;
+}
+
+export function magicAttackPower(job: JobType | null, stats: BasicAttackStats): number {
+  const powerStat = job ? JOB_POWER_STAT[job] : 'strength';
+  return stats[powerStat];
 }
 
 export function criticalChanceForLuck(luck: number): number {

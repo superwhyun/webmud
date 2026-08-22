@@ -4,6 +4,8 @@ import {
   effectiveSkillPower,
   getSkillById,
   josaIGa,
+  magicAttackPower,
+  physicalAttackPower,
   SKILLS,
   withJosa,
   type ActiveBuffInfo,
@@ -24,7 +26,6 @@ import { handleMobDefeat } from './combatRewards.js';
 import {
   cleanupCombatForSession,
   getActiveCombat,
-  playerPowerStat,
   sendCombatEnd,
   sendCombatStatus,
   startCombatInterval,
@@ -173,7 +174,9 @@ export function handleCast(ctx: CommandContext, rest: string): void {
 
     const playerStats = getEffectiveStats(character);
     const attackStat =
-      playerPowerStat(character.job, playerStats) + (skill.damageType === 'physical' ? playerStats.attackPower : 0);
+      skill.damageType === 'physical'
+        ? physicalAttackPower(character.job, playerStats)
+        : magicAttackPower(character.job, playerStats);
 
     db.prepare('UPDATE characters SET mp = mp - ? WHERE id = ?').run(skill.mpCost, character.id);
     startCooldown(character.id, skill.id, Math.round(effectiveCooldownMs(skill, rank) * getCooldownMultiplier(character)));

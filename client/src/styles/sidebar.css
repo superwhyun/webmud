@@ -1581,6 +1581,35 @@
   font-size: 1.8rem;
 }
 
+.stats-recovery-values {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0.42rem 0 0.58rem;
+}
+
+.stats-recovery-values > span {
+  display: grid;
+  gap: 0.08rem;
+  min-width: 0;
+}
+
+.stats-recovery-values > span + span {
+  padding-left: 0.65rem;
+  border-left: 1px solid rgba(112, 138, 105, 0.28);
+}
+
+.stats-recovery-values small {
+  color: #778b73;
+  font-size: 0.62rem;
+}
+
+.stats-recovery-values strong {
+  color: #edf5ea;
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  white-space: nowrap;
+}
+
 .stats-source-breakdown {
   display: flex;
   flex-wrap: wrap;

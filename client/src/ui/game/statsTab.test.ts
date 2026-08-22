@@ -3,6 +3,8 @@ import {
   basicAttackPower,
   criticalChanceForLuck,
   defenseBonusFromAttribute,
+  magicAttackPower,
+  physicalAttackPower,
   restHpRecoveryPerTick,
   restMpRecoveryPerTick,
   type CharacterState,
@@ -11,6 +13,7 @@ import {
   buildDerivedCombatResults,
   buildStatAllocationMessage,
   defenseBuffContribution,
+  renderFinalCombatStatCards,
   STAT_MANAGEMENT_ENTRIES,
   STATS_TAB_STATE_KEYS,
 } from './statsTab';
@@ -66,16 +69,18 @@ describe('stat management tab', () => {
 
   it('derives every fixed combat result affected by allocated stats', () => {
     expect(buildDerivedCombatResults(character, character.wisdom)).toEqual({
-      combatPower: 25,
+      physicalAttackPower: 25,
+      magicAttackPower: 20,
       criticalChancePercent: 13,
       hpRestorationPerSecond: 4,
       mpRestorationPerSecond: 2,
     });
   });
 
-  it('does not apply physical equipment attack power to a magic job and caps critical chance', () => {
+  it('separates physical and magic base attack power for a magic job and caps critical chance', () => {
     expect(buildDerivedCombatResults({ ...character, job: 'mage', intelligence: 30, luck: 80 }, character.wisdom)).toMatchObject({
-      combatPower: 30,
+      physicalAttackPower: 35,
+      magicAttackPower: 30,
       criticalChancePercent: 35,
     });
   });
@@ -86,9 +91,36 @@ describe('stat management tab', () => {
 
   it('uses shared authoritative formulas for combat and recovery results', () => {
     expect(basicAttackPower(character.job, character)).toBe(25);
+    expect(physicalAttackPower(character.job, character)).toBe(25);
+    expect(magicAttackPower(character.job, character)).toBe(20);
     expect(criticalChanceForLuck(character.luck)).toBe(0.13);
     expect(restHpRecoveryPerTick(character.maxHp)).toBe(4);
     expect(restMpRecoveryPerTick(character.maxMp, character.wisdom)).toBe(2);
+  });
+
+  it('renders exactly eight final stat cards and combines rest recovery into one card', () => {
+    const markup = renderFinalCombatStatCards({
+      derivedCombatResults: buildDerivedCombatResults(character, character.wisdom),
+      character,
+      physicalAttackGear: 5,
+      magicAttackGear: 0,
+      powerStatBuff: 0,
+      physicalDefenseGear: 0,
+      physicalDefenseBuff: 0,
+      magicDefenseGear: 0,
+      magicDefenseBuff: 0,
+      criticalChanceBuff: 0,
+    });
+
+    expect(markup.match(/class=\"stats-final-card/g)?.length ?? 0).toBe(8);
+    expect(markup.match(/stats-recovery-card/g)?.length ?? 0).toBe(1);
+    expect(markup).toContain('기본 물리 공격력');
+    expect(markup).toContain('기본 마법 공격력');
+    expect(markup).toContain('휴식 회복');
+    expect(markup).toContain('<small>HP</small><strong>+4/초</strong>');
+    expect(markup).toContain('<small>MP</small><strong>+2/초</strong>');
+    expect(markup).not.toContain('휴식 HP 회복');
+    expect(markup).not.toContain('휴식 MP 회복');
   });
 
   it('counts the indirect defense gained from vitality or wisdom buffs', () => {

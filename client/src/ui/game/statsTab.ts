@@ -1,8 +1,9 @@
 import {
-  basicAttackPower,
   criticalChanceForLuck,
   defenseBonusFromAttribute,
   JOB_POWER_STAT,
+  magicAttackPower,
+  physicalAttackPower,
   restHpRecoveryPerTick,
   restMpRecoveryPerTick,
   type CharacterState,
@@ -22,7 +23,8 @@ interface StatManagementEntry {
 }
 
 export interface DerivedCombatResults {
-  combatPower: number;
+  physicalAttackPower: number;
+  magicAttackPower: number;
   criticalChancePercent: number;
   hpRestorationPerSecond: number;
   mpRestorationPerSecond: number;
@@ -74,11 +76,25 @@ export function buildDerivedCombatResults(
   permanentWisdom: number,
 ): DerivedCombatResults {
   return {
-    combatPower: basicAttackPower(character.job, character),
+    physicalAttackPower: physicalAttackPower(character.job, character),
+    magicAttackPower: magicAttackPower(character.job, character),
     criticalChancePercent: Math.round(criticalChanceForLuck(character.luck) * 100),
     hpRestorationPerSecond: restHpRecoveryPerTick(character.maxHp),
     mpRestorationPerSecond: restMpRecoveryPerTick(character.maxMp, permanentWisdom),
   };
+}
+
+function renderRecoveryStat(hpPerSecond: number, mpPerSecond: number): string {
+  return `
+    <article class="stats-final-card stats-recovery-card">
+      <span class="stats-final-label">휴식 회복</span>
+      <div class="stats-recovery-values">
+        <span><small>HP</small><strong>+${hpPerSecond}/초</strong></span>
+        <span><small>MP</small><strong>+${mpPerSecond}/초</strong></span>
+      </div>
+      <div class="stats-source-breakdown"><span>휴식 중 자동 회복</span></div>
+    </article>
+  `;
 }
 
 export function defenseBuffContribution(effectiveAttribute: number, buffAmount: number, level: number): number {
@@ -129,6 +145,33 @@ function renderFinalStat(
   `;
 }
 
+export function renderFinalCombatStatCards(args: {
+  derivedCombatResults: DerivedCombatResults;
+  character: Pick<CharacterState, 'maxHp' | 'maxMp' | 'physicalDefense' | 'magicDefense'>;
+  physicalAttackGear: number;
+  magicAttackGear: number;
+  powerStatBuff: number;
+  physicalDefenseGear: number;
+  physicalDefenseBuff: number;
+  magicDefenseGear: number;
+  magicDefenseBuff: number;
+  criticalChanceBuff: number;
+}): string {
+  return `
+    ${renderFinalStat('기본 물리 공격력', args.derivedCombatResults.physicalAttackPower, args.physicalAttackGear, args.powerStatBuff)}
+    ${renderFinalStat('기본 마법 공격력', args.derivedCombatResults.magicAttackPower, args.magicAttackGear, args.powerStatBuff)}
+    ${renderFinalStat('최대 HP', args.character.maxHp, 0, 0)}
+    ${renderFinalStat('최대 MP', args.character.maxMp, 0, 0)}
+    ${renderFinalStat('물리방어', args.character.physicalDefense, args.physicalDefenseGear, args.physicalDefenseBuff)}
+    ${renderFinalStat('마법방어', args.character.magicDefense, args.magicDefenseGear, args.magicDefenseBuff)}
+    ${renderFinalStat('치명타율', args.derivedCombatResults.criticalChancePercent, 0, args.criticalChanceBuff, { suffix: '%' })}
+    ${renderRecoveryStat(
+      args.derivedCombatResults.hpRestorationPerSecond,
+      args.derivedCombatResults.mpRestorationPerSecond,
+    )}
+  `;
+}
+
 export function renderStatsTab(ctx: GameContext): void {
   const character = ctx.currentCharacterState;
   if (!character) {
@@ -143,6 +186,7 @@ export function renderStatsTab(ctx: GameContext): void {
   const wisdomBuff = buffBonus(ctx, 'wisdom');
   const permanentWisdom = Math.max(0, character.wisdom - wisdomBuff);
   const derivedCombatResults = buildDerivedCombatResults(character, permanentWisdom);
+  const attackGear = equipmentBonus(ctx, 'attackPowerBonus');
   const powerStatGear = powerStatEquipmentBonus(ctx, resolvedPowerStat);
   const powerStatBuff = buffBonus(ctx, resolvedPowerStat);
   const physicalDefenseGear = equipmentBonus(ctx, 'physicalDefenseBonus');
@@ -160,9 +204,8 @@ export function renderStatsTab(ctx: GameContext): void {
     permanentWisdom,
   ).criticalChancePercent;
   const criticalChanceBuff = derivedCombatResults.criticalChancePercent - criticalChanceWithoutBuff;
-  const weaponAttackContribution =
-    derivedCombatResults.combatPower - basicAttackPower(character.job, { ...character, attackPower: 0 });
-  const combatPowerGear = powerStatGear + weaponAttackContribution;
+  const physicalAttackGear = powerStatGear + attackGear;
+  const magicAttackGear = powerStatGear;
 
   const allocationCards = STAT_MANAGEMENT_ENTRIES.map((entry) => {
     const value = character[entry.field];
@@ -215,14 +258,18 @@ export function renderStatsTab(ctx: GameContext): void {
           <p>장비와 활성 버프가 반영된 고정 수치입니다. 상대 민첩에 따라 달라지는 회피율은 제외했습니다.</p>
         </div>
         <div class="stats-final-grid">
-          ${renderFinalStat('기본 공격 위력', derivedCombatResults.combatPower, combatPowerGear, powerStatBuff)}
-          ${renderFinalStat('최대 HP', character.maxHp, 0, 0)}
-          ${renderFinalStat('최대 MP', character.maxMp, 0, 0)}
-          ${renderFinalStat('물리방어', character.physicalDefense, physicalDefenseGear, physicalDefenseBuff)}
-          ${renderFinalStat('마법방어', character.magicDefense, magicDefenseGear, magicDefenseBuff)}
-          ${renderFinalStat('치명타율', derivedCombatResults.criticalChancePercent, 0, criticalChanceBuff, { suffix: '%' })}
-          ${renderFinalStat('휴식 HP 회복', derivedCombatResults.hpRestorationPerSecond, 0, 0, { suffix: '/초', permanentLabel: '공식 결과' })}
-          ${renderFinalStat('휴식 MP 회복', derivedCombatResults.mpRestorationPerSecond, 0, 0, { suffix: '/초', permanentLabel: '공식 결과' })}
+          ${renderFinalCombatStatCards({
+            derivedCombatResults,
+            character,
+            physicalAttackGear,
+            magicAttackGear,
+            powerStatBuff,
+            physicalDefenseGear,
+            physicalDefenseBuff,
+            magicDefenseGear,
+            magicDefenseBuff,
+            criticalChanceBuff,
+          })}
         </div>
       </section>
 
