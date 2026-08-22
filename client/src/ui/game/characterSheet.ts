@@ -1,13 +1,15 @@
 import { renderEquipTab } from './equipment';
 import { renderSkillTab } from './skills';
+import { renderStatsTab } from './statsTab';
 import type { CharacterSheetTab, GameContext } from './context';
 
 const TAB_LABELS: Record<CharacterSheetTab, string> = {
   equip: '장비',
+  stats: '능력치',
   skill: '스킬',
 };
 
-const TAB_ORDER: CharacterSheetTab[] = ['equip', 'skill'];
+const TAB_ORDER: CharacterSheetTab[] = ['equip', 'stats', 'skill'];
 
 function renderTabBar(ctx: GameContext): void {
   ctx.characterSheetTabs.innerHTML = TAB_ORDER.map(
@@ -25,6 +27,7 @@ function renderTabBar(ctx: GameContext): void {
 /** 현재 활성 탭의 내용만 다시 그린다 — 웹소켓 갱신(장비/인벤토리/스킬 변경)이 열려있는 탭에만 반영되게 할 때 쓴다. */
 export function renderCharacterSheetBody(ctx: GameContext): void {
   if (ctx.characterSheetActiveTab === 'equip') renderEquipTab(ctx);
+  else if (ctx.characterSheetActiveTab === 'stats') renderStatsTab(ctx);
   else renderSkillTab(ctx);
 }
 

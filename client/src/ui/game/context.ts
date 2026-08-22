@@ -33,8 +33,8 @@ export interface TabCompletionState {
   index: number;
 }
 
-/** 장비+인벤토리(한 화면에 같이 보임)/스킬을 전환하는 캐릭터 시트의 탭. */
-export type CharacterSheetTab = 'equip' | 'skill';
+/** 장비+인벤토리/능력치/스킬을 전환하는 캐릭터 시트의 탭. */
+export type CharacterSheetTab = 'equip' | 'stats' | 'skill';
 
 export interface GameContext {
   container: HTMLElement;

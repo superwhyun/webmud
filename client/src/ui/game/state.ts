@@ -4,22 +4,12 @@ import {
   JOB_LABELS,
   PASSIVE_STAT_LABELS,
   type CharacterState,
-  type ClientMessage,
   type PassiveStat,
-  type StatKey,
 } from '@mud/shared';
 import { escapeHtml } from '../../domUtils';
 import { isCharacterSheetTabOpen, renderCharacterSheetBody } from './characterSheet';
 import { hpLevel, type GameContext } from './context';
-
-const STAT_ALLOC_ENTRIES: { key: StatKey; buffStat: PassiveStat; label: string; pick: (c: CharacterState) => number }[] = [
-  { key: 'str', buffStat: 'strength', label: '힘', pick: (c) => c.strength },
-  { key: 'dex', buffStat: 'dexterity', label: '민첩', pick: (c) => c.dexterity },
-  { key: 'int', buffStat: 'intelligence', label: '지능', pick: (c) => c.intelligence },
-  { key: 'vit', buffStat: 'vitality', label: '체력', pick: (c) => c.vitality },
-  { key: 'wis', buffStat: 'wisdom', label: '지혜', pick: (c) => c.wisdom },
-  { key: 'luk', buffStat: 'luck', label: '행운', pick: (c) => c.luck },
-];
+import { STATS_TAB_STATE_KEYS } from './statsTab';
 
 /** buffStat이 이 CharacterState 필드 이름과 항상 같으므로(strength/.../physicalDefense/magicDefense),
  * 버프가 자연 만료될 때 서버 왕복 없이 클라이언트에서 바로 델타를 되돌릴 수 있다. maxHp/maxMp는
@@ -89,19 +79,23 @@ export function renderCooldownPanel(ctx: GameContext): void {
 export function renderBuffPanel(ctx: GameContext): void {
   const now = Date.now();
   let expiredStatsChanged = false;
+  let nextCharacterState = ctx.currentCharacterState;
   for (const [skillId, buff] of ctx.activeBuffs) {
     if (buff.endsAt <= now) {
       ctx.activeBuffs.delete(skillId);
       // 서버가 시간 경과만으로는 새 state를 밀어주지 않으므로, 버프가 자연 만료될 때 사이드바
       // 숫자가 그대로 부풀려진 채 남지 않도록 걸었던 만큼 클라이언트에서 바로 빼서 되돌린다.
       const field = BUFFABLE_CHARACTER_FIELDS[buff.buffStat];
-      if (field && ctx.currentCharacterState) {
-        (ctx.currentCharacterState[field] as number) -= buff.amount;
+      if (field && nextCharacterState) {
+        nextCharacterState = {
+          ...nextCharacterState,
+          [field]: (nextCharacterState[field] as number) - buff.amount,
+        };
         expiredStatsChanged = true;
       }
     }
   }
-  if (expiredStatsChanged && ctx.currentCharacterState) renderState(ctx, ctx.currentCharacterState);
+  if (expiredStatsChanged && nextCharacterState) renderState(ctx, nextCharacterState);
   if (ctx.activeBuffs.size === 0) {
     ctx.buffPanel.innerHTML = '';
     return;
@@ -150,32 +144,27 @@ export function renderState(ctx: GameContext, character: CharacterState): void {
       <div class="exp-bar-fill" style="width: ${Math.max(0, Math.min(100, expRatio * 100))}%"></div>
     </div>
     <div class="stat">Lv.${character.level} ${jobLabel} · gold ${character.gold}</div>
-    <div class="stat-grid">
-      ${STAT_ALLOC_ENTRIES.map((entry) => {
-        const buffBonus = buffBonusForStat(ctx, entry.buffStat);
-        return `
-        <span class="stat-grid-entry${buffBonus > 0 ? ' stat-buffed' : ''}">
-          ${entry.label} ${entry.pick(character)}${buffBonus > 0 ? ` <span class="stat-buff-delta">(+${buffBonus})</span>` : ''}
-          ${canAllocate ? `<button type="button" class="stat-alloc-btn" data-stat-key="${entry.key}">+</button>` : ''}
-        </span>
-      `;
-      }).join('')}
-      <span>공격력 ${character.attackPower}</span>
-      <span${buffBonusForStat(ctx, 'physicalDefense') > 0 ? ' class="stat-buffed"' : ''}>물리방어 ${character.physicalDefense}${buffBonusForStat(ctx, 'physicalDefense') > 0 ? ` <span class="stat-buff-delta">(+${buffBonusForStat(ctx, 'physicalDefense')})</span>` : ''}</span>
-      <span${buffBonusForStat(ctx, 'magicDefense') > 0 ? ' class="stat-buffed"' : ''}>마법방어 ${character.magicDefense}${buffBonusForStat(ctx, 'magicDefense') > 0 ? ` <span class="stat-buff-delta">(+${buffBonusForStat(ctx, 'magicDefense')})</span>` : ''}</span>
+    <div class="sidebar-combat-summary" aria-label="최종 전투 능력치">
+      <span class="sidebar-combat-stat">
+        <span>공격력</span>
+        <strong>${character.attackPower}</strong>
+      </span>
+      <span class="sidebar-combat-stat${buffBonusForStat(ctx, 'physicalDefense') > 0 ? ' stat-buffed' : ''}">
+        <span>물리방어</span>
+        <strong>${character.physicalDefense}</strong>
+        ${buffBonusForStat(ctx, 'physicalDefense') > 0 ? `<small>+${buffBonusForStat(ctx, 'physicalDefense')}</small>` : ''}
+      </span>
+      <span class="sidebar-combat-stat${buffBonusForStat(ctx, 'magicDefense') > 0 ? ' stat-buffed' : ''}">
+        <span>마법방어</span>
+        <strong>${character.magicDefense}</strong>
+        ${buffBonusForStat(ctx, 'magicDefense') > 0 ? `<small>+${buffBonusForStat(ctx, 'magicDefense')}</small>` : ''}
+      </span>
     </div>
     ${canAllocate ? `<div class="stat stat-highlight">분배 가능 스탯 포인트: ${character.unallocatedStatPoints}</div>` : ''}
     ${character.unallocatedSkillPoints > 0 ? `<div class="stat stat-highlight">사용 가능 스킬 포인트: ${character.unallocatedSkillPoints}</div>` : ''}
     <div class="stat">속성 ${ELEMENT_LABELS[character.element]}</div>
     <div class="stat stat-room">${character.roomName}</div>
   `;
-
-  ctx.sidebarStats.querySelectorAll<HTMLButtonElement>('.stat-alloc-btn').forEach((button) => {
-    button.addEventListener('click', () => {
-      const message: ClientMessage = { type: 'allocateStat', statKey: button.dataset.statKey as StatKey, amount: 1 };
-      ctx.socket.send(JSON.stringify(message));
-    });
-  });
 
   // 스킬 탭 갱신은 레벨/스킬 포인트가 실제로 바뀌었을 때만 한다 — 안 그러면 휴식 중
   // 1초마다 오는 HP/MP state에도 매번 카드가 통째로 다시 그려져(진입 애니메이션까지
@@ -184,5 +173,8 @@ export function renderState(ctx: GameContext, character: CharacterState): void {
     !previousCharacter ||
     previousCharacter.level !== character.level ||
     previousCharacter.unallocatedSkillPoints !== character.unallocatedSkillPoints;
-  if (skillTabRelevantChanged && isCharacterSheetTabOpen(ctx, 'skill')) renderCharacterSheetBody(ctx);
+  const statsTabRelevantChanged =
+    !previousCharacter || STATS_TAB_STATE_KEYS.some((key) => previousCharacter[key] !== character[key]);
+  if (statsTabRelevantChanged && isCharacterSheetTabOpen(ctx, 'stats')) renderCharacterSheetBody(ctx);
+  else if (skillTabRelevantChanged && isCharacterSheetTabOpen(ctx, 'skill')) renderCharacterSheetBody(ctx);
 }

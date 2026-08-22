@@ -77,6 +77,7 @@ export function renderGameScreen(
         ctx.equipmentState = message.slots;
         renderEquipmentPanel(ctx);
         if (isCharacterSheetTabOpen(ctx, 'equip')) renderCharacterSheetBody(ctx);
+        else if (isCharacterSheetTabOpen(ctx, 'stats')) renderCharacterSheetBody(ctx);
       } else if (message.type === 'inventory') {
         ctx.inventoryState = message.items;
         renderInventoryCount(ctx);
@@ -119,6 +120,7 @@ export function renderGameScreen(
         // state와 activeBuffs 중 어느 쪽이 먼저 도착하든(캐스터/피시전자 순서가 다름) 사이드바
         // 스탯 강조 표시가 최종적으로 activeBuffs 기준과 어긋나지 않도록 다시 그린다.
         if (ctx.currentCharacterState) renderState(ctx, ctx.currentCharacterState);
+        if (isCharacterSheetTabOpen(ctx, 'stats')) renderCharacterSheetBody(ctx);
       } else if (message.type === 'needsJob') {
         showJobModal(ctx, (job) => {
           const chooseJobMessage: ClientMessage = { type: 'chooseJob', job };

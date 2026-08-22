@@ -124,4 +124,22 @@
   .skill-tree-trunk-grid {
     grid-template-columns: 1fr;
   }
+
+  .stats-hero,
+  .stats-section-heading {
+    align-items: flex-start;
+  }
+
+  .stats-section-heading {
+    flex-direction: column;
+  }
+
+  .stats-section-heading p {
+    text-align: left;
+  }
+
+  .stats-final-grid,
+  .stats-allocation-grid {
+    grid-template-columns: 1fr;
+  }
 }
