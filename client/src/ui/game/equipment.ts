@@ -241,7 +241,7 @@ function buildEquipSummaryHtml(ctx: GameContext): string {
 
 /** 장비 탭(장비+인벤토리 통합 화면). 장착은 드래그 앤 드롭으로만 하고, 슬롯을 hover하면 낄 수 있는 아이템만 인벤토리에서 밝아진다. */
 export function renderEquipTab(ctx: GameContext): void {
-  const slotsHtml = EQUIPMENT_SLOTS.map((slot, index) => {
+  const slotsHtml = EQUIPMENT_SLOTS.map((slot) => {
     const equipped = ctx.equipmentState[slot];
     const stateClasses = [
       equipped ? `equip-slot-grade-${equipped.grade}` : 'is-empty',
@@ -253,8 +253,8 @@ export function renderEquipTab(ctx: GameContext): void {
 
     return `
       <div
-        class="hud-card hud-card-enter equip-slot ${stateClasses}"
-        style="top: ${position.top}%; left: ${position.left}%; animation-delay: ${index * 25}ms"
+        class="hud-card equip-slot ${stateClasses}"
+        style="top: ${position.top}%; left: ${position.left}%"
         data-equip-slot="${slot}"
       >
         <span class="equip-slot-icon">${equipmentArt(slot, 'equip-slot-art')}</span>
