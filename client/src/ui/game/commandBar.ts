@@ -79,14 +79,42 @@ function matchesTyped(candidate: string, typed: string): boolean {
 /** 게임 화면을 벗어났다 돌아올 때마다 새로 등록되는 걸 막기 위해, 이전에 등록한 핸들러를 기억해뒀다가 떼어낸다. */
 let activeCommandFocusHandler: ((event: KeyboardEvent) => void) | null = null;
 
-export function sendCommand(ctx: GameContext, text: string): void {
-  const verb = text.trim().split(/\s+/)[0]?.toLowerCase();
+/**
+ * ";"로 이어붙인 명령 사이에 몇 초 쉬어갈지 지정하는 지시어(예: "파이어볼;wait 2;치유").
+ * wait가 없는 두 명령 사이는 즉시(0초) 이어서 나간다 — 즉발 조합과 쉬었다 조합을
+ * 명시적으로 구분하기 위함.
+ */
+const WAIT_DIRECTIVE_PATTERN = /^wait\s+(\d+(?:\.\d+)?)$/i;
+
+/** 명령 하나를 실제로 서버에 보낸다(입력창 비우기/기록 갱신 없이) — 체이닝의 각 구간에서 재사용. */
+function dispatchSingleCommand(ctx: GameContext, text: string): void {
+  const verb = text.split(/\s+/)[0]?.toLowerCase();
   const direction = verb ? (CARDINAL_ALIASES[verb] ?? null) : null;
   ctx.pendingDirection = direction;
 
   appendLine(ctx, direction ? `> ${DIRECTION_LABELS[direction]}으로 이동` : `> ${text}`, 'echo');
   const message: ClientMessage = { type: 'command', text };
   ctx.socket.send(JSON.stringify(message));
+}
+
+function runCommandChain(ctx: GameContext, segments: string[], index: number): void {
+  if (index >= segments.length) return;
+  const segment = segments[index];
+
+  const waitMatch = segment.match(WAIT_DIRECTIVE_PATTERN);
+  if (waitMatch) {
+    const seconds = Number(waitMatch[1]);
+    appendLine(ctx, `⏳ ${seconds}초 대기`, 'system');
+    setTimeout(() => runCommandChain(ctx, segments, index + 1), seconds * 1000);
+    return;
+  }
+
+  dispatchSingleCommand(ctx, segment);
+  runCommandChain(ctx, segments, index + 1);
+}
+
+/** ";"로 여러 명령을 묶어 순서대로 보낸다(직접 입력, 매크로 호출 모두 이 경로를 탄다). */
+export function sendCommand(ctx: GameContext, text: string): void {
   ctx.commandInput.value = '';
   ctx.tabCompletion = null;
 
@@ -94,6 +122,12 @@ export function sendCommand(ctx: GameContext, text: string): void {
     ctx.commandHistory.push(text);
   }
   ctx.historyIndex = ctx.commandHistory.length;
+
+  const segments = text
+    .split(';')
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0);
+  runCommandChain(ctx, segments, 0);
 }
 
 function navigateHistory(ctx: GameContext, direction: -1 | 1): void {
