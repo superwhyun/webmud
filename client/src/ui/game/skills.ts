@@ -9,13 +9,9 @@ import {
   type ElementType,
   type SkillDefinition,
 } from '@mud/shared';
-import { escapeHtml } from '../../domUtils';
+import { escapeHtml, escapeHtmlAttribute } from '../../domUtils';
 import type { GameContext } from './context';
 import { skillArtPath } from './skillAssets';
-
-function escapeHtmlAttribute(value: string): string {
-  return escapeHtml(value).replaceAll('"', '&quot;').replaceAll("'", '&#39;');
-}
 
 function findSkillByIdInList(skills: SkillDefinition[], id: string): SkillDefinition | undefined {
   return skills.find((skill) => skill.id === id);

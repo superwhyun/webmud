@@ -3,3 +3,7 @@ export function escapeHtml(text: string): string {
   div.textContent = text;
   return div.innerHTML;
 }
+
+export function escapeHtmlAttribute(value: string): string {
+  return escapeHtml(value).replaceAll('"', '&quot;').replaceAll("'", '&#39;');
+}

@@ -10,10 +10,10 @@ import {
   type RoomSnapshot,
   type VillageInfo,
 } from '@mud/shared';
-import { escapeHtml } from '../../domUtils';
+import { escapeHtml, escapeHtmlAttribute } from '../../domUtils';
 import { icon } from '../icons';
 import { hpLevel, type GameContext } from './context';
-import { MOB_SPRITES } from './mobSprites';
+import { mobSpritePath } from './mobSprites';
 
 /**
  * 몹 이름을 오행 색상으로 물들이고, 내 속성 기준으로 유리/불리하면 색상만으로는 구별이 안 될 수
@@ -85,8 +85,8 @@ export function renderRoom(ctx: GameContext, room: RoomSnapshot): void {
 
   ctx.roomHeader.innerHTML = `
     <div class="room-zone-label">${escapeHtml(room.zoneName)}</div>
-    <div class="room-name">${room.name}</div>
-    <p class="room-desc">${room.description}</p>
+    <div class="room-name">${escapeHtml(room.name)}</div>
+    <p class="room-desc">${escapeHtml(room.description)}</p>
   `;
   ctx.roomMeta.innerHTML = `
     <span><strong>몬스터</strong>${mobsText}</span>
@@ -98,11 +98,14 @@ export function renderRoom(ctx: GameContext, room: RoomSnapshot): void {
   ctx.roomVillage.innerHTML = room.village ? renderVillageSection(room.village) : '';
 
   ctx.mobSpriteRow.innerHTML = room.mobs
-    .filter((mob) => MOB_SPRITES[mob.name])
-    .map(
-      (mob) =>
-        `<img class="mob-sprite" src="${MOB_SPRITES[mob.name]}" alt="${escapeHtml(mob.name)}" title="${escapeHtml(mob.name)} Lv.${mob.level}" />`,
-    )
+    .flatMap((mob) => {
+      const spritePath = mobSpritePath(mob.name);
+      if (!spritePath) return [];
+      const escapedName = escapeHtmlAttribute(mob.name);
+      return [
+        `<img class="mob-sprite" src="${spritePath}" alt="${escapedName}" title="${escapedName} Lv.${mob.level}" />`,
+      ];
+    })
     .join('');
 }
 
