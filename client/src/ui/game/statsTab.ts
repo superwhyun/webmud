@@ -136,8 +136,8 @@ export function renderStatsTab(ctx: GameContext): void {
       <section class="stats-final-section" aria-labelledby="stats-final-heading">
         <div class="stats-section-heading">
           <div>
-            <span class="stats-section-kicker">FINAL RESULT</span>
-            <h3 id="stats-final-heading">현재 전투 결과</h3>
+            <span class="stats-section-kicker">FINAL STATS</span>
+            <h3 id="stats-final-heading">최종 전투 능력치</h3>
           </div>
           <p>장비와 활성 버프가 반영된 최종 수치입니다.</p>
         </div>
