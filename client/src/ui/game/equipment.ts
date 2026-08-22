@@ -34,15 +34,30 @@ const SLOT_POSITIONS: Record<EquipmentSlot, { top: number; left: number }> = {
 };
 
 export function renderEquipmentPanel(ctx: GameContext): void {
-  ctx.equipmentPanel.innerHTML = EQUIPMENT_SLOTS.map((slot) => {
+  const equippedCount = EQUIPMENT_SLOTS.filter((slot) => ctx.equipmentState[slot]).length;
+  const slotsHtml = EQUIPMENT_SLOTS.map((slot) => {
     const equipped = ctx.equipmentState[slot];
+    const slotState = equipped ? `equipment-slot-grade-${equipped.grade}` : 'is-empty';
+    const itemName = equipped ? escapeHtml(equipped.name) : '비어있음';
+
     return `
-      <div class="equipment-slot">
-        <span class="equipment-slot-label">${EQUIPMENT_SLOT_LABELS[slot]}</span>
-        <span class="equipment-slot-value">${equipped ? `<span class="item-grade-${equipped.grade}">${escapeHtml(equipped.name)}</span>` : '비어있음'}</span>
+      <div class="equipment-slot ${slotState}">
+        <span class="equipment-slot-art" aria-hidden="true">${equipmentArt(slot, 'equipment-slot-art-image')}</span>
+        <span class="equipment-slot-copy">
+          <span class="equipment-slot-label">${EQUIPMENT_SLOT_LABELS[slot]}</span>
+          <span class="equipment-slot-value">${equipped ? `<span class="item-grade-${equipped.grade}">${itemName}</span>` : itemName}</span>
+        </span>
       </div>
     `;
   }).join('');
+
+  ctx.equipmentPanel.innerHTML = `
+    <div class="equipment-panel-heading">
+      <span class="equipment-panel-title">현재 장비</span>
+      <span class="equipment-panel-count">${equippedCount}/${EQUIPMENT_SLOTS.length}</span>
+    </div>
+    <div class="equipment-panel-grid">${slotsHtml}</div>
+  `;
 }
 
 export function renderInventoryCount(ctx: GameContext): void {

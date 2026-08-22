@@ -39,7 +39,12 @@ function lockReason(ctx: GameContext, skill: SkillDefinition, jobSkills: SkillDe
 }
 
 function powerLabel(skill: SkillDefinition, rank: number): string {
-  if (skill.kind === 'passive') return `+${Math.round(effectiveSkillPower(skill, rank))}`;
+  if (skill.kind === 'passive') {
+    const amount = Math.round(effectiveSkillPower(skill, rank));
+    if (skill.reducesCooldown) return `쿨다운 ${amount}% 감소`;
+    const statLabel = skill.passiveStat ? PASSIVE_STAT_LABELS[skill.passiveStat] : '';
+    return `${statLabel} +${amount}`;
+  }
   if (skill.kind === 'buff') {
     const durationSec = Math.round((skill.durationMs ?? 0) / 1000);
     const statLabel = skill.buffStat ? PASSIVE_STAT_LABELS[skill.buffStat] : '';
@@ -93,7 +98,9 @@ function renderSkillCard(ctx: GameContext, skill: SkillDefinition, jobSkills: Sk
       ? ` skill-node-locked-${reason.tier}`
       : ' is-available';
   const kindLabel = skill.kind === 'passive'
-    ? '지속 효과'
+    ? skill.reducesCooldown
+      ? '쿨다운 감소'
+      : `${skill.passiveStat ? PASSIVE_STAT_LABELS[skill.passiveStat] : ''} 증가`
     : skill.kind === 'buff'
       ? `${skill.buffStat ? PASSIVE_STAT_LABELS[skill.buffStat] : ''} 버프`
       : skill.kind === 'heal'
