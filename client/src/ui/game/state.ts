@@ -5,20 +5,44 @@ import {
   PASSIVE_STAT_LABELS,
   type CharacterState,
   type ClientMessage,
+  type PassiveStat,
   type StatKey,
 } from '@mud/shared';
 import { escapeHtml } from '../../domUtils';
 import { isCharacterSheetTabOpen, renderCharacterSheetBody } from './characterSheet';
 import { hpLevel, type GameContext } from './context';
 
-const STAT_ALLOC_ENTRIES: { key: StatKey; label: string; pick: (c: CharacterState) => number }[] = [
-  { key: 'str', label: '힘', pick: (c) => c.strength },
-  { key: 'dex', label: '민첩', pick: (c) => c.dexterity },
-  { key: 'int', label: '지능', pick: (c) => c.intelligence },
-  { key: 'vit', label: '체력', pick: (c) => c.vitality },
-  { key: 'wis', label: '지혜', pick: (c) => c.wisdom },
-  { key: 'luk', label: '행운', pick: (c) => c.luck },
+const STAT_ALLOC_ENTRIES: { key: StatKey; buffStat: PassiveStat; label: string; pick: (c: CharacterState) => number }[] = [
+  { key: 'str', buffStat: 'strength', label: '힘', pick: (c) => c.strength },
+  { key: 'dex', buffStat: 'dexterity', label: '민첩', pick: (c) => c.dexterity },
+  { key: 'int', buffStat: 'intelligence', label: '지능', pick: (c) => c.intelligence },
+  { key: 'vit', buffStat: 'vitality', label: '체력', pick: (c) => c.vitality },
+  { key: 'wis', buffStat: 'wisdom', label: '지혜', pick: (c) => c.wisdom },
+  { key: 'luk', buffStat: 'luck', label: '행운', pick: (c) => c.luck },
 ];
+
+/** buffStat이 이 CharacterState 필드 이름과 항상 같으므로(strength/.../physicalDefense/magicDefense),
+ * 버프가 자연 만료될 때 서버 왕복 없이 클라이언트에서 바로 델타를 되돌릴 수 있다. maxHp/maxMp는
+ * 버프 대상에서 제외돼 있어 매핑하지 않는다. */
+const BUFFABLE_CHARACTER_FIELDS: Partial<Record<PassiveStat, keyof CharacterState>> = {
+  strength: 'strength',
+  dexterity: 'dexterity',
+  intelligence: 'intelligence',
+  vitality: 'vitality',
+  wisdom: 'wisdom',
+  luck: 'luck',
+  physicalDefense: 'physicalDefense',
+  magicDefense: 'magicDefense',
+};
+
+/** 특정 스탯에 지금 걸려 있는 버프 보너스의 합(보통 0 또는 1개, 이론상 여러 스킬이 같은 스탯을 buff하면 합산). */
+function buffBonusForStat(ctx: GameContext, stat: PassiveStat): number {
+  let total = 0;
+  for (const buff of ctx.activeBuffs.values()) {
+    if (buff.buffStat === stat) total += buff.amount;
+  }
+  return total;
+}
 
 const EXP_UNIT_SUFFIXES: [number, string][] = [
   [1_000_000_000, 'G'],
@@ -64,9 +88,20 @@ export function renderCooldownPanel(ctx: GameContext): void {
 
 export function renderBuffPanel(ctx: GameContext): void {
   const now = Date.now();
+  let expiredStatsChanged = false;
   for (const [skillId, buff] of ctx.activeBuffs) {
-    if (buff.endsAt <= now) ctx.activeBuffs.delete(skillId);
+    if (buff.endsAt <= now) {
+      ctx.activeBuffs.delete(skillId);
+      // 서버가 시간 경과만으로는 새 state를 밀어주지 않으므로, 버프가 자연 만료될 때 사이드바
+      // 숫자가 그대로 부풀려진 채 남지 않도록 걸었던 만큼 클라이언트에서 바로 빼서 되돌린다.
+      const field = BUFFABLE_CHARACTER_FIELDS[buff.buffStat];
+      if (field && ctx.currentCharacterState) {
+        (ctx.currentCharacterState[field] as number) -= buff.amount;
+        expiredStatsChanged = true;
+      }
+    }
   }
+  if (expiredStatsChanged && ctx.currentCharacterState) renderState(ctx, ctx.currentCharacterState);
   if (ctx.activeBuffs.size === 0) {
     ctx.buffPanel.innerHTML = '';
     return;
@@ -115,17 +150,18 @@ export function renderState(ctx: GameContext, character: CharacterState): void {
     </div>
     <div class="stat">Lv.${character.level} ${jobLabel} · gold ${character.gold}</div>
     <div class="stat-grid">
-      ${STAT_ALLOC_ENTRIES.map(
-        (entry) => `
-        <span class="stat-grid-entry">
-          ${entry.label} ${entry.pick(character)}
+      ${STAT_ALLOC_ENTRIES.map((entry) => {
+        const buffBonus = buffBonusForStat(ctx, entry.buffStat);
+        return `
+        <span class="stat-grid-entry${buffBonus > 0 ? ' stat-buffed' : ''}">
+          ${entry.label} ${entry.pick(character)}${buffBonus > 0 ? ` <span class="stat-buff-delta">(+${buffBonus})</span>` : ''}
           ${canAllocate ? `<button type="button" class="stat-alloc-btn" data-stat-key="${entry.key}">+</button>` : ''}
         </span>
-      `,
-      ).join('')}
+      `;
+      }).join('')}
       <span>공격력 ${character.attackPower}</span>
-      <span>물리방어 ${character.physicalDefense}</span>
-      <span>마법방어 ${character.magicDefense}</span>
+      <span${buffBonusForStat(ctx, 'physicalDefense') > 0 ? ' class="stat-buffed"' : ''}>물리방어 ${character.physicalDefense}${buffBonusForStat(ctx, 'physicalDefense') > 0 ? ` <span class="stat-buff-delta">(+${buffBonusForStat(ctx, 'physicalDefense')})</span>` : ''}</span>
+      <span${buffBonusForStat(ctx, 'magicDefense') > 0 ? ' class="stat-buffed"' : ''}>마법방어 ${character.magicDefense}${buffBonusForStat(ctx, 'magicDefense') > 0 ? ` <span class="stat-buff-delta">(+${buffBonusForStat(ctx, 'magicDefense')})</span>` : ''}</span>
     </div>
     ${canAllocate ? `<div class="stat stat-highlight">분배 가능 스탯 포인트: ${character.unallocatedStatPoints}</div>` : ''}
     ${character.unallocatedSkillPoints > 0 ? `<div class="stat stat-highlight">사용 가능 스킬 포인트: ${character.unallocatedSkillPoints}</div>` : ''}
