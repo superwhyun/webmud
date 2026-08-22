@@ -355,6 +355,10 @@ function consumeInventoryItem(ctx: CommandContext, item: InventoryRow): void {
 
   const healed = Math.min(item.heal_amount, character.max_hp - character.hp);
   const restoredMp = Math.min(item.mana_amount, character.max_mp - character.mp);
+  if (healed <= 0 && restoredMp <= 0) {
+    ctx.send({ type: 'text', text: '이미 체력과 마나가 가득 차 있어 사용하지 않았습니다.' });
+    return;
+  }
   const newHp = character.hp + healed;
   const newMp = character.mp + restoredMp;
 

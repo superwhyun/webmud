@@ -1,4 +1,4 @@
-import { JOB_POWER_STAT, type ChatChannel, type JobType } from '@mud/shared';
+import { JOB_POWER_STAT, josaIGa, withJosa, type ChatChannel, type JobType } from '@mud/shared';
 import type { WebSocket } from 'ws';
 import { db } from '../../db/client.js';
 import { getEffectiveStats, type EffectiveStats } from '../combatStats.js';
@@ -169,7 +169,7 @@ function performRound(ctx: CommandContext): void {
   const attackStat = playerPowerStat(character.job, playerStats) + (basicAttackDamageType === 'physical' ? playerStats.attackPower : 0);
   const playerAttack = resolveAttack(playerStats, targetStats, basicAttackDamageType, attackStat);
   if (playerAttack.evaded) {
-    ctx.send({ type: 'text', text: `${target.name}가 당신의 공격을 회피했습니다!`, channel: 'combat-evade' });
+    ctx.send({ type: 'text', text: `${withJosa(target.name, josaIGa)} 당신의 공격을 회피했습니다!`, channel: 'combat-evade' });
   } else {
     target.hp = Math.max(0, target.hp - playerAttack.damage);
     const critNote = playerAttack.isCrit ? ' 치명타!' : '';
@@ -208,7 +208,7 @@ function performRound(ctx: CommandContext): void {
     const critNote = mobAttack.isCrit ? ' 치명타!' : '';
     const damageTypeLabel = attacker.damageType === 'magic' ? '마법' : '물리';
     attackMessages.push({
-      text: `${attacker.name}가 당신에게 ${damageTypeLabel} 공격으로 ${mobAttack.damage}의 피해를 입혔습니다.${critNote} (${hp}/${character.max_hp})`,
+      text: `${withJosa(attacker.name, josaIGa)} 당신에게 ${damageTypeLabel} 공격으로 ${mobAttack.damage}의 피해를 입혔습니다.${critNote} (${hp}/${character.max_hp})`,
       channel: 'combat-hurt',
     });
   }

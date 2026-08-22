@@ -1,4 +1,4 @@
-import { formatItemMention, type ItemGrade } from '@mud/shared';
+import { formatItemMention, josaEulReul, withJosa, type ItemGrade } from '@mud/shared';
 import { db } from '../../db/client.js';
 import { STARTING_ROOM_ID } from '../../db/seed/index.js';
 import { loadCharacterState } from '../characterState.js';
@@ -48,12 +48,16 @@ export function handleMobDefeat(ctx: CommandContext, mob: MobInstance, character
   const expReward = computeMobExpReward(mob);
   ctx.send({
     type: 'text',
-    text: `${mob.name}를 물리쳤습니다! (경험치 +${expReward}, 골드 +${mob.goldReward})`,
+    text: `${withJosa(mob.name, josaEulReul)} 물리쳤습니다! (경험치 +${expReward}, 골드 +${mob.goldReward})`,
     channel: 'combat-victory',
   });
   broadcastToRoom(
     ctx.session.roomId,
-    { type: 'text', text: `${ctx.session.characterName}님이 ${mob.name}를 물리쳤습니다.`, channel: 'combat-victory' },
+    {
+      type: 'text',
+      text: `${ctx.session.characterName}님이 ${withJosa(mob.name, josaEulReul)} 물리쳤습니다.`,
+      channel: 'combat-victory',
+    },
     ctx.session.ws,
   );
 

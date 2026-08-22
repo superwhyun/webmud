@@ -4,6 +4,7 @@ export * from './equipment.js';
 export * from './inventory.js';
 export * from './itemGrades.js';
 export * from './jobs.js';
+export * from './korean.js';
 export * from './leveling.js';
 export * from './npc.js';
 export * from './protocol.js';
