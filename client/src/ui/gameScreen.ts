@@ -4,7 +4,7 @@ import { renderBuilderScreen } from './builderScreen';
 import { attachCommandBarListeners } from './game/commandBar';
 import { closeCharacterSheet, isCharacterSheetTabOpen, openCharacterSheet, renderCharacterSheetBody } from './game/characterSheet';
 import { appendLine, createGameContext, type GameContext } from './game/context';
-import { renderEquipmentPanel, renderInventoryCount, renderPotionSummary } from './game/equipment';
+import { EQUIP_STAT_STRIP_KEYS, renderEquipmentPanel, renderInventoryCount, renderPotionSummary } from './game/equipment';
 import { closeMacroModal, openMacroModal } from './game/macroPanel';
 import { recordRoomVisit, renderMinimap } from './game/minimap';
 import { hideCombat, renderCombat, renderRoom, showJobModal } from './game/room';
@@ -52,8 +52,13 @@ export function renderGameScreen(
       } else if (message.type === 'error') {
         appendLine(ctx, message.text, 'error');
       } else if (message.type === 'state') {
+        const previousCharacter = ctx.currentCharacterState;
         renderState(ctx, message.character);
-        if (isCharacterSheetTabOpen(ctx, 'equip')) renderCharacterSheetBody(ctx);
+        // 장비 탭 스탯 요약과 무관한 필드만 바뀐 state(예: 휴식 중 HP/MP 틱)로는 다시
+        // 그리지 않는다 — 그렇지 않으면 장비 탭을 켜둔 채 쉴 때마다 카드가 반짝거린다.
+        const equipStatsChanged =
+          !previousCharacter || EQUIP_STAT_STRIP_KEYS.some((key) => previousCharacter[key] !== message.character[key]);
+        if (equipStatsChanged && isCharacterSheetTabOpen(ctx, 'equip')) renderCharacterSheetBody(ctx);
       } else if (message.type === 'room') {
         ctx.latestRoom = message.room;
         recordRoomVisit(ctx, message.room);

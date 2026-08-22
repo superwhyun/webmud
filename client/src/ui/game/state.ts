@@ -123,6 +123,7 @@ export function renderBuffPanel(ctx: GameContext): void {
 }
 
 export function renderState(ctx: GameContext, character: CharacterState): void {
+  const previousCharacter = ctx.currentCharacterState;
   ctx.currentCharacterState = character;
   const hpRatio = character.maxHp > 0 ? character.hp / character.maxHp : 0;
   const mpRatio = character.maxMp > 0 ? character.mp / character.maxMp : 0;
@@ -176,5 +177,12 @@ export function renderState(ctx: GameContext, character: CharacterState): void {
     });
   });
 
-  if (isCharacterSheetTabOpen(ctx, 'skill')) renderCharacterSheetBody(ctx);
+  // 스킬 탭 갱신은 레벨/스킬 포인트가 실제로 바뀌었을 때만 한다 — 안 그러면 휴식 중
+  // 1초마다 오는 HP/MP state에도 매번 카드가 통째로 다시 그려져(진입 애니메이션까지
+  // 재생되어) 스킬창을 켜둔 채 쉴 때 계속 반짝거리는 문제가 있었다.
+  const skillTabRelevantChanged =
+    !previousCharacter ||
+    previousCharacter.level !== character.level ||
+    previousCharacter.unallocatedSkillPoints !== character.unallocatedSkillPoints;
+  if (skillTabRelevantChanged && isCharacterSheetTabOpen(ctx, 'skill')) renderCharacterSheetBody(ctx);
 }

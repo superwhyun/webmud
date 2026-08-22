@@ -213,6 +213,10 @@ const CHARACTER_STAT_STRIP: Array<{ key: 'attackPower' | 'physicalDefense' | 'ma
   { key: 'intelligence', label: '지능' },
 ];
 
+/** 장비 탭의 스탯 요약 줄이 실제로 참조하는 CharacterState 필드 — state 메시지가 왔을 때
+ * 이 값들이 안 바뀌었으면(예: 휴식 중 HP/MP만 도는 틱) 장비 탭을 다시 그릴 필요가 없다. */
+export const EQUIP_STAT_STRIP_KEYS = CHARACTER_STAT_STRIP.map((entry) => entry.key);
+
 /**
  * 장비/인벤토리 화면만 봐서는 "지금 뭘 입고 있고 그게 캐릭터에 어떤 효과를 주는지" 전혀 안 보인다는
  * 지적을 받아 추가한 패널 — 종이인형은 hover로만 상세를 보여주므로, hover 없이도 항상 보이는
