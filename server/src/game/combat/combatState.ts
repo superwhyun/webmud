@@ -1,4 +1,4 @@
-import { JOB_POWER_STAT, josaIGa, withJosa, type ChatChannel, type JobType } from '@mud/shared';
+import { basicAttackPower, JOB_POWER_STAT, josaIGa, withJosa, type ChatChannel, type JobType } from '@mud/shared';
 import type { WebSocket } from 'ws';
 import { db } from '../../db/client.js';
 import { getEffectiveStats, type EffectiveStats } from '../combatStats.js';
@@ -166,7 +166,7 @@ function performRound(ctx: CommandContext): void {
   const targetStats = mobCombatantStats(target);
 
   const basicAttackDamageType = character.job ? JOB_BASIC_ATTACK_DAMAGE_TYPE[character.job] : 'physical';
-  const attackStat = playerPowerStat(character.job, playerStats) + (basicAttackDamageType === 'physical' ? playerStats.attackPower : 0);
+  const attackStat = basicAttackPower(character.job, playerStats);
   const playerAttack = resolveAttack(playerStats, targetStats, basicAttackDamageType, attackStat);
   if (playerAttack.evaded) {
     ctx.send({ type: 'text', text: `${withJosa(target.name, josaIGa)} 당신의 공격을 회피했습니다!`, channel: 'combat-evade' });

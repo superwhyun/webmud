@@ -1,3 +1,4 @@
+import { restHpRecoveryPerTick, restMpRecoveryPerTick } from '@mud/shared';
 import type { WebSocket } from 'ws';
 import { db } from '../db/client.js';
 import { loadCharacter, loadCharacterState } from './characterState.js';
@@ -11,12 +12,6 @@ import { send } from './wsUtil.js';
  * 최대치에 비례해서 계산한다. 이미 어느 정도 차 있었다면 그만큼 더 빨리 끝난다 — 물약처럼 즉시 채워주는
  * 대신 "시간"을 들이는 게 rest의 대가라서, 전투 중 응급 회복이나 쉴 틈 없이 계속 사냥할 땐 물약이 여전히 값어치를 한다.
  */
-const REST_TICKS_TO_FULL = 30;
-
-/** 지혜 스탯이 마나 회복 속도에 얼마나 붙는지. 기본 비율은 REST_TICKS_TO_FULL과 동일한 틱당 1/30. */
-const BASE_MP_REGEN_RATIO = 1 / REST_TICKS_TO_FULL;
-const MP_REGEN_PER_WISDOM = 0.002;
-
 const restingSessions = new Set<WebSocket>();
 
 export function isResting(ws: WebSocket): boolean {
@@ -63,9 +58,8 @@ export function tickResting(): void {
       continue;
     }
 
-    const hpStep = Math.max(1, Math.ceil(character.max_hp / REST_TICKS_TO_FULL));
-    const mpRegenRatio = BASE_MP_REGEN_RATIO + character.wisdom * MP_REGEN_PER_WISDOM;
-    const mpStep = Math.max(1, Math.round(character.max_mp * mpRegenRatio));
+    const hpStep = restHpRecoveryPerTick(character.max_hp);
+    const mpStep = restMpRecoveryPerTick(character.max_mp, character.wisdom);
     const newHp = Math.min(character.max_hp, character.hp + hpStep);
     const newMp = Math.min(character.max_mp, character.mp + mpStep);
 

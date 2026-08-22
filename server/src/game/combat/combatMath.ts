@@ -1,4 +1,4 @@
-import { ELEMENT_ADVANTAGE, type ElementType } from '@mud/shared';
+import { criticalChanceForLuck, ELEMENT_ADVANTAGE, type ElementType } from '@mud/shared';
 import type { DamageType, MobInstance } from '../MobManager.js';
 
 const DAMAGE_VARIANCE = 1;
@@ -9,10 +9,6 @@ const MAX_EVASION = 0.35;
 const ELEMENT_ADVANTAGE_MULTIPLIER = 1.3;
 const ELEMENT_DISADVANTAGE_MULTIPLIER = 0.7;
 
-/** 회피율 공식과 같은 형태(기본값 + 스탯당 보너스, 상한 있음)로 맞춘 치명타 확률. */
-const BASE_CRIT_CHANCE = 0.05;
-const CRIT_CHANCE_PER_LUCK = 0.01;
-const MAX_CRIT_CHANCE = 0.35;
 const CRIT_DAMAGE_MULTIPLIER = 1.5;
 
 export interface CombatantStats {
@@ -59,7 +55,7 @@ export function computeDamage(
   attackerLuck = 0,
 ): DamageResult {
   const elementMultiplier = getElementMultiplier(attackerElement, defenderElement);
-  const critChance = Math.min(MAX_CRIT_CHANCE, BASE_CRIT_CHANCE + attackerLuck * CRIT_CHANCE_PER_LUCK);
+  const critChance = criticalChanceForLuck(attackerLuck);
   const isCrit = Math.random() < critChance;
   const effectiveMultiplier = isCrit ? powerMultiplier * CRIT_DAMAGE_MULTIPLIER : powerMultiplier;
 

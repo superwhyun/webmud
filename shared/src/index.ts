@@ -1,4 +1,5 @@
 export * from './directions.js';
+export * from './derivedStats.js';
 export * from './elements.js';
 export * from './equipment.js';
 export * from './inventory.js';
