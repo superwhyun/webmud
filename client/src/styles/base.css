@@ -122,6 +122,10 @@
     transition: none !important;
     transform: none !important;
   }
+
+  .skill-tree-branches-others {
+    transition: none !important;
+  }
 }
 
 * {

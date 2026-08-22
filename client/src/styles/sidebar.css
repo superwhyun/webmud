@@ -355,7 +355,7 @@
   filter: saturate(0.55);
 }
 
-.skill-node-locked-level .skill-medallion {
+.skill-node-locked-level .skill-medallion-ring {
   opacity: 0.7;
 }
 
@@ -368,15 +368,44 @@
   border-color: #342e27;
 }
 
-.skill-node-locked-blocked .skill-medallion {
+.skill-node-locked-blocked .skill-medallion-ring {
   opacity: 0.38;
 }
 
-.skill-medallion {
+/* 문장 둘레의 원형 랭크 게이지. conic-gradient로 --rank-pct(0~100)만큼 채운다 —
+   이미지/SVG 없이 순수 CSS로 그려서 기존 라인 아이콘 전용 방향과 맞춘다. */
+.skill-medallion-ring {
   position: relative;
   flex-shrink: 0;
-  width: 3.15rem;
-  height: 3.15rem;
+  width: 3.55rem;
+  height: 3.55rem;
+  padding: 3px;
+  border-radius: 50%;
+  --ring-color: #4a3c28;
+  --ring-track: #201a12;
+  background: conic-gradient(var(--ring-color) calc(var(--rank-pct) * 1%), var(--ring-track) 0);
+}
+
+.skill-node.is-available .skill-medallion-ring {
+  --ring-color: #9b6b34;
+}
+
+.skill-node.is-learned .skill-medallion-ring {
+  --ring-color: #c47731;
+}
+
+.skill-node.is-maxed .skill-medallion-ring {
+  --ring-color: #e0ac5c;
+}
+
+.skill-medallion {
+  /* span은 기본 inline이라 부모(.skill-medallion-ring)가 flex 컨테이너가 아니면
+     자동 블록화되지 않는다 — width/height:100%가 무시되면서 안의 img가 정사각형이
+     아닌 원본 비율로 렌더돼 링이 찌그러져 보이던 원인. 명시적으로 블록화한다. */
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
   border: 2px solid #514331;
   background: #090806;
@@ -439,59 +468,121 @@
 }
 
 .skill-tree-branches {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  /* 서랍이 닫혀 있을 때 화면 오른쪽 바깥으로 밀려난 부분이 .skill-tree의 가로
+     스크롤 범위에 잡히지 않도록 여기서 잘라낸다(서랍 폭 자체는 이 컨테이너보다
+     좁게 잡혀 있어 열렸을 때는 잘리지 않는다). */
+  overflow: hidden;
+}
+
+/* 자기 속성 칼럼이 메인 — 좁은 고정폭 대신 남는 가로 공간을 다 채운다. */
+.skill-tree-branches-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.skill-tree-branches-main .skill-tree-column {
+  width: 100%;
+}
+
+/* 오행 분기 카드 그리드 — 4열 x 2행(=8칸)으로 고정해서, 지금은 4개(3티어+캡스톤)만
+   차 있어도 나머지 칸은 빈 칸(.skill-node-empty)으로 남아 "나중에 더 늘어날 수
+   있다"는 여지를 보여준다. 트렁크 그리드(2열)와 달리 자기 속성/다른 속성 페이지 모두
+   이 4열 그리드를 그대로 쓴다. */
+.skill-tree-column-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 0 1rem;
-  align-items: start;
-  min-width: 940px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.3rem 0.7rem;
+}
+
+.skill-node-empty {
+  min-height: 4.15rem;
+  border-style: dashed;
+  border-color: #342c22;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* 자기 속성이 아닌 4개 속성을 한 서랍에 몰아넣지 않고, 속성마다 각자의 책갈피 탭을
+   둬서 한 번에 하나의 속성 페이지만 펼친다. margin-left:auto로 메인이 아무리
+   넓어져도 탭 묶음은 항상 오른쪽 끝에 붙어 있는다.
+   탭의 위치가 열린 서랍(.skill-tree-branches-others, z-index:5)의 오른쪽 끝과
+   겹치므로, 서랍이 위를 덮어 탭이 눌리지 않는 일이 없도록 그보다 높은 z-index로
+   항상 서랍 위에 떠 있게 한다 — 열려 있는 탭을 다시 눌러서 닫을 수 있어야 하므로. */
+.skill-tree-branch-tabs {
+  position: relative;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.skill-tree-branch-tab {
+  padding: 0.35rem 0.6rem;
+  border: 1px solid #514331;
+  border-left-width: 3px;
+  border-radius: 2px;
+  background: #100d09;
+  color: #b9a17d;
+  font-size: var(--text-xs);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: box-shadow var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.skill-tree-branch-tab:hover {
+  box-shadow: inset 0 0 6px rgba(154, 107, 52, 0.25);
+}
+
+.skill-tree-branch-tab.is-active {
+  background: #1c150c;
+  box-shadow: inset 0 0 8px rgba(154, 107, 52, 0.32);
+}
+
+.skill-tree-branch-tab[data-element='wood'] { border-left-color: var(--element-wood); color: var(--element-wood); }
+.skill-tree-branch-tab[data-element='fire'] { border-left-color: var(--element-fire); color: var(--element-fire); }
+.skill-tree-branch-tab[data-element='earth'] { border-left-color: var(--element-earth); color: var(--element-earth); }
+.skill-tree-branch-tab[data-element='metal'] { border-left-color: var(--element-metal); color: var(--element-metal); }
+.skill-tree-branch-tab[data-element='water'] { border-left-color: var(--element-water); color: var(--element-water); }
+
+/* 열린 속성 페이지 — 레이아웃에 자리를 차지하지 않는 오버레이로 만들어, 메인 칼럼
+   폭 계산과 완전히 분리한다(패널이 닫혀 있어도 남은 형제 요소가 밀리는 문제 방지).
+   책갈피 탭을 누르면 오른쪽 바깥에서 안으로 슬라이딩해 들어와 메인 위를 덮는다. */
+.skill-tree-branches-others {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  width: min(1100px, 100%);
+  padding: 0.5rem 0.75rem;
+  overflow-y: auto;
+  background: #0d0b09;
+  border: 1px solid #57432d;
+  box-shadow: -10px 0 26px rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  transform: translateX(100%);
+  pointer-events: none;
+  transition: transform 0.32s ease, opacity 0.22s ease;
+}
+
+.skill-tree-branches-others.is-open {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
 }
 
 .skill-tree-column {
   position: relative;
-  padding-left: 1.1rem;
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
-}
-
-.skill-tree-column::before {
-  content: '';
-  position: absolute;
-  left: 0.3rem;
-  top: 0.6rem;
-  bottom: 0.6rem;
-  width: 2px;
-  background: linear-gradient(#765631, #30271f 18%, #30271f 82%, #765631);
-  box-shadow: 1px 0 0 #080706;
-}
-
-.skill-tree-node {
-  position: relative;
-  padding: 0.55rem 0 0.55rem 0.85rem;
-  border-bottom: 1px solid rgba(105, 82, 55, 0.28);
-}
-
-.skill-tree-node:last-child {
-  border-bottom: none;
-}
-
-.skill-tree-node::before {
-  content: '';
-  position: absolute;
-  left: -0.85rem;
-  top: 1.05rem;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  border: 1px solid #473a2b;
-  background: #17120e;
-  box-shadow: 0 0 0 2px #0b0907;
-}
-
-.skill-tree-node.is-learned::before {
-  border-color: #b27c3a;
-  background: #c47731;
-  box-shadow: 0 0 7px rgba(206, 113, 42, 0.62), 0 0 0 2px #0b0907;
 }
 
 .skill-tree-column-header {
