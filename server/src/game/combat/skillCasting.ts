@@ -3,7 +3,10 @@ import {
   effectiveCooldownMs,
   effectiveSkillPower,
   getSkillById,
+  josaIGa,
   SKILLS,
+  withJosa,
+  type ActiveBuffInfo,
   type SkillCooldownInfo,
   type SkillDefinition,
 } from '@mud/shared';
@@ -12,7 +15,10 @@ import { getEffectiveStats } from '../combatStats.js';
 import { loadCharacter, loadCharacterState } from '../characterState.js';
 import type { CommandContext } from '../commands/context.js';
 import { findMobInRoomByName, getMobsInRoom, type MobInstance } from '../MobManager.js';
+import { getSessionsInRoom } from '../sessionRegistry.js';
 import { getCooldownMultiplier, getSkillRank, hasLearnedSkill, resolveSkillArg } from '../skillProgress.js';
+import { send } from '../wsUtil.js';
+import { getActiveBuffInfos, setActiveBuff } from './activeBuffs.js';
 import { computeDamage } from './combatMath.js';
 import { handleMobDefeat } from './combatRewards.js';
 import {
@@ -57,6 +63,14 @@ export function getActiveSkillCooldowns(characterId: number): SkillCooldownInfo[
 
 export function sendSkillCooldowns(ctx: CommandContext, characterId: number): void {
   ctx.send({ type: 'skillCooldowns', cooldowns: getActiveSkillCooldowns(characterId) });
+}
+
+function buffInfosMessage(characterId: number): { type: 'activeBuffs'; buffs: ActiveBuffInfo[] } {
+  return { type: 'activeBuffs', buffs: getActiveBuffInfos(characterId) };
+}
+
+export function sendActiveBuffs(ctx: CommandContext, characterId: number): void {
+  ctx.send(buffInfosMessage(characterId));
 }
 
 interface ResolvedCast {
@@ -195,6 +209,52 @@ export function handleCast(ctx: CommandContext, rest: string): void {
     }
 
     sendCombatStatus(ctx, combat);
+    const state = loadCharacterState(character.id);
+    if (state) ctx.send({ type: 'state', character: state });
+    return;
+  }
+
+  if (skill.kind === 'buff') {
+    // 대상 힌트가 없으면 자신, 있으면 같은 방의 아군을 찾는다 — give <아이템> <플레이어>와 동일한 패턴.
+    const targetSession = targetHint
+      ? getSessionsInRoom(ctx.session.roomId).find((s) => s.characterName === targetHint)
+      : undefined;
+    if (targetHint && !targetSession) {
+      ctx.send({ type: 'text', text: '그런 대상이 이곳에 없습니다.' });
+      return;
+    }
+    if (targetSession && targetSession.characterName === ctx.session.characterName) {
+      ctx.send({ type: 'text', text: '자기 자신은 이름으로 지정할 필요 없이 그냥 시전하면 됩니다.' });
+      return;
+    }
+    if (!skill.buffStat) return;
+
+    const rank = getSkillRank(character.id, skill.id);
+    const amount = Math.round(effectiveSkillPower(skill, rank));
+    const durationMs = skill.durationMs ?? 0;
+    const durationSec = Math.round(durationMs / 1000);
+
+    db.prepare('UPDATE characters SET mp = mp - ? WHERE id = ?').run(skill.mpCost, character.id);
+    startCooldown(character.id, skill.id, Math.round(effectiveCooldownMs(skill, rank) * getCooldownMultiplier(character)));
+    sendSkillCooldowns(ctx, character.id);
+
+    const targetCharacterId = targetSession ? targetSession.characterId : character.id;
+    setActiveBuff(targetCharacterId, skill.id, skill.name, skill.buffStat, amount, durationMs);
+    sendActiveBuffs(ctx, character.id);
+
+    if (targetSession) {
+      ctx.send({ type: 'text', text: `${targetSession.characterName}에게 ${skill.name}을(를) 걸었습니다. (${durationSec}초)` });
+      send(targetSession.ws, {
+        type: 'text',
+        text: `${withJosa(ctx.session.characterName, josaIGa)} 당신에게 ${skill.name}을(를) 걸었습니다. (${durationSec}초)`,
+      });
+      const targetState = loadCharacterState(targetSession.characterId);
+      if (targetState) send(targetSession.ws, { type: 'state', character: targetState });
+      send(targetSession.ws, buffInfosMessage(targetSession.characterId));
+    } else {
+      ctx.send({ type: 'text', text: `${skill.name}을(를) 자신에게 걸었습니다. (${durationSec}초)` });
+    }
+
     const state = loadCharacterState(character.id);
     if (state) ctx.send({ type: 'state', character: state });
     return;

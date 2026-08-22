@@ -8,7 +8,7 @@ import { renderEquipmentPanel, renderInventoryCount, renderPotionSummary } from 
 import { closeMacroModal, openMacroModal } from './game/macroPanel';
 import { recordRoomVisit, renderMinimap } from './game/minimap';
 import { hideCombat, renderCombat, renderRoom, showJobModal } from './game/room';
-import { renderCooldownPanel, renderState } from './game/state';
+import { renderBuffPanel, renderCooldownPanel, renderState } from './game/state';
 import { closeSuggestionModal, openSuggestionModal } from './game/suggestions';
 
 let currentCtx: GameContext | null = null;
@@ -28,7 +28,10 @@ export function renderGameScreen(
 
   if (isInitialConnect) {
     setInterval(() => {
-      if (currentCtx) renderCooldownPanel(currentCtx);
+      if (currentCtx) {
+        renderCooldownPanel(currentCtx);
+        renderBuffPanel(currentCtx);
+      }
     }, 100);
 
     socket.addEventListener('open', () => {
@@ -92,6 +95,22 @@ export function renderGameScreen(
           });
         }
         renderCooldownPanel(ctx);
+      } else if (message.type === 'activeBuffs') {
+        const now = Date.now();
+        const activeIds = new Set(message.buffs.map((buff) => buff.skillId));
+        for (const skillId of ctx.activeBuffs.keys()) {
+          if (!activeIds.has(skillId)) ctx.activeBuffs.delete(skillId);
+        }
+        for (const buff of message.buffs) {
+          ctx.activeBuffs.set(buff.skillId, {
+            name: buff.name,
+            buffStat: buff.buffStat,
+            amount: buff.amount,
+            endsAt: now + buff.remainingMs,
+            totalMs: buff.totalMs,
+          });
+        }
+        renderBuffPanel(ctx);
       } else if (message.type === 'needsJob') {
         showJobModal(ctx, (job) => {
           const chooseJobMessage: ClientMessage = { type: 'chooseJob', job };
@@ -105,6 +124,7 @@ export function renderGameScreen(
   renderInventoryCount(ctx);
   renderPotionSummary(ctx);
   renderCooldownPanel(ctx);
+  renderBuffPanel(ctx);
 
   if (!isInitialConnect) {
     if (ctx.currentCharacterState) renderState(ctx, ctx.currentCharacterState);

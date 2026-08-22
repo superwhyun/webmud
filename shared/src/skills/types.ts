@@ -1,7 +1,7 @@
 import type { ElementType } from '../elements.js';
 import type { JobType } from '../jobs.js';
 
-export type SkillKind = 'damage' | 'heal' | 'passive';
+export type SkillKind = 'damage' | 'heal' | 'passive' | 'buff';
 export type SkillDamageType = 'physical' | 'magic';
 export type SkillTargeting = 'single' | 'aoe';
 
@@ -24,9 +24,9 @@ export interface SkillDefinition {
   description: string;
   requiredLevel: number;
   kind: SkillKind;
-  /** damage/heal 스킬에 필요한 MP. passive 스킬은 습득 즉시 적용되며 MP를 소모하지 않는다. */
+  /** damage/heal/buff 스킬에 필요한 MP. passive 스킬은 습득 즉시 적용되며 MP를 소모하지 않는다. */
   mpCost: number;
-  /** damage: 공격 스탯(힘/지능) 배율. heal: 고정 회복량. passive: 스탯 고정 증가량. 랭크가 오르면 effectiveSkillPower()로 계산한 값이 실제 적용된다. */
+  /** damage: 공격 스탯(힘/지능) 배율. heal: 고정 회복량. passive/buff: 스탯 증가량(passive는 영구, buff는 durationMs 동안 일시적). 랭크가 오르면 effectiveSkillPower()로 계산한 값이 실제 적용된다. */
   power: number;
   /** kind가 'damage'일 때 어떤 공격 스탯/방어 스탯을 사용할지 결정. */
   damageType?: SkillDamageType;
@@ -34,6 +34,10 @@ export interface SkillDefinition {
   targeting?: SkillTargeting;
   /** kind가 'passive'일 때 어떤 스탯에 영구 적용할지. */
   passiveStat?: PassiveStat;
+  /** kind가 'buff'일 때 어떤 스탯을 일시적으로 올릴지. */
+  buffStat?: PassiveStat;
+  /** kind가 'buff'일 때 효과 지속시간(ms). 시전 시점부터 카운트되며 재시전하면 갱신(스택 아님). */
+  durationMs?: number;
   /**
    * true면 이 패시브는 스탯을 올리는 대신, 배운 사람의 모든 스킬 쿨타임을 랭크에 비례해 퍼센트로
    * 깎아준다(effectiveSkillPower를 %로 해석). passiveStat과는 별개 경로 — 캐릭터 DB 컬럼에 쌓이는
@@ -47,6 +51,20 @@ export interface SkillDefinition {
   /** 지정되어 있으면 그 원소를 가진 캐릭터만 배울 수 있는 분기 스킬. 없으면 원소 상관없이 배우는 공통 스킬. */
   element?: ElementType;
 }
+
+/** passive/buff 스킬의 대상 스탯을 UI에 표시할 한글 라벨. */
+export const PASSIVE_STAT_LABELS: Record<PassiveStat, string> = {
+  maxHp: '최대 HP',
+  maxMp: '최대 MP',
+  physicalDefense: '물리방어',
+  magicDefense: '마법방어',
+  strength: '힘',
+  dexterity: '민첩',
+  intelligence: '지능',
+  vitality: '체력',
+  wisdom: '지혜',
+  luck: '행운',
+};
 
 /** 모든 스킬의 공통 최대 랭크. 랭크는 스킬 포인트로 강화하며, 개별 스킬마다 다른 값을 주지 않고 이 상수 하나로 통일한다. */
 export const SKILL_MAX_RANK = 20;

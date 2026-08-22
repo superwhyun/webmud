@@ -6,6 +6,7 @@ import {
   type EquipmentSlot,
   type EquipmentSnapshot,
   type InventoryItemInfo,
+  type PassiveStat,
   type RoomSnapshot,
 } from '@mud/shared';
 import { loadMacros, type MacroMap } from '../../macros';
@@ -13,6 +14,14 @@ import { icon } from '../icons';
 
 export interface ActiveCooldown {
   name: string;
+  endsAt: number;
+  totalMs: number;
+}
+
+export interface ActiveBuff {
+  name: string;
+  buffStat: PassiveStat;
+  amount: number;
   endsAt: number;
   totalMs: number;
 }
@@ -44,6 +53,7 @@ export interface GameContext {
   potionBar: HTMLDivElement;
   equipmentPanel: HTMLDivElement;
   cooldownPanel: HTMLDivElement;
+  buffPanel: HTMLDivElement;
   minimap: HTMLDivElement;
   inventoryCountLabel: HTMLSpanElement;
   commandInput: HTMLInputElement;
@@ -67,6 +77,7 @@ export interface GameContext {
   learnedSkillRanks: Record<string, number>;
   latestCombatMobs: CombatMobInfo[];
   activeCooldowns: Map<string, ActiveCooldown>;
+  activeBuffs: Map<string, ActiveBuff>;
   macros: MacroMap;
   equipmentState: EquipmentSnapshot;
   inventoryState: InventoryItemInfo[];
@@ -117,6 +128,7 @@ function renderShellHtml(isBuilder: boolean, isAdmin: boolean): string {
         <div class="sidebar-stats" id="sidebar-stats"></div>
         <div class="equipment-panel" id="equipment-panel"></div>
         <div class="cooldown-panel" id="cooldown-panel"></div>
+        <div class="buff-panel" id="buff-panel"></div>
       </aside>
       <aside class="inventory-panel" id="inventory-panel">
         <div class="ops-menu-section">
@@ -219,6 +231,7 @@ export function createGameContext(
     potionBar: container.querySelector<HTMLDivElement>('#potion-bar')!,
     equipmentPanel: container.querySelector<HTMLDivElement>('#equipment-panel')!,
     cooldownPanel: container.querySelector<HTMLDivElement>('#cooldown-panel')!,
+    buffPanel: container.querySelector<HTMLDivElement>('#buff-panel')!,
     minimap: container.querySelector<HTMLDivElement>('#minimap')!,
     inventoryCountLabel: container.querySelector<HTMLSpanElement>('#inventory-count')!,
     commandInput: container.querySelector<HTMLInputElement>('#command')!,
@@ -240,6 +253,7 @@ export function createGameContext(
     learnedSkillRanks: previous?.learnedSkillRanks ?? {},
     latestCombatMobs: previous?.latestCombatMobs ?? [],
     activeCooldowns: previous?.activeCooldowns ?? new Map(),
+    activeBuffs: previous?.activeBuffs ?? new Map(),
     macros: loadMacros(),
     equipmentState: previous?.equipmentState ?? {},
     inventoryState: previous?.inventoryState ?? [],

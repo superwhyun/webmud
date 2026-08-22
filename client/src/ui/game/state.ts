@@ -2,6 +2,7 @@ import {
   ELEMENT_LABELS,
   expThresholdForLevel,
   JOB_LABELS,
+  PASSIVE_STAT_LABELS,
   type CharacterState,
   type ClientMessage,
   type StatKey,
@@ -54,6 +55,31 @@ export function renderCooldownPanel(ctx: GameContext): void {
           <span class="cooldown-label">${escapeHtml(cooldown.name)} ${(remainingMs / 1000).toFixed(1)}초</span>
           <div class="cooldown-bar" role="progressbar" aria-valuenow="${remainingMs}" aria-valuemin="0" aria-valuemax="${cooldown.totalMs}">
             <div class="cooldown-bar-fill" style="width: ${Math.max(0, ratio * 100)}%"></div>
+          </div>
+        </div>
+      `;
+    })
+    .join('');
+}
+
+export function renderBuffPanel(ctx: GameContext): void {
+  const now = Date.now();
+  for (const [skillId, buff] of ctx.activeBuffs) {
+    if (buff.endsAt <= now) ctx.activeBuffs.delete(skillId);
+  }
+  if (ctx.activeBuffs.size === 0) {
+    ctx.buffPanel.innerHTML = '';
+    return;
+  }
+  ctx.buffPanel.innerHTML = [...ctx.activeBuffs.entries()]
+    .map(([skillId, buff]) => {
+      const remainingMs = Math.max(0, buff.endsAt - now);
+      const ratio = buff.totalMs > 0 ? remainingMs / buff.totalMs : 0;
+      return `
+        <div class="buff-row" data-skill-id="${skillId}">
+          <span class="buff-label">${escapeHtml(buff.name)} (${PASSIVE_STAT_LABELS[buff.buffStat]} +${buff.amount}) ${(remainingMs / 1000).toFixed(1)}초</span>
+          <div class="buff-bar" role="progressbar" aria-valuenow="${remainingMs}" aria-valuemin="0" aria-valuemax="${buff.totalMs}">
+            <div class="buff-bar-fill" style="width: ${Math.max(0, ratio * 100)}%"></div>
           </div>
         </div>
       `;

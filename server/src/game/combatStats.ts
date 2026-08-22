@@ -1,6 +1,7 @@
 import type { ElementType } from '@mud/shared';
 import { db } from '../db/client.js';
 import type { CharacterRow } from '../db/types.js';
+import { getBuffStatBonus } from './combat/activeBuffs.js';
 
 export interface EffectiveStats {
   strength: number;
@@ -52,22 +53,29 @@ export function getEffectiveStats(character: CharacterRow): EffectiveStats {
     )
     .get(character.id) as BonusRow;
 
+  // 버프로 늘어난 체력/지혜도 방어력 환산식에 그대로 반영한다 — "체력이 오른다"는 버프 설명과
+  // 실제 파생 방어력이 어긋나지 않게 하기 위함.
+  const effectiveVitality = character.vitality + getBuffStatBonus(character.id, 'vitality');
+  const effectiveWisdom = character.wisdom + getBuffStatBonus(character.id, 'wisdom');
+
   return {
-    strength: character.strength + bonuses.strength_bonus,
-    dexterity: character.dexterity + bonuses.dexterity_bonus,
-    intelligence: character.intelligence + bonuses.intelligence_bonus,
-    vitality: character.vitality,
-    wisdom: character.wisdom,
-    luck: character.luck,
+    strength: character.strength + bonuses.strength_bonus + getBuffStatBonus(character.id, 'strength'),
+    dexterity: character.dexterity + bonuses.dexterity_bonus + getBuffStatBonus(character.id, 'dexterity'),
+    intelligence: character.intelligence + bonuses.intelligence_bonus + getBuffStatBonus(character.id, 'intelligence'),
+    vitality: effectiveVitality,
+    wisdom: effectiveWisdom,
+    luck: character.luck + getBuffStatBonus(character.id, 'luck'),
     attackPower: bonuses.attack_power_bonus,
     physicalDefense:
       character.physical_defense +
       bonuses.physical_defense_bonus +
-      Math.floor(character.vitality * defensePerPointCoefficient(character.level)),
+      Math.floor(effectiveVitality * defensePerPointCoefficient(character.level)) +
+      getBuffStatBonus(character.id, 'physicalDefense'),
     magicDefense:
       character.magic_defense +
       bonuses.magic_defense_bonus +
-      Math.floor(character.wisdom * defensePerPointCoefficient(character.level)),
+      Math.floor(effectiveWisdom * defensePerPointCoefficient(character.level)) +
+      getBuffStatBonus(character.id, 'magicDefense'),
     element: character.element,
   };
 }

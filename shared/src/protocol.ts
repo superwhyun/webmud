@@ -3,6 +3,7 @@ import type { EquipmentSlot } from './equipment.js';
 import type { ItemGrade } from './itemGrades.js';
 import type { JobType, StatKey } from './jobs.js';
 import type { NpcType } from './npc.js';
+import type { PassiveStat } from './skills/types.js';
 
 export interface CharacterState {
   name: string;
@@ -126,6 +127,15 @@ export interface SkillCooldownInfo {
   totalMs: number;
 }
 
+export interface ActiveBuffInfo {
+  skillId: string;
+  name: string;
+  buffStat: PassiveStat;
+  amount: number;
+  remainingMs: number;
+  totalMs: number;
+}
+
 export type ClientMessage =
   | { type: 'auth'; token: string }
   | { type: 'command'; text: string }
@@ -166,4 +176,5 @@ export type ServerMessage =
   | { type: 'needsJob' }
   | { type: 'skills'; learnedSkillIds: string[]; learnedSkillRanks: Record<string, number> }
   | { type: 'skillCooldowns'; cooldowns: SkillCooldownInfo[] }
+  | { type: 'activeBuffs'; buffs: ActiveBuffInfo[] }
   | { type: 'death'; roomId: number };

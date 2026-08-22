@@ -3,7 +3,7 @@ import type { ClientMessage } from '@mud/shared';
 import { verifyToken } from '../auth/jwt.js';
 import { db } from '../db/client.js';
 import { loadCharacter, toCharacterState } from './characterState.js';
-import { cleanupCombatForSession, sendSkillCooldowns } from './combat/CombatManager.js';
+import { cleanupCombatForSession, sendActiveBuffs, sendSkillCooldowns } from './combat/CombatManager.js';
 import { getEffectiveStats } from './combatStats.js';
 import { dispatchCommand } from './commands/index.js';
 import {
@@ -47,6 +47,7 @@ function enterWorld(ws: WebSocket, session: Session): void {
   sendEquipmentAndInventory({ session, send: (message) => send(ws, message) });
   sendSkills({ session, send: (message) => send(ws, message) });
   sendSkillCooldowns({ session, send: (message) => send(ws, message) }, session.characterId);
+  sendActiveBuffs({ session, send: (message) => send(ws, message) }, session.characterId);
   broadcastRoomSnapshot(session.roomId);
 }
 

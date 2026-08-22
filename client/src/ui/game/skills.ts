@@ -2,6 +2,7 @@ import {
   effectiveSkillPower,
   ELEMENT_LABELS,
   ELEMENT_VALUES,
+  PASSIVE_STAT_LABELS,
   SKILLS_BY_JOB,
   SKILL_MAX_RANK,
   type ClientMessage,
@@ -39,6 +40,10 @@ function lockReason(ctx: GameContext, skill: SkillDefinition, jobSkills: SkillDe
 
 function powerLabel(skill: SkillDefinition, rank: number): string {
   if (skill.kind === 'passive') return `+${Math.round(effectiveSkillPower(skill, rank))}`;
+  if (skill.kind === 'buff') {
+    const durationSec = Math.round((skill.durationMs ?? 0) / 1000);
+    return `${durationSec}초간 +${Math.round(effectiveSkillPower(skill, rank))}`;
+  }
   if (skill.kind === 'heal') return `HP ${Math.round(effectiveSkillPower(skill, rank))} 회복`;
   return `피해 ${effectiveSkillPower(skill, rank).toFixed(2)}배${skill.targeting === 'aoe' ? ' (광역)' : ''}`;
 }
@@ -85,11 +90,13 @@ function renderSkillCard(ctx: GameContext, skill: SkillDefinition, jobSkills: Sk
       : ' is-available';
   const kindLabel = skill.kind === 'passive'
     ? '지속 효과'
-    : skill.kind === 'heal'
-      ? '회복'
-      : skill.targeting === 'aoe'
-        ? '광역 공격'
-        : '공격';
+    : skill.kind === 'buff'
+      ? `${skill.buffStat ? PASSIVE_STAT_LABELS[skill.buffStat] : ''} 버프`
+      : skill.kind === 'heal'
+        ? '회복'
+        : skill.targeting === 'aoe'
+          ? '광역 공격'
+          : '공격';
 
   return `
     <div class="hud-card hud-card-enter skill-node${stateClass}${unlocking ? ' is-unlocking' : ''}" style="animation-delay: ${index * 25}ms" title="${escapeHtmlAttribute(title)}">
