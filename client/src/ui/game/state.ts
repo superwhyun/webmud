@@ -1,8 +1,12 @@
 import {
+  displayMagicAttackPower,
+  displayPhysicalAttackPower,
   ELEMENT_LABELS,
   expThresholdForLevel,
   JOB_LABELS,
+  magicFlavorStat,
   PASSIVE_STAT_LABELS,
+  physicalFlavorStat,
   type CharacterState,
   type PassiveStat,
 } from '@mud/shared';
@@ -145,9 +149,15 @@ export function renderState(ctx: GameContext, character: CharacterState): void {
     </div>
     <div class="stat">Lv.${character.level} ${jobLabel} · gold ${character.gold}</div>
     <div class="sidebar-combat-summary" aria-label="최종 전투 능력치">
-      <span class="sidebar-combat-stat">
-        <span>공격력</span>
-        <strong>${character.attackPower}</strong>
+      <span class="sidebar-combat-stat${buffBonusForStat(ctx, physicalFlavorStat(character.job)) > 0 ? ' stat-buffed' : ''}">
+        <span>물리 공격력</span>
+        <strong>${displayPhysicalAttackPower(character.job, character)}</strong>
+        ${buffBonusForStat(ctx, physicalFlavorStat(character.job)) > 0 ? `<small>+${buffBonusForStat(ctx, physicalFlavorStat(character.job))}</small>` : ''}
+      </span>
+      <span class="sidebar-combat-stat${buffBonusForStat(ctx, magicFlavorStat(character.job)) > 0 ? ' stat-buffed' : ''}">
+        <span>마법 공격력</span>
+        <strong>${displayMagicAttackPower(character.job, character)}</strong>
+        ${buffBonusForStat(ctx, magicFlavorStat(character.job)) > 0 ? `<small>+${buffBonusForStat(ctx, magicFlavorStat(character.job))}</small>` : ''}
       </span>
       <span class="sidebar-combat-stat${buffBonusForStat(ctx, 'physicalDefense') > 0 ? ' stat-buffed' : ''}">
         <span>물리방어</span>

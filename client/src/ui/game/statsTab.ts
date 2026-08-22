@@ -1,9 +1,11 @@
 import {
   criticalChanceForLuck,
   defenseBonusFromAttribute,
+  displayMagicAttackPower,
+  displayPhysicalAttackPower,
   JOB_POWER_STAT,
-  magicAttackPower,
-  physicalAttackPower,
+  magicFlavorStat,
+  physicalFlavorStat,
   restHpRecoveryPerTick,
   restMpRecoveryPerTick,
   type CharacterState,
@@ -59,12 +61,8 @@ export function buildStatAllocationMessage(statKey: StatKey): ClientMessage {
   return { type: 'allocateStat', statKey, amount: 1 };
 }
 
-function powerStatField(character: CharacterState): 'strength' | 'dexterity' | 'intelligence' | 'wisdom' {
-  if (!character.job) return 'strength';
-  return JOB_POWER_STAT[character.job];
-}
-
-function powerStatEquipmentBonus(ctx: GameContext, field: 'strength' | 'dexterity' | 'intelligence' | 'wisdom'): number {
+/** 물리/마법 공격력 표시용 스탯의 장비 보너스 — 힘/민첩/지능만 장비 보너스 필드가 있고, 지혜는 없다. */
+function flavorStatEquipmentBonus(ctx: GameContext, field: 'strength' | 'dexterity' | 'intelligence' | 'wisdom'): number {
   if (field === 'strength') return equipmentBonus(ctx, 'strengthBonus');
   if (field === 'dexterity') return equipmentBonus(ctx, 'dexterityBonus');
   if (field === 'intelligence') return equipmentBonus(ctx, 'intelligenceBonus');
@@ -76,8 +74,8 @@ export function buildDerivedCombatResults(
   permanentWisdom: number,
 ): DerivedCombatResults {
   return {
-    physicalAttackPower: physicalAttackPower(character.job, character),
-    magicAttackPower: magicAttackPower(character.job, character),
+    physicalAttackPower: displayPhysicalAttackPower(character.job, character),
+    magicAttackPower: displayMagicAttackPower(character.job, character),
     criticalChancePercent: Math.round(criticalChanceForLuck(character.luck) * 100),
     hpRestorationPerSecond: restHpRecoveryPerTick(character.maxHp),
     mpRestorationPerSecond: restMpRecoveryPerTick(character.maxMp, permanentWisdom),
@@ -150,7 +148,8 @@ export function renderFinalCombatStatCards(args: {
   character: Pick<CharacterState, 'maxHp' | 'maxMp' | 'physicalDefense' | 'magicDefense'>;
   physicalAttackGear: number;
   magicAttackGear: number;
-  powerStatBuff: number;
+  physicalPowerBuff: number;
+  magicPowerBuff: number;
   physicalDefenseGear: number;
   physicalDefenseBuff: number;
   magicDefenseGear: number;
@@ -158,8 +157,8 @@ export function renderFinalCombatStatCards(args: {
   criticalChanceBuff: number;
 }): string {
   return `
-    ${renderFinalStat('기본 물리 공격력', args.derivedCombatResults.physicalAttackPower, args.physicalAttackGear, args.powerStatBuff)}
-    ${renderFinalStat('기본 마법 공격력', args.derivedCombatResults.magicAttackPower, args.magicAttackGear, args.powerStatBuff)}
+    ${renderFinalStat('기본 물리 공격력', args.derivedCombatResults.physicalAttackPower, args.physicalAttackGear, args.physicalPowerBuff)}
+    ${renderFinalStat('기본 마법 공격력', args.derivedCombatResults.magicAttackPower, args.magicAttackGear, args.magicPowerBuff)}
     ${renderFinalStat('최대 HP', args.character.maxHp, 0, 0)}
     ${renderFinalStat('최대 MP', args.character.maxMp, 0, 0)}
     ${renderFinalStat('물리방어', args.character.physicalDefense, args.physicalDefenseGear, args.physicalDefenseBuff)}
@@ -182,13 +181,16 @@ export function renderStatsTab(ctx: GameContext): void {
   const remainingPoints = character.unallocatedStatPoints;
   const canAllocate = remainingPoints > 0;
   const powerStat = character.job ? JOB_POWER_STAT[character.job] : null;
-  const resolvedPowerStat = powerStatField(character);
   const wisdomBuff = buffBonus(ctx, 'wisdom');
   const permanentWisdom = Math.max(0, character.wisdom - wisdomBuff);
   const derivedCombatResults = buildDerivedCombatResults(character, permanentWisdom);
   const attackGear = equipmentBonus(ctx, 'attackPowerBonus');
-  const powerStatGear = powerStatEquipmentBonus(ctx, resolvedPowerStat);
-  const powerStatBuff = buffBonus(ctx, resolvedPowerStat);
+  const physicalFlavorField = physicalFlavorStat(character.job);
+  const magicFlavorField = magicFlavorStat(character.job);
+  const physicalPowerGear = flavorStatEquipmentBonus(ctx, physicalFlavorField);
+  const magicPowerGear = flavorStatEquipmentBonus(ctx, magicFlavorField);
+  const physicalPowerBuff = buffBonus(ctx, physicalFlavorField);
+  const magicPowerBuff = buffBonus(ctx, magicFlavorField);
   const physicalDefenseGear = equipmentBonus(ctx, 'physicalDefenseBonus');
   const magicDefenseGear = equipmentBonus(ctx, 'magicDefenseBonus');
   const luckBuff = buffBonus(ctx, 'luck');
@@ -204,8 +206,8 @@ export function renderStatsTab(ctx: GameContext): void {
     permanentWisdom,
   ).criticalChancePercent;
   const criticalChanceBuff = derivedCombatResults.criticalChancePercent - criticalChanceWithoutBuff;
-  const physicalAttackGear = powerStatGear + attackGear;
-  const magicAttackGear = powerStatGear;
+  const physicalAttackGear = physicalPowerGear + attackGear;
+  const magicAttackGear = magicPowerGear;
 
   const allocationCards = STAT_MANAGEMENT_ENTRIES.map((entry) => {
     const value = character[entry.field];
@@ -263,7 +265,8 @@ export function renderStatsTab(ctx: GameContext): void {
             character,
             physicalAttackGear,
             magicAttackGear,
-            powerStatBuff,
+            physicalPowerBuff,
+            magicPowerBuff,
             physicalDefenseGear,
             physicalDefenseBuff,
             magicDefenseGear,

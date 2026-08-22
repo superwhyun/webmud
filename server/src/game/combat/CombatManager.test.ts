@@ -71,14 +71,14 @@ describe('resolveAttack', () => {
   });
 
   it('crits more often and for more damage as luck increases', () => {
-    const attacker = stats({ strength: 20, dexterity: 100, luck: 30 });
+    const attacker = stats({ strength: 20, dexterity: 100, luck: 100 });
     const defender = stats({ physicalDefense: 0, dexterity: 0 });
 
     let critCount = 0;
     for (let i = 0; i < 500; i++) {
       if (resolveAttack(attacker, defender, 'physical').isCrit) critCount += 1;
     }
-    // base 5% + 30 luck * 1% = 35%, capped at MAX_CRIT_CHANCE (35%)
+    // base 5% + 100 luck * 0.3% = 35%, capped at MAX_CRIT_CHANCE (35%)
     expect(critCount / 500).toBeGreaterThan(0.2);
   });
 

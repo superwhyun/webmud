@@ -68,20 +68,38 @@ describe('stat management tab', () => {
   });
 
   it('derives every fixed combat result affected by allocated stats', () => {
+    // 물리 공격력은 힘(+장비 공격력) 기준, 마법 공격력은 지능(사제만 지혜) 기준 — 직업의 실전투
+    // 파워스탯을 그대로 재사용하지 않는다(전사의 "마법 공격력"에 힘이 새던 버그의 회귀 방지).
     expect(buildDerivedCombatResults(character, character.wisdom)).toEqual({
       physicalAttackPower: 25,
-      magicAttackPower: 20,
-      criticalChancePercent: 13,
+      magicAttackPower: 7,
+      criticalChancePercent: 7,
       hpRestorationPerSecond: 4,
       mpRestorationPerSecond: 2,
     });
   });
 
   it('separates physical and magic base attack power for a magic job and caps critical chance', () => {
-    expect(buildDerivedCombatResults({ ...character, job: 'mage', intelligence: 30, luck: 80 }, character.wisdom)).toMatchObject({
-      physicalAttackPower: 35,
+    // 마법사의 "물리 공격력"은 지능이 아니라 힘 기준이어야 한다(마법사의 물리 공격력에 지능이
+    // 새던 버그의 회귀 방지) — 힘은 캐릭터 기본값 20에서 안 바뀌었으므로 20+공격력5=25.
+    expect(buildDerivedCombatResults({ ...character, job: 'mage', intelligence: 30, luck: 150 }, character.wisdom)).toMatchObject({
+      physicalAttackPower: 25,
       magicAttackPower: 30,
       criticalChancePercent: 35,
+    });
+  });
+
+  it('uses dexterity for a rogue\'s physical display power, not the class\'s real power stat', () => {
+    expect(buildDerivedCombatResults({ ...character, job: 'rogue' }, character.wisdom)).toMatchObject({
+      physicalAttackPower: character.dexterity + character.attackPower,
+      magicAttackPower: character.intelligence,
+    });
+  });
+
+  it("uses wisdom for a priest's magic display power, not intelligence", () => {
+    expect(buildDerivedCombatResults({ ...character, job: 'priest' }, character.wisdom)).toMatchObject({
+      physicalAttackPower: character.strength + character.attackPower,
+      magicAttackPower: character.wisdom,
     });
   });
 
@@ -93,7 +111,7 @@ describe('stat management tab', () => {
     expect(basicAttackPower(character.job, character)).toBe(25);
     expect(physicalAttackPower(character.job, character)).toBe(25);
     expect(magicAttackPower(character.job, character)).toBe(20);
-    expect(criticalChanceForLuck(character.luck)).toBe(0.13);
+    expect(criticalChanceForLuck(character.luck)).toBeCloseTo(0.074);
     expect(restHpRecoveryPerTick(character.maxHp)).toBe(4);
     expect(restMpRecoveryPerTick(character.maxMp, character.wisdom)).toBe(2);
   });
@@ -104,7 +122,8 @@ describe('stat management tab', () => {
       character,
       physicalAttackGear: 5,
       magicAttackGear: 0,
-      powerStatBuff: 0,
+      physicalPowerBuff: 0,
+      magicPowerBuff: 0,
       physicalDefenseGear: 0,
       physicalDefenseBuff: 0,
       magicDefenseGear: 0,
