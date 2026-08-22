@@ -113,6 +113,45 @@ function renderSkillNode(ctx: GameContext, skill: SkillDefinition, jobSkills: Sk
   `;
 }
 
+export function orderElementPages(elements: readonly ElementType[], ownElement: ElementType): ElementType[] {
+  return [ownElement, ...elements.filter((element) => element !== ownElement)];
+}
+
+export function fillElementSkillSlots<T>(skills: readonly T[], minimumSlots = 8): Array<T | null> {
+  return [...skills, ...Array<T | null>(Math.max(0, minimumSlots - skills.length)).fill(null)];
+}
+
+function selectElementPage(ctx: GameContext, index: number): void {
+  const track = ctx.characterSheetBody.querySelector<HTMLElement>('.skill-element-track');
+  const tabs = [...ctx.characterSheetBody.querySelectorAll<HTMLButtonElement>('.skill-element-tab')];
+  const pages = [...ctx.characterSheetBody.querySelectorAll<HTMLElement>('.skill-element-page')];
+  const selectedTab = tabs[index];
+  if (!track || !selectedTab) return;
+
+  ctx.activeSkillElement = selectedTab.dataset.element as ElementType;
+  track.style.setProperty('--skill-element-index', String(index));
+
+  tabs.forEach((tab, tabIndex) => {
+    const active = tabIndex === index;
+    tab.classList.toggle('is-active', active);
+    tab.hidden = active;
+  });
+  pages.forEach((page, pageIndex) => {
+    const active = pageIndex === index;
+    page.classList.toggle('is-active-page', active);
+    page.setAttribute('aria-hidden', String(!active));
+    page.toggleAttribute('inert', !active);
+  });
+  pages[index]?.querySelector<HTMLElement>('.skill-tree-column-header')?.focus({ preventScroll: true });
+}
+
+function bindElementTabs(ctx: GameContext): void {
+  const tabs = [...ctx.characterSheetBody.querySelectorAll<HTMLButtonElement>('.skill-element-tab')];
+  tabs.forEach((tab, index) => {
+    tab.addEventListener('click', () => selectElementPage(ctx, index));
+  });
+}
+
 export function renderSkillTab(ctx: GameContext): void {
   const character = ctx.currentCharacterState;
   const job = character?.job;
@@ -133,14 +172,48 @@ export function renderSkillTab(ctx: GameContext): void {
     </div>
   `;
 
-  const branchColumnsHtml = ELEMENT_VALUES.map((element: ElementType) => {
+  const elementPages = orderElementPages(ELEMENT_VALUES, character.element);
+  const activeElement = ctx.activeSkillElement && elementPages.includes(ctx.activeSkillElement)
+    ? ctx.activeSkillElement
+    : character.element;
+  const activeIndex = elementPages.indexOf(activeElement);
+  ctx.activeSkillElement = activeElement;
+
+  const elementTabsHtml = elementPages.map((element, index) => {
+    const active = index === activeIndex;
+    return `
+      <button
+        type="button"
+        class="skill-element-tab${active ? ' is-active' : ''}"
+        aria-controls="skill-element-page-${element}"
+        aria-label="${ELEMENT_LABELS[element]} 스킬 보기"
+        ${active ? 'hidden' : ''}
+        data-element="${element}"
+      ><span class="skill-element-tab-label">${ELEMENT_LABELS[element]}</span></button>
+    `;
+  }).join('');
+
+  const elementPagesHtml = elementPages.map((element: ElementType, pageIndex) => {
     const skills = jobSkills.filter((skill) => skill.element === element).sort((a, b) => a.requiredLevel - b.requiredLevel);
     const isOwnElement = element === character.element;
+    const active = pageIndex === activeIndex;
     return `
-      <div class="skill-tree-column ${isOwnElement ? 'is-own-element' : ''}" data-element="${element}">
-        <div class="skill-tree-column-header">${ELEMENT_LABELS[element]}${isOwnElement ? '' : ' <span class="skill-tree-column-sub">(다른 속성)</span>'}</div>
-        ${skills.map((skill, index) => renderSkillNode(ctx, skill, jobSkills, index)).join('')}
-      </div>
+      <section
+        class="skill-tree-column skill-element-page${isOwnElement ? ' is-own-element' : ''}${active ? ' is-active-page' : ''}"
+        id="skill-element-page-${element}"
+        role="region"
+        aria-labelledby="skill-element-heading-${element}"
+        aria-hidden="${!active}"
+        ${active ? '' : 'inert'}
+        data-element="${element}"
+      >
+        <div class="skill-tree-column-header" id="skill-element-heading-${element}" tabindex="-1">${ELEMENT_LABELS[element]}${isOwnElement ? '' : ' <span class="skill-tree-column-sub">(다른 속성)</span>'}</div>
+        <div class="skill-element-grid">
+          ${fillElementSkillSlots(skills).map((skill, index) => skill
+            ? renderSkillNode(ctx, skill, jobSkills, index)
+            : '<div class="skill-tree-empty-slot" aria-hidden="true"></div>').join('')}
+        </div>
+      </section>
     `;
   }).join('');
 
@@ -152,12 +225,20 @@ export function renderSkillTab(ctx: GameContext): void {
     <div class="skill-tree">
       ${trunkSectionHtml}
       <div class="skill-tree-branches">
-        ${branchColumnsHtml}
+        <div class="skill-element-viewport">
+          <div class="skill-element-track" style="--skill-element-index: ${activeIndex}">
+            ${elementPagesHtml}
+          </div>
+        </div>
+        <div class="skill-element-tabs" aria-label="다른 오행 스킬 페이지">
+          ${elementTabsHtml}
+        </div>
       </div>
     </div>
   `;
 
   ctx.lastSkillUnlockId = null;
+  bindElementTabs(ctx);
 
   ctx.characterSheetBody.querySelectorAll<HTMLButtonElement>('.skill-learn-btn').forEach((button) => {
     button.addEventListener('click', () => {

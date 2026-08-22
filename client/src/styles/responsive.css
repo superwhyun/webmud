@@ -106,4 +106,22 @@
   .builder-canvas-wrap {
     height: 40vh;
   }
+
+  .skill-element-tabs {
+    gap: var(--skill-bookmark-gap);
+  }
+
+  .skill-tree-branches {
+    --skill-bookmark-width: 2.9rem;
+    --skill-bookmark-gap: 0.16rem;
+    min-width: 640px;
+  }
+
+  .skill-element-tab-label {
+    font-size: var(--text-xs);
+  }
+
+  .skill-tree-trunk-grid {
+    grid-template-columns: 1fr;
+  }
 }

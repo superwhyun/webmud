@@ -399,36 +399,176 @@
 }
 
 .skill-tree-branches {
+  --skill-element-panel-height: 30rem;
+  --skill-bookmark-width: 3.4rem;
+  --skill-bookmark-gap: 0.22rem;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 0 1rem;
-  align-items: start;
-  min-width: 940px;
+  grid-template-columns:
+    minmax(0, 1fr)
+    calc((var(--skill-bookmark-width) * 4) + (var(--skill-bookmark-gap) * 3));
+  align-items: stretch;
+  gap: 0.55rem;
+  height: var(--skill-element-panel-height);
+  min-width: 0;
+}
+
+.skill-element-tabs {
+  display: flex;
+  grid-column: 2;
+  grid-row: 1;
+  align-items: stretch;
+  justify-content: stretch;
+  gap: var(--skill-bookmark-gap);
+  width: calc((var(--skill-bookmark-width) * 4) + (var(--skill-bookmark-gap) * 3));
+  height: 100%;
+  min-width: 0;
+}
+
+.skill-element-tab {
+  --skill-tab-color: #8c7557;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 var(--skill-bookmark-width);
+  width: var(--skill-bookmark-width);
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0.38rem 0.38rem 0.88rem 0.88rem;
+  clip-path: polygon(0 0, 100% 0, 100% 93%, 72% 100%, 0 100%);
+  overflow: hidden;
+  isolation: isolate;
+  background-color: color-mix(in srgb, var(--skill-tab-color) 64%, #1f1711);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.2), transparent 12%, transparent 68%, rgba(0, 0, 0, 0.2)),
+    linear-gradient(180deg, color-mix(in srgb, var(--skill-tab-color) 72%, #2a1a12), color-mix(in srgb, var(--skill-tab-color) 44%, #100b08));
+  color: color-mix(in srgb, var(--skill-tab-color) 82%, #f6ead2);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--skill-tab-color) 58%, #3a2b1f),
+    inset 0 0 18px rgba(0, 0, 0, 0.22),
+    0 0 0 1px rgba(0, 0, 0, 0.34);
+  cursor: pointer;
+  text-shadow: 0 1px 2px #000, 0 0 10px color-mix(in srgb, var(--skill-tab-color) 46%, transparent);
+  transition:
+    color var(--transition-fast),
+    filter var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.skill-element-tab::before {
+  content: '';
+  position: absolute;
+  inset: 0.35rem auto 0.95rem 0.2rem;
+  width: 2px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.04));
+  opacity: 0.7;
+}
+
+.skill-element-tab::after {
+  content: '';
+  position: absolute;
+  left: 0.38rem;
+  right: 0.38rem;
+  top: 0.38rem;
+  height: 1px;
+  background: rgba(255, 247, 230, 0.34);
+}
+
+.skill-element-tab-label {
+  position: relative;
+  z-index: 1;
+  display: block;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  white-space: nowrap;
+}
+
+.skill-element-tab:hover,
+.skill-element-tab:focus-visible {
+  color: #dfc69e;
+  filter: brightness(1.08) saturate(1.08);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--skill-tab-color) 78%, #f0dcc0),
+    inset 0 0 18px rgba(0, 0, 0, 0.18),
+    0 0 18px color-mix(in srgb, var(--skill-tab-color) 26%, transparent);
+  transform: translateX(-0.14rem);
+}
+
+.skill-element-tab:focus-visible {
+  outline: 2px solid var(--skill-tab-color);
+  outline-offset: 2px;
+}
+
+.skill-element-tab.is-active {
+  display: none;
+}
+
+.skill-element-tab[data-element='wood'] { --skill-tab-color: var(--element-wood); }
+.skill-element-tab[data-element='fire'] { --skill-tab-color: var(--element-fire); }
+.skill-element-tab[data-element='earth'] { --skill-tab-color: var(--element-earth); }
+.skill-element-tab[data-element='metal'] { --skill-tab-color: var(--element-metal); }
+.skill-element-tab[data-element='water'] { --skill-tab-color: var(--element-water); }
+
+.skill-element-viewport {
+  grid-column: 1;
+  grid-row: 1;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid #493927;
+  border-radius: 3px 0 0 3px;
+  background: linear-gradient(110deg, rgba(105, 71, 38, 0.08), transparent 45%), #0b0907;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.42), 0 4px 14px rgba(0, 0, 0, 0.28);
+}
+
+.skill-element-track {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  height: 100%;
+  transform: translate3d(calc(var(--skill-element-index) * -100%), 0, 0);
+  transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
 }
 
 .skill-tree-column {
   position: relative;
-  padding-left: 1.1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
+  flex: 0 0 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 4.85rem minmax(0, 1fr);
+  box-sizing: border-box;
 }
 
 .skill-tree-column::before {
-  content: '';
-  position: absolute;
-  left: 0.3rem;
-  top: 0.6rem;
-  bottom: 0.6rem;
-  width: 2px;
-  background: linear-gradient(#765631, #30271f 18%, #30271f 82%, #765631);
-  box-shadow: 1px 0 0 #080706;
+  display: none;
+}
+
+.skill-element-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(4, minmax(0, 1fr));
+  gap: 0.7rem 0.85rem;
+  align-content: stretch;
+  min-height: 0;
+  padding: 1rem;
 }
 
 .skill-tree-node {
   position: relative;
-  padding: 0.55rem 0 0.55rem 0.85rem;
-  border-bottom: 1px solid rgba(105, 82, 55, 0.28);
+  min-width: 0;
+  padding: 0;
+  border: 0;
 }
 
 .skill-tree-node:last-child {
@@ -436,22 +576,18 @@
 }
 
 .skill-tree-node::before {
-  content: '';
-  position: absolute;
-  left: -0.85rem;
-  top: 1.05rem;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  border: 1px solid #473a2b;
-  background: #17120e;
-  box-shadow: 0 0 0 2px #0b0907;
+  display: none;
 }
 
 .skill-tree-node.is-learned::before {
-  border-color: #b27c3a;
-  background: #c47731;
-  box-shadow: 0 0 7px rgba(206, 113, 42, 0.62), 0 0 0 2px #0b0907;
+  display: none;
+}
+
+.skill-tree-empty-slot {
+  min-height: 0;
+  border: 1px dashed rgba(116, 89, 56, 0.38);
+  background: linear-gradient(120deg, rgba(72, 53, 32, 0.1), rgba(10, 8, 6, 0.3));
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.24);
 }
 
 .skill-tree-column-header {
@@ -465,31 +601,56 @@
   text-shadow: 0 1px 2px #000;
 }
 
+.skill-element-page > .skill-tree-column-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0.9rem 0.7rem;
+  border-bottom: 0;
+  border-right: 2px solid currentColor;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 16%, rgba(0, 0, 0, 0.16) 92%),
+    linear-gradient(90deg, color-mix(in srgb, var(--skill-page-color) 28%, transparent), rgba(10, 8, 6, 0.58)),
+    #100d0a;
+  box-shadow: inset -10px 0 18px rgba(0, 0, 0, 0.28);
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+.skill-element-page > .skill-tree-column-header:focus {
+  outline: none;
+}
+
 .skill-tree-column-sub {
   font-weight: normal;
   font-size: 0.68rem;
   color: var(--color-text-dim);
 }
 
-.skill-tree-column:not(.is-own-element) {
+.skill-tree-column:not(.is-own-element):not(.is-active-page) {
   background: linear-gradient(rgba(20, 18, 15, 0.55), transparent 42%);
 }
 
-.skill-tree-column:not(.is-own-element) .skill-tree-column-header {
+.skill-tree-column:not(.is-own-element):not(.is-active-page) .skill-tree-column-header {
   opacity: 0.72;
 }
 
 .skill-tree-column.is-own-element {
   background: linear-gradient(rgba(117, 74, 35, 0.11), transparent 40%);
   border-radius: 2px;
-  padding-top: 0.3rem;
-  padding-bottom: 0.3rem;
 }
 
 .skill-tree-column[data-element='wood'] .skill-tree-column-header {
   color: var(--element-wood);
   border-bottom-color: var(--element-wood);
 }
+
+.skill-tree-column[data-element='wood'] { --skill-page-color: var(--element-wood); }
+.skill-tree-column[data-element='fire'] { --skill-page-color: var(--element-fire); }
+.skill-tree-column[data-element='earth'] { --skill-page-color: var(--element-earth); }
+.skill-tree-column[data-element='metal'] { --skill-page-color: var(--element-metal); }
+.skill-tree-column[data-element='water'] { --skill-page-color: var(--element-water); }
 
 .skill-tree-column[data-element='fire'] .skill-tree-column-header {
   color: var(--element-fire);
