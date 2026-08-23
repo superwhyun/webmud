@@ -17,6 +17,8 @@ export interface MobCombatProfile {
   strength: number;
   physicalDefense: number;
   magicDefense: number;
+  expReward: number;
+  isBoss: boolean;
 }
 
 /** 해당 레벨의 "평균적인" 몹이 가져야 할 전투력 기준선. */
@@ -30,6 +32,8 @@ function referencePower(level: number): number {
  * 극단적인 스탯 조합 하나가 레벨업 페이스 전체를 흔들지 않게 한다.
  */
 export function computeMobExpReward(mob: MobCombatProfile): number {
+  if (mob.isBoss) return mob.expReward;
+
   const power =
     mob.maxHp * HP_WEIGHT + mob.strength * ATK_WEIGHT + (mob.physicalDefense + mob.magicDefense) * DEF_WEIGHT;
   const powerRatio = Math.min(MAX_POWER_RATIO, Math.max(MIN_POWER_RATIO, power / referencePower(mob.level)));

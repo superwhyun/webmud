@@ -43,11 +43,13 @@ export interface RoomItemInfo {
 }
 
 export interface RoomMobInfo {
+  spawnId: number;
   name: string;
   hp: number;
   maxHp: number;
   level: number;
   element: ElementType;
+  isBoss: boolean;
 }
 
 export interface RoomNpcInfo {
@@ -63,6 +65,7 @@ export interface CombatMobInfo {
   hp: number;
   maxHp: number;
   element: ElementType;
+  isBoss: boolean;
 }
 
 export interface VillagePlotInfo {

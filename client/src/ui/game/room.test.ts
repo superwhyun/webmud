@@ -1,12 +1,43 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { RoomMobInfo, RoomSnapshot } from '@mud/shared';
+import type { CombatMobInfo, RoomMobInfo, RoomSnapshot } from '@mud/shared';
 import type { GameContext } from './context';
 import { MOB_SPRITES } from './mobSprites';
-import { renderRoom } from './room';
+import { renderRoom, syncRoomMobsWithCombat } from './room';
 
-function mob(name: string): RoomMobInfo {
-  return { name, hp: 10, maxHp: 10, level: 1, element: 'wood' };
+function mob(name: string, isBoss = false): RoomMobInfo {
+  return { spawnId: 1, name, hp: 10, maxHp: 10, level: 1, element: 'wood', isBoss };
 }
+
+describe('room combat HP sync', () => {
+  it('updates only the room mob matched by spawn id without mutating the room snapshot', () => {
+    const room = {
+      mobs: [
+        { ...mob('심해악어'), spawnId: 10 },
+        { ...mob('빙하의 여왕', true), spawnId: 20, hp: 3618, maxHp: 3618 },
+      ],
+    } as RoomSnapshot;
+    const combatMobs: CombatMobInfo[] = [
+      {
+        spawnId: 20,
+        name: '빙하의 여왕',
+        hp: 3516,
+        maxHp: 3618,
+        element: 'water',
+        isBoss: true,
+      },
+    ];
+
+    const synced = syncRoomMobsWithCombat(room, combatMobs);
+
+    expect(synced).not.toBe(room);
+    expect(synced.mobs).not.toBe(room.mobs);
+    expect(synced.mobs).toEqual([
+      room.mobs[0],
+      { ...room.mobs[1], hp: 3516, maxHp: 3618 },
+    ]);
+    expect(room.mobs[1].hp).toBe(3618);
+  });
+});
 
 describe('room mob sprites', () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -46,7 +77,7 @@ describe('room mob sprites', () => {
       zoneName: '테스트 존',
       exits: [],
       items: [],
-      mobs: [...registeredMobNames.map(mob), mob('toString')],
+      mobs: [...registeredMobNames.map((name, index) => mob(name, index === 0)), mob('toString')],
       npcs: [],
       players: [],
     };
@@ -60,6 +91,8 @@ describe('room mob sprites', () => {
       expect(mobSpriteRow.innerHTML).toContain(`title="${name} Lv.1"`);
     }
     expect(mobSpriteRow.innerHTML).not.toContain('toString');
+    expect(roomMeta.innerHTML).toContain('mob-boss-badge');
+    expect(mobSpriteRow.innerHTML).toContain('data-boss="true"');
   });
 
   it('escapes builder-controlled room names and descriptions', () => {

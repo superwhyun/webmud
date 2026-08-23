@@ -7,7 +7,7 @@ import { appendLine, createGameContext, type GameContext } from './game/context'
 import { EQUIP_STAT_STRIP_KEYS, renderEquipmentPanel, renderInventoryCount, renderPotionSummary } from './game/equipment';
 import { closeMacroModal, openMacroModal } from './game/macroPanel';
 import { recordRoomVisit, renderMinimap } from './game/minimap';
-import { hideCombat, renderCombat, renderRoom, showJobModal } from './game/room';
+import { hideCombat, renderCombat, renderRoom, renderRoomMeta, showJobModal, syncRoomMobsWithCombat } from './game/room';
 import { renderBuffPanel, renderCooldownPanel, renderState } from './game/state';
 import { closeSuggestionModal, openSuggestionModal } from './game/suggestions';
 
@@ -69,6 +69,10 @@ export function renderGameScreen(
         renderMinimap(ctx);
       } else if (message.type === 'combat') {
         ctx.latestCombatMobs = message.mobs;
+        if (ctx.latestRoom) {
+          ctx.latestRoom = syncRoomMobsWithCombat(ctx.latestRoom, message.mobs);
+          renderRoomMeta(ctx, ctx.latestRoom);
+        }
         renderCombat(ctx, message.mobs);
       } else if (message.type === 'combatEnd') {
         ctx.latestCombatMobs = [];
