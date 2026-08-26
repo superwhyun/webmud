@@ -36,7 +36,7 @@ export function resolveDirection(input: string): string | undefined {
 
 export function handleMove(ctx: CommandContext, direction: string): void {
   if (isInCombat(ctx.session.ws)) {
-    ctx.send({ type: 'text', text: '전투 중에는 이동할 수 없습니다. flee로 먼저 도망치세요.' });
+    ctx.send({ type: 'text', text: '전투 중에는 이동할 수 없습니다. flee 또는 도망으로 먼저 도망치세요.' });
     return;
   }
 

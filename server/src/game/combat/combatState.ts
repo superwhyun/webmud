@@ -1,10 +1,13 @@
-import { basicAttackPower, josaIGa, withJosa, type ChatChannel, type JobType } from '@mud/shared';
+import { basicAttackPower, DIRECTION_LABELS, josaIGa, OPPOSITE_DIRECTION, withJosa, type ChatChannel, type JobType } from '@mud/shared';
 import type { WebSocket } from 'ws';
 import { db } from '../../db/client.js';
 import { getEffectiveStats } from '../combatStats.js';
 import { loadCharacter, loadCharacterState } from '../characterState.js';
 import type { CommandContext } from '../commands/context.js';
 import { getMobsInRoom, type DamageType, type MobInstance } from '../MobManager.js';
+import { broadcastRoomSnapshot } from '../roomSnapshot.js';
+import { broadcastToRoom } from '../sessionRegistry.js';
+import { getRoom } from '../World.js';
 import { hasElementAdvantage, mobCombatantStats, resolveAttack } from './combatMath.js';
 import { defeatCharacter, handleMobDefeat } from './combatRewards.js';
 import { stopResting } from '../rest.js';
@@ -44,6 +47,7 @@ export function sendCombatStatus(ctx: CommandContext, combat: { mobs: MobInstanc
       hp: mob.hp,
       maxHp: mob.maxHp,
       element: mob.element,
+      isBoss: mob.isBoss,
     })),
   });
 }
@@ -125,16 +129,61 @@ export function triggerAggro(ctx: CommandContext): void {
   performRound(ctx);
 }
 
+/** 전투를 끝내는 것만으로는 같은 방에 몹과 함께 남아 아무것도 바뀌지 않은 것처럼 보이므로,
+ * 도망은 열려 있는 출구 중 하나로 실제로 이동까지 시킨다(고전 MUD의 flee 방식). */
 export function handleFlee(ctx: CommandContext): void {
   const combat = activeCombats.get(ctx.session.ws);
   if (!combat) {
     ctx.send({ type: 'text', text: '전투 중이 아닙니다.' });
     return;
   }
-  cleanupCombatForSession(ctx.session.ws);
   const names = combat.mobs.map((mob) => mob.name).join(', ');
-  ctx.send({ type: 'text', text: `${names}에게서 도망쳤습니다.` });
+  cleanupCombatForSession(ctx.session.ws);
+
+  const room = getRoom(ctx.session.roomId);
+  const openExits = room
+    ? Object.entries(room.exits).filter(([, exit]) => !exit.blocked && getRoom(exit.targetRoomId))
+    : [];
+
+  if (openExits.length === 0) {
+    ctx.send({ type: 'text', text: `${names}에게서 도망치려 했지만 도망칠 곳이 없습니다!` });
+    sendCombatEnd(ctx);
+    return;
+  }
+
+  const [direction, exit] = openExits[Math.floor(Math.random() * openExits.length)];
+  const directionLabel = DIRECTION_LABELS[direction] ?? direction;
+  const targetRoomId = exit.targetRoomId;
+  const oldRoomId = ctx.session.roomId;
+
+  ctx.send({ type: 'text', text: `${names}에게서 ${directionLabel}(으)로 도망쳤습니다!` });
+  broadcastToRoom(
+    oldRoomId,
+    { type: 'text', text: `${ctx.session.characterName}님이 허둥지둥 ${directionLabel}(으)로 도망쳤습니다.` },
+    ctx.session.ws,
+  );
+
+  ctx.session.roomId = targetRoomId;
+  db.prepare('UPDATE characters SET room_id = ? WHERE id = ?').run(targetRoomId, ctx.session.characterId);
+
+  const arrivalDirection = OPPOSITE_DIRECTION[direction];
+  const arrivalText = arrivalDirection
+    ? `${DIRECTION_LABELS[arrivalDirection]}에서 도망쳐 들어왔습니다.`
+    : '연결점을 통해 도망쳐 들어왔습니다.';
+  broadcastToRoom(
+    targetRoomId,
+    { type: 'text', text: `${ctx.session.characterName}님이 ${arrivalText}` },
+    ctx.session.ws,
+  );
+
+  const state = loadCharacterState(ctx.session.characterId);
+  if (state) ctx.send({ type: 'state', character: state });
+
+  broadcastRoomSnapshot(oldRoomId);
+  broadcastRoomSnapshot(targetRoomId);
+
   sendCombatEnd(ctx);
+  triggerAggro(ctx);
 }
 
 function performRound(ctx: CommandContext): void {

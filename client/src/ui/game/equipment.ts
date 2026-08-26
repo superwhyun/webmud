@@ -61,7 +61,9 @@ export function renderEquipmentPanel(ctx: GameContext): void {
 }
 
 export function renderInventoryCount(ctx: GameContext): void {
-  const slotsUsed = ctx.inventoryState.filter((item) => item.healAmount <= 0 && item.manaAmount <= 0).length;
+  const slotsUsed = ctx.inventoryState.filter(
+    (item) => item.healAmount <= 0 && item.manaAmount <= 0 && !item.equipped,
+  ).length;
   ctx.inventoryCountLabel.textContent = String(slotsUsed);
 }
 

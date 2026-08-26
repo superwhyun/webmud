@@ -84,13 +84,13 @@ export function handleGet(ctx: CommandContext, itemName: string): void {
     .prepare('SELECT id FROM inventory_items WHERE character_id = ? AND item_id = ? AND equipped = 0')
     .get(ctx.session.characterId, roomItem.item_id) as { id: number } | undefined;
 
-  // 물약 등 소모품은 인벤토리 칸을 차지하지 않는다.
+  // 물약 등 소모품과, 이미 장착 중인 장비는 인벤토리(가방) 칸을 차지하지 않는다.
   if (!existing && roomItem.type !== 'consumable') {
     const { count } = db
       .prepare(
         `SELECT COUNT(*) as count FROM inventory_items inv
          JOIN items i ON i.id = inv.item_id
-         WHERE inv.character_id = ? AND i.type != 'consumable'`,
+         WHERE inv.character_id = ? AND i.type != 'consumable' AND inv.equipped = 0`,
       )
       .get(ctx.session.characterId) as { count: number };
     if (count >= MAX_INVENTORY_SLOTS) {
@@ -240,7 +240,7 @@ export function handleGive(ctx: CommandContext, rest: string): void {
       .prepare(
         `SELECT COUNT(*) as count FROM inventory_items inv
          JOIN items i ON i.id = inv.item_id
-         WHERE inv.character_id = ? AND i.type != 'consumable'`,
+         WHERE inv.character_id = ? AND i.type != 'consumable' AND inv.equipped = 0`,
       )
       .get(targetSession.characterId) as { count: number };
     if (count >= MAX_INVENTORY_SLOTS) {

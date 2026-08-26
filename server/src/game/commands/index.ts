@@ -60,7 +60,7 @@ export function dispatchCommand(ctx: CommandContext, rawText: string): void {
     return;
   }
 
-  if (lowerVerb === 'flee') {
+  if (lowerVerb === 'flee' || lowerVerb === '도망') {
     handleFlee(ctx);
     return;
   }
