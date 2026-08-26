@@ -60,6 +60,9 @@ export async function refreshPalette(ctx: BuilderContext): Promise<void> {
 
 export function renderPalette(ctx: BuilderContext): void {
   const room = ctx.selectedRoomId !== null ? findRoom(ctx, ctx.selectedRoomId) : undefined;
+  const selectedZone = ctx.zones.find((zone) => zone.id === ctx.selectedZoneId);
+  const bossTemplates = ctx.mobTemplates.filter((mob) => mob.isBoss);
+  const zoneHasBoss = selectedZone ? ctx.mobSpawns.some((spawn) => spawn.zoneId === selectedZone.id && spawn.isBoss) : false;
 
   const roomHint = room
     ? `<p class="builder-panel-hint">"${escapeHtml(room.name)}"에 배치합니다.</p>`
@@ -106,12 +109,14 @@ export function renderPalette(ctx: BuilderContext): void {
       }
     </div>
 
-    <h3>보유 몹</h3>
+    <h3>일반 몹</h3>
     <p class="builder-panel-hint">몹 목록에서 "적대적" 옵션을 끈 몹은 상점 주인 같은 비전투 NPC로 동작합니다.</p>
     <div class="builder-item-groups">
       ${
         MOB_LEVEL_BRACKETS.map((bracket) => {
-          const mobs = ctx.mobTemplates.filter((mob) => mob.minLevel >= bracket.lower && mob.minLevel <= bracket.upper);
+          const mobs = ctx.mobTemplates.filter(
+            (mob) => !mob.isBoss && mob.minLevel >= bracket.lower && mob.minLevel <= bracket.upper,
+          );
           if (mobs.length === 0) return '';
           const expanded = ctx.expandedMobLevelBrackets.has(bracket.lower);
           return `
@@ -153,6 +158,40 @@ export function renderPalette(ctx: BuilderContext): void {
         }).join('') || '<p class="builder-panel-empty">등록된 몹이 없습니다.</p>'
       }
     </div>
+
+    <h3>보스</h3>
+    <p class="builder-panel-hint">보스는 존 최고 레벨로 고정되며, 한 존에 하나만 배치할 수 있습니다.</p>
+    <ul class="builder-palette-list builder-boss-list">
+      ${
+        bossTemplates
+          .map((boss) => {
+            const zoneMaxLevel = selectedZone?.maxLevel ?? null;
+            const levelConfigured = selectedZone?.minLevel !== null && zoneMaxLevel !== null;
+            const levelSupported =
+              zoneMaxLevel !== null && zoneMaxLevel >= boss.minLevel && zoneMaxLevel <= boss.maxLevel;
+            const disabled = !room || !levelConfigured || !levelSupported || zoneHasBoss;
+            const levelText = !levelConfigured
+              ? '존 레벨 설정 필요'
+              : levelSupported
+                ? `존 기준 Lv.${zoneMaxLevel} 고정`
+                : `템플릿 범위 Lv.${formatLevelRange(boss.minLevel, boss.maxLevel)} 불일치`;
+            return `
+              <li class="builder-boss-entry">
+                <span class="builder-palette-name">
+                  <span class="builder-boss-badge">BOSS</span>
+                  ${escapeHtml(boss.name)}
+                  <span class="builder-palette-level">${levelText}</span>
+                </span>
+                <div class="builder-palette-actions">
+                  <input type="number" class="builder-palette-num-input" data-mob-respawn="${boss.id}" value="300" min="5" title="보스 리스폰 시간(초)" />
+                  <button type="button" data-place-mob="${boss.id}" ${disabled ? 'disabled' : ''}>배치</button>
+                </div>
+              </li>
+            `;
+          })
+          .join('') || '<li class="builder-panel-empty">등록된 보스가 없습니다.</li>'
+      }
+    </ul>
 
     <h3>보유 NPC</h3>
     <div class="builder-item-groups">
@@ -330,7 +369,7 @@ function renderPlacedInRoom(ctx: BuilderContext, room: BuilderRoomDto | undefine
               : `Lv.${formatLevelRange(row.mobMinLevel, row.mobMaxLevel)} (전체 범위)`;
             return `
                   <li>
-                    <span>${escapeHtml(row.mobName)} <span class="builder-palette-level">${levelLabel}</span> (리스폰 ${row.respawnSeconds}초)</span>
+                    <span>${row.isBoss ? '<span class="builder-boss-badge">BOSS</span> ' : ''}${escapeHtml(row.mobName)} <span class="builder-palette-level">${levelLabel}</span> (리스폰 ${row.respawnSeconds}초)</span>
                     <button type="button" class="builder-exit-delete" data-remove-mob="${row.id}">제거</button>
                   </li>
                 `;

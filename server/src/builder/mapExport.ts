@@ -1,9 +1,11 @@
 import { z } from 'zod';
 import { db } from '../db/client.js';
 import { loadMobs } from '../game/MobManager.js';
+import { assertBossPlacementInvariants, BossPlacementInvariantError } from '../game/bossRules.js';
 import { loadNpcs } from '../game/NpcManager.js';
 import { loadWorld } from '../game/World.js';
 import { requireAdmin } from '../auth/middleware.js';
+import { validateMapImportRows } from './mapImportValidation.js';
 import { builderRouter } from './router.js';
 
 /**
@@ -64,6 +66,14 @@ builderRouter.post('/map-import', requireAdmin, (req, res) => {
       res.status(400).json({ error: `"${table}" 데이터가 없습니다. 맵 export 파일이 맞는지 확인하세요.` });
       return;
     }
+    const allowedColumns = new Set(
+      (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((column) => column.name),
+    );
+    const validationError = validateMapImportRows(table, tables[table] as TableRow[], allowedColumns);
+    if (validationError) {
+      res.status(400).json({ error: validationError });
+      return;
+    }
   }
 
   const tx = db.transaction(() => {
@@ -84,8 +94,17 @@ builderRouter.post('/map-import', requireAdmin, (req, res) => {
       for (const row of rows) insert.run(...columns.map((column) => row[column]));
       if (columns.includes('id')) resyncAutoIncrement(table);
     }
+    assertBossPlacementInvariants();
   });
-  tx();
+  try {
+    tx();
+  } catch (error) {
+    if (error instanceof BossPlacementInvariantError) {
+      res.status(409).json({ error: error.message });
+      return;
+    }
+    throw error;
+  }
 
   // 방/몹/NPC는 인메모리 캐시로도 관리되므로, DB를 통째로 갈아끼운 뒤엔 재시작 없이 다시 로드해줘야 한다.
   loadWorld();

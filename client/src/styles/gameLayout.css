@@ -134,6 +134,11 @@
   gap: 0.2rem;
 }
 
+.combat-mob-boss {
+  border-color: rgb(205 92 55 / 70%);
+  box-shadow: inset 0 0 12px rgb(120 25 12 / 24%);
+}
+
 .combat-mob-name {
   color: var(--color-danger);
   font-weight: bold;

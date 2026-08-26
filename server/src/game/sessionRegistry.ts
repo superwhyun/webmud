@@ -1,5 +1,6 @@
 import type { WebSocket } from 'ws';
 import type { ServerMessage } from '@mud/shared';
+import { getRoom } from './World.js';
 import { send } from './wsUtil.js';
 
 export interface Session {
@@ -40,5 +41,12 @@ export function broadcastToRoom(roomId: number, message: ServerMessage, excludeW
   for (const session of getSessionsInRoom(roomId)) {
     if (session.ws === excludeWs) continue;
     send(session.ws, message);
+  }
+}
+
+/** 보스 출현/처치처럼 방 하나가 아니라 존 전체에 알려야 할 때 쓴다. */
+export function broadcastToZone(zoneId: number, message: ServerMessage): void {
+  for (const session of sessions.values()) {
+    if (getRoom(session.roomId)?.zoneId === zoneId) send(session.ws, message);
   }
 }

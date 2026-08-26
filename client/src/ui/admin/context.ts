@@ -242,6 +242,10 @@ function renderShellHtml(): string {
               <input id="admin-mob-hostile" type="checkbox" checked />
               적대적(자동 공격)
             </label>
+            <label class="admin-checkbox-label" title="보스는 맵 빌더에서 존당 하나만 배치할 수 있고, 존 최고 레벨로 고정 스폰됩니다.">
+              <input id="admin-mob-is-boss" type="checkbox" />
+              보스
+            </label>
           </div>
           <div class="admin-form-row">
             <div class="admin-field">
@@ -318,6 +322,7 @@ function renderShellHtml(): string {
             <button type="button" id="admin-mob-cancel" hidden>취소</button>
           </div>
           <p class="admin-error" id="admin-mob-error"></p>
+          <p class="admin-panel-empty">보스는 설정한 스탯 범위 안에서 맵 존의 최고 레벨에 맞춰 선형 보간됩니다.</p>
 
           <h4>보유 가능 아이템 (죽었을 때 드랍)</h4>
           <ul class="admin-list admin-loot-items" id="admin-mob-loot-items"></ul>

@@ -1,6 +1,7 @@
 import { formatItemMention, josaEulReul, withJosa, type ItemGrade } from '@mud/shared';
 import { db } from '../../db/client.js';
 import { STARTING_ROOM_ID } from '../../db/seed/index.js';
+import { announceBossDefeated } from '../bossAnnounce.js';
 import { loadCharacterState } from '../characterState.js';
 import type { CommandContext } from '../commands/context.js';
 import { applyLevelUps } from '../leveling.js';
@@ -60,6 +61,8 @@ export function handleMobDefeat(ctx: CommandContext, mob: MobInstance, character
     },
     ctx.session.ws,
   );
+
+  if (mob.isBoss) announceBossDefeated(ctx.session.roomId, mob.name, ctx.session.characterName);
 
   const earnings = applyGoldEarnings(characterId, mob.goldReward);
   db.prepare('UPDATE characters SET exp = exp + ?, gold = gold + ? WHERE id = ?').run(

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { db } from '../db/client.js';
 import { toItemDto, toMobTemplateDto } from '../db/dto.js';
 import type { ItemRow, MobLootPoolRow, MobTemplateRow } from '../db/types.js';
+import { assertBossPlacementInvariants, BossPlacementInvariantError } from '../game/bossRules.js';
 import { itemSchema } from './items.js';
 import { applyMobTemplateRangeChecks, mobTemplateBaseSchema } from './mobs.js';
 import { adminRouter } from './router.js';
@@ -68,11 +69,11 @@ adminRouter.post('/content-import', (req, res) => {
     `INSERT INTO mob_templates
        (id, name, hp, hp_max, strength, strength_max, dexterity, dexterity_max, physical_defense, physical_defense_max,
         magic_defense, magic_defense_max, element, damage_type, exp_reward, exp_reward_max, gold_reward, gold_reward_max,
-        min_level, max_level, hostile)
+        min_level, max_level, hostile, is_boss)
      VALUES
        (@id, @name, @hp, @hpMax, @strength, @strengthMax, @dexterity, @dexterityMax, @physicalDefense, @physicalDefenseMax,
         @magicDefense, @magicDefenseMax, @element, @damageType, @expReward, @expRewardMax, @goldReward, @goldRewardMax,
-        @minLevel, @maxLevel, @hostile)
+        @minLevel, @maxLevel, @hostile, @isBoss)
      ON CONFLICT(id) DO UPDATE SET
        name = excluded.name, hp = excluded.hp, hp_max = excluded.hp_max, strength = excluded.strength,
        strength_max = excluded.strength_max, dexterity = excluded.dexterity, dexterity_max = excluded.dexterity_max,
@@ -80,7 +81,8 @@ adminRouter.post('/content-import', (req, res) => {
        magic_defense = excluded.magic_defense, magic_defense_max = excluded.magic_defense_max, element = excluded.element,
        damage_type = excluded.damage_type, exp_reward = excluded.exp_reward, exp_reward_max = excluded.exp_reward_max,
        gold_reward = excluded.gold_reward, gold_reward_max = excluded.gold_reward_max,
-       min_level = excluded.min_level, max_level = excluded.max_level, hostile = excluded.hostile`,
+       min_level = excluded.min_level, max_level = excluded.max_level, hostile = excluded.hostile,
+       is_boss = excluded.is_boss`,
   );
 
   const upsertLootEntry = db.prepare(
@@ -93,13 +95,22 @@ adminRouter.post('/content-import', (req, res) => {
       upsertItem.run({ ...item, slot: item.slot ?? null });
     }
     for (const mob of d.mobTemplates) {
-      upsertMobTemplate.run({ ...mob, hostile: mob.hostile ? 1 : 0 });
+      upsertMobTemplate.run({ ...mob, hostile: mob.hostile ? 1 : 0, isBoss: mob.isBoss ? 1 : 0 });
     }
     for (const entry of d.mobLootPool) {
       upsertLootEntry.run(entry.mobTemplateId, entry.itemId, entry.weight);
     }
+    assertBossPlacementInvariants();
   });
-  importTx();
+  try {
+    importTx();
+  } catch (error) {
+    if (error instanceof BossPlacementInvariantError) {
+      res.status(409).json({ error: error.message });
+      return;
+    }
+    throw error;
+  }
 
   res.json({ itemCount: d.items.length, mobTemplateCount: d.mobTemplates.length, lootEntryCount: d.mobLootPool.length });
 });

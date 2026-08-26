@@ -16,6 +16,11 @@
   filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5));
 }
 
+.mob-sprite[data-boss='true'] {
+  filter: drop-shadow(0 0 5px rgb(255 92 45 / 85%));
+  transform: scale(1.08);
+}
+
 .potion-bar {
   display: flex;
   flex-wrap: wrap;

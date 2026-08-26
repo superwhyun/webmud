@@ -44,6 +44,7 @@ export function toMobTemplateDto(row: MobTemplateRow) {
     minLevel: row.min_level,
     maxLevel: row.max_level,
     hostile: Boolean(row.hostile),
+    isBoss: Boolean(row.is_boss),
   };
 }
 

@@ -3,6 +3,7 @@ import { ELEMENT_VALUES, ITEM_GRADE_DROP_WEIGHT, type ItemGrade } from '@mud/sha
 import { db } from '../db/client.js';
 import { toItemDto, toMobTemplateDto } from '../db/dto.js';
 import type { ItemRow, MobTemplateRow } from '../db/types.js';
+import { assertBossPlacementInvariants, BossPlacementInvariantError } from '../game/bossRules.js';
 import { adminRouter } from './router.js';
 
 adminRouter.get('/mob-templates', (_req, res) => {
@@ -33,6 +34,7 @@ export const mobTemplateBaseSchema = z.object({
   minLevel: z.number().int().min(1, '최소 레벨은 1 이상이어야 합니다.').default(1),
   maxLevel: z.number().int().min(1, '최대 레벨은 1 이상이어야 합니다.').default(1),
   hostile: z.boolean().default(true),
+  isBoss: z.boolean().default(false),
 });
 
 interface MobTemplateRangeFields {
@@ -88,8 +90,8 @@ adminRouter.post('/mob-templates', (req, res) => {
       `INSERT INTO mob_templates
          (name, hp, hp_max, strength, strength_max, dexterity, dexterity_max, physical_defense, physical_defense_max,
           magic_defense, magic_defense_max, element, damage_type, exp_reward, exp_reward_max, gold_reward, gold_reward_max,
-          min_level, max_level, hostile)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          min_level, max_level, hostile, is_boss)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       d.name,
@@ -112,6 +114,7 @@ adminRouter.post('/mob-templates', (req, res) => {
       d.minLevel,
       d.maxLevel,
       d.hostile ? 1 : 0,
+      d.isBoss ? 1 : 0,
     );
 
   const row = db.prepare('SELECT * FROM mob_templates WHERE id = ?').get(Number(info.lastInsertRowid)) as MobTemplateRow;
@@ -120,7 +123,10 @@ adminRouter.post('/mob-templates', (req, res) => {
 
 adminRouter.patch('/mob-templates/:id', (req, res) => {
   const id = Number(req.params.id);
-  if (!db.prepare('SELECT id FROM mob_templates WHERE id = ?').get(id)) {
+  const existing = db.prepare('SELECT id, is_boss FROM mob_templates WHERE id = ?').get(id) as
+    | { id: number; is_boss: number }
+    | undefined;
+  if (!existing) {
     res.status(404).json({ error: '몬스터를 찾을 수 없습니다.' });
     return;
   }
@@ -132,35 +138,60 @@ adminRouter.patch('/mob-templates/:id', (req, res) => {
   }
 
   const d = parsed.data;
-  db.prepare(
-    `UPDATE mob_templates SET name = ?, hp = ?, hp_max = ?, strength = ?, strength_max = ?, dexterity = ?, dexterity_max = ?,
-       physical_defense = ?, physical_defense_max = ?, magic_defense = ?, magic_defense_max = ?,
-       element = ?, damage_type = ?, exp_reward = ?, exp_reward_max = ?, gold_reward = ?, gold_reward_max = ?,
-       min_level = ?, max_level = ?, hostile = ?
-     WHERE id = ?`,
-  ).run(
-    d.name,
-    d.hp,
-    d.hpMax,
-    d.strength,
-    d.strengthMax,
-    d.dexterity,
-    d.dexterityMax,
-    d.physicalDefense,
-    d.physicalDefenseMax,
-    d.magicDefense,
-    d.magicDefenseMax,
-    d.element,
-    d.damageType,
-    d.expReward,
-    d.expRewardMax,
-    d.goldReward,
-    d.goldRewardMax,
-    d.minLevel,
-    d.maxLevel,
-    d.hostile ? 1 : 0,
-    id,
-  );
+  if (Boolean(existing.is_boss) !== d.isBoss) {
+    const usage = db
+      .prepare(
+        `SELECT
+           (SELECT COUNT(*) FROM mob_spawns WHERE mob_template_id = ?) +
+           (SELECT COUNT(*) FROM village_garrison WHERE mob_template_id = ?) as count`,
+      )
+      .get(id, id) as { count: number };
+    if (usage.count > 0) {
+      res.status(409).json({ error: '배치 중인 몬스터의 보스 여부는 바꿀 수 없습니다. 먼저 배치를 제거하세요.' });
+      return;
+    }
+  }
+  try {
+    db.transaction(() => {
+      db.prepare(
+        `UPDATE mob_templates SET name = ?, hp = ?, hp_max = ?, strength = ?, strength_max = ?, dexterity = ?, dexterity_max = ?,
+           physical_defense = ?, physical_defense_max = ?, magic_defense = ?, magic_defense_max = ?,
+           element = ?, damage_type = ?, exp_reward = ?, exp_reward_max = ?, gold_reward = ?, gold_reward_max = ?,
+           min_level = ?, max_level = ?, hostile = ?, is_boss = ?
+         WHERE id = ?`,
+      ).run(
+        d.name,
+        d.hp,
+        d.hpMax,
+        d.strength,
+        d.strengthMax,
+        d.dexterity,
+        d.dexterityMax,
+        d.physicalDefense,
+        d.physicalDefenseMax,
+        d.magicDefense,
+        d.magicDefenseMax,
+        d.element,
+        d.damageType,
+        d.expReward,
+        d.expRewardMax,
+        d.goldReward,
+        d.goldRewardMax,
+        d.minLevel,
+        d.maxLevel,
+        d.hostile ? 1 : 0,
+        d.isBoss ? 1 : 0,
+        id,
+      );
+      assertBossPlacementInvariants();
+    })();
+  } catch (error) {
+    if (error instanceof BossPlacementInvariantError) {
+      res.status(409).json({ error: error.message });
+      return;
+    }
+    throw error;
+  }
 
   const row = db.prepare('SELECT * FROM mob_templates WHERE id = ?').get(id) as MobTemplateRow;
   res.json({ mobTemplate: toMobTemplateDto(row) });

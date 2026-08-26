@@ -120,7 +120,7 @@ export function buildZoneSnapshot(zoneId: number): ZoneSnapshotDto | null {
   }));
 
   const allMobTemplates = db
-    .prepare('SELECT id, name, min_level, max_level FROM mob_templates ORDER BY min_level, id')
+    .prepare('SELECT id, name, min_level, max_level FROM mob_templates WHERE is_boss = 0 ORDER BY min_level, id')
     .all() as { id: number; name: string; min_level: number; max_level: number }[];
 
   // Only offer mobs whose level range overlaps the zone's level range. Zones without a level range

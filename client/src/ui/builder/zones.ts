@@ -1,4 +1,4 @@
-import { createZone, deleteZone, fetchAllRoomOptions, fetchZones } from '../../builderApi';
+import { createZone, deleteZone, fetchAllRoomOptions, fetchZones, updateZoneLevels } from '../../builderApi';
 import { escapeHtml } from '../../domUtils';
 import { showToolbarError, type BuilderContext } from './context';
 
@@ -18,6 +18,7 @@ export async function refreshZones(ctx: BuilderContext): Promise<void> {
 }
 
 export function renderZoneBar(ctx: BuilderContext): void {
+  const selectedZone = ctx.zones.find((zone) => zone.id === ctx.selectedZoneId);
   ctx.zoneBar.innerHTML = `
     ${ctx.zones
       .map((zone) => {
@@ -38,8 +39,21 @@ export function renderZoneBar(ctx: BuilderContext): void {
     <span class="builder-zone-add-form" id="builder-zone-add-form" hidden>
       <input id="builder-zone-name" type="text" maxlength="30" placeholder="존 이름" />
       <input id="builder-zone-desc" type="text" maxlength="200" placeholder="설명(선택)" />
+      <input id="builder-zone-min-level" type="number" min="1" value="1" title="존 최소 레벨" />
+      <input id="builder-zone-max-level" type="number" min="1" value="5" title="존 최대 레벨" />
       <button type="button" id="builder-zone-add-confirm">추가</button>
     </span>
+    ${
+      selectedZone
+        ? `<span class="builder-zone-level-form">
+            <span>존 레벨</span>
+            <input id="builder-zone-edit-min-level" type="number" min="1" value="${selectedZone.minLevel ?? 1}" aria-label="존 최소 레벨" />
+            <span>–</span>
+            <input id="builder-zone-edit-max-level" type="number" min="1" value="${selectedZone.maxLevel ?? 5}" aria-label="존 최대 레벨" />
+            <button type="button" id="builder-zone-level-save">저장</button>
+          </span>`
+        : ''
+    }
   `;
 
   ctx.zoneBar.querySelectorAll<HTMLButtonElement>('[data-zone-id]').forEach((button) => {
@@ -83,11 +97,17 @@ export function renderZoneBar(ctx: BuilderContext): void {
   ctx.zoneBar.querySelector<HTMLButtonElement>('#builder-zone-add-confirm')!.addEventListener('click', () => {
     const name = ctx.zoneBar.querySelector<HTMLInputElement>('#builder-zone-name')!.value.trim();
     const description = ctx.zoneBar.querySelector<HTMLInputElement>('#builder-zone-desc')!.value.trim();
+    const minLevel = Number(ctx.zoneBar.querySelector<HTMLInputElement>('#builder-zone-min-level')!.value);
+    const maxLevel = Number(ctx.zoneBar.querySelector<HTMLInputElement>('#builder-zone-max-level')!.value);
     if (!name) {
       showToolbarError(ctx, '존 이름을 입력하세요.');
       return;
     }
-    createZone(ctx.token, name, description)
+    if (!Number.isInteger(minLevel) || !Number.isInteger(maxLevel) || minLevel < 1 || minLevel > maxLevel) {
+      showToolbarError(ctx, '올바른 존 레벨 범위를 입력하세요.');
+      return;
+    }
+    createZone(ctx.token, name, description, minLevel, maxLevel)
       .then((result) => {
         ctx.selectedZoneId = result.zone.id;
         ctx.selectedRoomId = null;
@@ -96,6 +116,21 @@ export function renderZoneBar(ctx: BuilderContext): void {
       })
       .catch((error: unknown) => {
         showToolbarError(ctx, error instanceof Error ? error.message : '존 생성에 실패했습니다.');
+      });
+  });
+
+  ctx.zoneBar.querySelector<HTMLButtonElement>('#builder-zone-level-save')?.addEventListener('click', () => {
+    if (!selectedZone) return;
+    const minLevel = Number(ctx.zoneBar.querySelector<HTMLInputElement>('#builder-zone-edit-min-level')!.value);
+    const maxLevel = Number(ctx.zoneBar.querySelector<HTMLInputElement>('#builder-zone-edit-max-level')!.value);
+    if (!Number.isInteger(minLevel) || !Number.isInteger(maxLevel) || minLevel < 1 || minLevel > maxLevel) {
+      showToolbarError(ctx, '올바른 존 레벨 범위를 입력하세요.');
+      return;
+    }
+    updateZoneLevels(ctx.token, selectedZone.id, minLevel, maxLevel)
+      .then(() => refreshZones(ctx))
+      .catch((error: unknown) => {
+        showToolbarError(ctx, error instanceof Error ? error.message : '존 레벨 저장에 실패했습니다.');
       });
   });
 }

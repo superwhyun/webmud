@@ -72,6 +72,7 @@ export interface MobTemplateDto {
   minLevel: number;
   maxLevel: number;
   hostile: boolean;
+  isBoss: boolean;
 }
 
 export interface RoomItemDto {
@@ -97,6 +98,7 @@ export interface MobSpawnDto {
   overrideMinLevel: number | null;
   overrideMaxLevel: number | null;
   respawnSeconds: number;
+  isBoss: boolean;
 }
 
 export interface NpcTemplateDto {
@@ -142,11 +144,30 @@ export function fetchZones(token: string): Promise<{ zones: ZoneDto[] }> {
   return apiRequest('/builder/zones', { headers: authHeader(token) });
 }
 
-export function createZone(token: string, name: string, description: string): Promise<{ zone: ZoneDto }> {
+export function createZone(
+  token: string,
+  name: string,
+  description: string,
+  minLevel: number,
+  maxLevel: number,
+): Promise<{ zone: ZoneDto }> {
   return apiRequest('/builder/zones', {
     method: 'POST',
     headers: authHeader(token),
-    body: JSON.stringify({ name, description }),
+    body: JSON.stringify({ name, description, minLevel, maxLevel }),
+  });
+}
+
+export function updateZoneLevels(
+  token: string,
+  id: number,
+  minLevel: number,
+  maxLevel: number,
+): Promise<{ minLevel: number; maxLevel: number }> {
+  return apiRequest(`/builder/zones/${id}/levels`, {
+    method: 'PATCH',
+    headers: authHeader(token),
+    body: JSON.stringify({ minLevel, maxLevel }),
   });
 }
 

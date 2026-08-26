@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { db } from '../db/client.js';
+import { despawnMob } from '../game/MobManager.js';
+import { despawnNpc } from '../game/NpcManager.js';
 import { broadcastRoomSnapshot } from '../game/roomSnapshot.js';
 import { addExit, getRoom, registerRoom, removeExit, unregisterRoom, updateRoom } from '../game/World.js';
 import { builderRouter } from './router.js';
@@ -277,12 +279,20 @@ builderRouter.delete('/rooms/:id', (req, res) => {
   const connectedExits = db
     .prepare('SELECT room_id, direction, target_room_id FROM room_exits WHERE room_id = ? OR target_room_id = ?')
     .all(id, id) as { room_id: number; direction: string; target_room_id: number }[];
+  const mobSpawnIds = (db.prepare('SELECT id FROM mob_spawns WHERE room_id = ?').all(id) as { id: number }[]).map(
+    (row) => row.id,
+  );
+  const npcSpawnIds = (db.prepare('SELECT id FROM npc_spawns WHERE room_id = ?').all(id) as { id: number }[]).map(
+    (row) => row.id,
+  );
 
   db.prepare('DELETE FROM room_exits WHERE room_id = ? OR target_room_id = ?').run(id, id);
   db.prepare('DELETE FROM room_items WHERE room_id = ?').run(id);
   db.prepare('DELETE FROM mob_spawns WHERE room_id = ?').run(id);
   db.prepare('DELETE FROM npc_spawns WHERE room_id = ?').run(id);
   db.prepare('DELETE FROM rooms WHERE id = ?').run(id);
+  for (const spawnId of mobSpawnIds) despawnMob(spawnId);
+  for (const spawnId of npcSpawnIds) despawnNpc(spawnId);
 
   const affectedRoomIds = new Set<number>();
   for (const exit of connectedExits) {

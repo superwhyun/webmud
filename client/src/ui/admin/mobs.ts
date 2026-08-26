@@ -41,6 +41,7 @@ function fillMobForm(ctx: AdminContext, mob: MobTemplateDto): void {
   ctx.container.querySelector<HTMLInputElement>('#admin-mob-min-level')!.value = String(mob.minLevel);
   ctx.container.querySelector<HTMLInputElement>('#admin-mob-max-level')!.value = String(mob.maxLevel);
   ctx.container.querySelector<HTMLInputElement>('#admin-mob-hostile')!.checked = mob.hostile;
+  ctx.container.querySelector<HTMLInputElement>('#admin-mob-is-boss')!.checked = mob.isBoss;
   ctx.container.querySelector<HTMLInputElement>('#admin-mob-str')!.value = String(mob.strength);
   ctx.container.querySelector<HTMLInputElement>('#admin-mob-str-max')!.value = String(mob.strengthMax);
   ctx.container.querySelector<HTMLInputElement>('#admin-mob-dex')!.value = String(mob.dexterity);
@@ -67,6 +68,7 @@ function resetMobForm(ctx: AdminContext): void {
   ctx.container.querySelector<HTMLInputElement>('#admin-mob-min-level')!.value = '1';
   ctx.container.querySelector<HTMLInputElement>('#admin-mob-max-level')!.value = '1';
   ctx.container.querySelector<HTMLInputElement>('#admin-mob-hostile')!.checked = true;
+  ctx.container.querySelector<HTMLInputElement>('#admin-mob-is-boss')!.checked = false;
   ctx.container.querySelector<HTMLInputElement>('#admin-mob-str')!.value = '1';
   ctx.container.querySelector<HTMLInputElement>('#admin-mob-str-max')!.value = '1';
   ctx.container.querySelector<HTMLInputElement>('#admin-mob-dex')!.value = '1';
@@ -90,7 +92,7 @@ function formatLevelRange(min: number, max: number): string {
 function renderMobRowHtml(mob: MobTemplateDto, lootText: string): string {
   return `
     <tr data-mob-id="${mob.id}">
-      <td>${escapeHtml(mob.name)}${mob.hostile ? '' : ' <span class="admin-mob-passive-tag">비전투</span>'}</td>
+      <td>${mob.isBoss ? '<span class="admin-boss-tag">BOSS</span> ' : ''}${escapeHtml(mob.name)}${mob.hostile ? '' : ' <span class="admin-mob-passive-tag">비전투</span>'}</td>
       <td>${formatLevelRange(mob.minLevel, mob.maxLevel)}</td>
       <td>${formatLevelRange(mob.hp, mob.hpMax)}</td>
       <td>${ELEMENT_LABELS[mob.element]}</td>
@@ -286,6 +288,7 @@ export function wireMobForm(ctx: AdminContext): void {
       minLevel: Number(ctx.container.querySelector<HTMLInputElement>('#admin-mob-min-level')!.value),
       maxLevel: Number(ctx.container.querySelector<HTMLInputElement>('#admin-mob-max-level')!.value),
       hostile: ctx.container.querySelector<HTMLInputElement>('#admin-mob-hostile')!.checked,
+      isBoss: ctx.container.querySelector<HTMLInputElement>('#admin-mob-is-boss')!.checked,
       name,
     };
     const wasCreating = !ctx.editingMobId;

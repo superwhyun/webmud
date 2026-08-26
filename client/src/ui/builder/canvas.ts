@@ -13,6 +13,10 @@ function hasPortalExit(exits: BuilderExitDto[]): boolean {
   return exits.some((exit) => !DIRECTION_VALUES.includes(exit.direction));
 }
 
+function hasBossSpawn(ctx: BuilderContext, roomId: number): boolean {
+  return ctx.mobSpawns.some((spawn) => spawn.roomId === roomId && spawn.isBoss);
+}
+
 function toSvgPoint(ctx: BuilderContext, clientX: number, clientY: number): Point {
   const point = ctx.svg.createSVGPoint();
   point.x = clientX;
@@ -209,6 +213,27 @@ export function renderCanvas(ctx: BuilderContext): void {
       badgeText.setAttribute('dominant-baseline', 'central');
       badgeText.setAttribute('class', 'builder-node-portal-badge-text');
       badgeText.textContent = 'P';
+      group.appendChild(badgeText);
+    }
+
+    if (hasBossSpawn(ctx, room.id)) {
+      const badgeCx = -NODE_SIZE / 2 + 3;
+      const badgeCy = -NODE_SIZE / 2 + 3;
+
+      const badgeCircle = document.createElementNS(SVG_NS, 'circle');
+      badgeCircle.setAttribute('cx', String(badgeCx));
+      badgeCircle.setAttribute('cy', String(badgeCy));
+      badgeCircle.setAttribute('r', '10');
+      badgeCircle.setAttribute('class', 'builder-node-boss-badge');
+      group.appendChild(badgeCircle);
+
+      const badgeText = document.createElementNS(SVG_NS, 'text');
+      badgeText.setAttribute('x', String(badgeCx));
+      badgeText.setAttribute('y', String(badgeCy));
+      badgeText.setAttribute('text-anchor', 'middle');
+      badgeText.setAttribute('dominant-baseline', 'central');
+      badgeText.setAttribute('class', 'builder-node-boss-badge-text');
+      badgeText.textContent = 'B';
       group.appendChild(badgeText);
     }
 

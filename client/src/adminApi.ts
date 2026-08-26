@@ -65,6 +65,7 @@ export interface MobTemplateDto {
   minLevel: number;
   maxLevel: number;
   hostile: boolean;
+  isBoss: boolean;
 }
 
 export interface NpcTemplateDto {

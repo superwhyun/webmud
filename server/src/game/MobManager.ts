@@ -5,6 +5,7 @@ import type { MobTemplateRow } from '../db/types.js';
 export type DamageType = 'physical' | 'magic';
 
 const GARRISON_RESPAWN_SECONDS = 120;
+const BOSS_LOOT_CHANCE_MULTIPLIER = 2;
 
 export interface MobInstance {
   spawnId: number;
@@ -24,6 +25,7 @@ export interface MobInstance {
   respawnSeconds: number;
   level: number;
   hostile: boolean;
+  isBoss: boolean;
   carriedItemIds: number[];
   alive: boolean;
   respawnAt: number | null;
@@ -59,16 +61,23 @@ function lootLevelMultiplier(level: number, minLevel: number, maxLevel: number):
 }
 
 /** 몹 템플릿이 보유 가능한 아이템 풀에서, 레벨 배수를 반영한 확률(%)로 아이템마다 독립적으로 굴려서 들려준다. */
-export function rollMobLoot(templateId: number, level: number, minLevel: number, maxLevel: number): number[] {
+export function rollMobLoot(
+  templateId: number,
+  level: number,
+  minLevel: number,
+  maxLevel: number,
+  isBoss = false,
+): number[] {
   const pool = db
     .prepare(`SELECT item_id, weight FROM mob_loot_pool WHERE mob_template_id = ?`)
     .all(templateId) as LootPoolItemRow[];
   if (pool.length === 0) return [];
 
   const multiplier = lootLevelMultiplier(level, minLevel, maxLevel);
+  const bossMultiplier = isBoss ? BOSS_LOOT_CHANCE_MULTIPLIER : 1;
   const carried: number[] = [];
   for (const entry of pool) {
-    const chancePercent = Math.min(100, entry.weight * multiplier);
+    const chancePercent = Math.min(100, entry.weight * multiplier * bossMultiplier);
     if (Math.random() * 100 < chancePercent) carried.push(entry.item_id);
   }
 
@@ -175,7 +184,14 @@ function toMobInstance(params: {
     respawnSeconds: params.respawnSeconds,
     level: resolved.level,
     hostile: Boolean(template.hostile),
-    carriedItemIds: rollMobLoot(template.id, resolved.level, template.min_level, template.max_level),
+    isBoss: Boolean(template.is_boss),
+    carriedItemIds: rollMobLoot(
+      template.id,
+      resolved.level,
+      template.min_level,
+      template.max_level,
+      Boolean(template.is_boss),
+    ),
     alive: true,
     respawnAt: null,
   };
@@ -275,6 +291,8 @@ export function registerMobSpawn(
 
 /** Removes a mob instance entirely (e.g. a fired garrison guard). Unlike killMob, it never respawns. */
 export function despawnMob(spawnId: number): void {
+  const mob = mobs.get(spawnId);
+  if (mob) mob.alive = false;
   mobs.delete(spawnId);
 }
 
@@ -289,7 +307,7 @@ export function findMobInRoomByName(roomId: number, nameQuery: string): MobInsta
 
 export function findMobTemplateByName(name: string): MobTemplateRow | undefined {
   const lower = name.toLowerCase();
-  const rows = db.prepare('SELECT * FROM mob_templates').all() as MobTemplateRow[];
+  const rows = db.prepare('SELECT * FROM mob_templates WHERE is_boss = 0').all() as MobTemplateRow[];
   return rows.find((row) => row.name.toLowerCase().includes(lower));
 }
 
@@ -302,9 +320,14 @@ export function killMob(mob: MobInstance): void {
 const selectTemplateById = db.prepare('SELECT * FROM mob_templates WHERE id = ?');
 const selectSpawnOverrideById = db.prepare('SELECT min_level, max_level FROM mob_spawns WHERE id = ?');
 
-export function tickRespawns(): number[] {
+export interface RespawnedMob {
+  roomId: number;
+  mob: MobInstance;
+}
+
+export function tickRespawns(): RespawnedMob[] {
   const now = Date.now();
-  const respawnedRoomIds: number[] = [];
+  const respawned: RespawnedMob[] = [];
   for (const mob of mobs.values()) {
     if (!mob.alive && mob.respawnAt !== null && now >= mob.respawnAt) {
       const template = selectTemplateById.get(mob.templateId) as MobTemplateRow | undefined;
@@ -328,11 +351,17 @@ export function tickRespawns(): number[] {
       mob.alive = true;
       mob.hp = mob.maxHp;
       mob.respawnAt = null;
-      mob.carriedItemIds = rollMobLoot(mob.templateId, mob.level, template?.min_level ?? mob.level, template?.max_level ?? mob.level);
-      respawnedRoomIds.push(mob.roomId);
+      mob.carriedItemIds = rollMobLoot(
+        mob.templateId,
+        mob.level,
+        template?.min_level ?? mob.level,
+        template?.max_level ?? mob.level,
+        mob.isBoss,
+      );
+      respawned.push({ roomId: mob.roomId, mob });
     }
   }
-  return respawnedRoomIds;
+  return respawned;
 }
 
 loadMobs();

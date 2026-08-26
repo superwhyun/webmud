@@ -85,6 +85,7 @@ export interface MobTemplateRow {
   min_level: number;
   max_level: number;
   hostile: number;
+  is_boss: number;
 }
 
 export interface MobLootPoolRow {

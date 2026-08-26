@@ -18,7 +18,8 @@ builderRouter.get('/mob-spawns', (_req, res) => {
       `SELECT ms.id, ms.room_id, ms.mob_template_id, ms.respawn_seconds,
               ms.min_level as override_min_level, ms.max_level as override_max_level,
               r.name as room_name, r.zone_id as zone_id,
-              mt.name as mob_name, mt.min_level as mob_min_level, mt.max_level as mob_max_level
+              mt.name as mob_name, mt.min_level as mob_min_level, mt.max_level as mob_max_level,
+              mt.is_boss as is_boss
        FROM mob_spawns ms JOIN rooms r ON r.id = ms.room_id JOIN mob_templates mt ON mt.id = ms.mob_template_id
        ORDER BY ms.id`,
     )
@@ -34,6 +35,7 @@ builderRouter.get('/mob-spawns', (_req, res) => {
     mob_name: string;
     mob_min_level: number;
     mob_max_level: number;
+    is_boss: number;
   }[];
 
   res.json({
@@ -46,6 +48,7 @@ builderRouter.get('/mob-spawns', (_req, res) => {
       mobName: row.mob_name,
       mobMinLevel: row.mob_min_level,
       mobMaxLevel: row.mob_max_level,
+      isBoss: Boolean(row.is_boss),
       overrideMinLevel: row.override_min_level,
       overrideMaxLevel: row.override_max_level,
       respawnSeconds: row.respawn_seconds,
@@ -68,6 +71,31 @@ const mobSpawnSchema = z
 export type CreateMobSpawnInput = z.infer<typeof mobSpawnSchema>;
 export type CreateMobSpawnOutcome = { spawnId: number } | { error: string; status: number };
 
+interface LevelRange {
+  minLevel: number;
+  maxLevel: number;
+}
+
+interface NullableLevelRange {
+  minLevel: number | null;
+  maxLevel: number | null;
+}
+
+export function resolveBossSpawnLevel(
+  template: LevelRange,
+  zone: NullableLevelRange,
+): { level: number } | { error: string } {
+  if (zone.minLevel === null || zone.maxLevel === null) {
+    return { error: '보스를 배치하려면 먼저 존 레벨 범위를 설정해야 합니다.' };
+  }
+  if (zone.maxLevel < template.minLevel || zone.maxLevel > template.maxLevel) {
+    return {
+      error: `존 최고 레벨 Lv.${zone.maxLevel}가 보스 템플릿 범위 Lv.${template.minLevel}-${template.maxLevel}에 포함되지 않습니다.`,
+    };
+  }
+  return { level: zone.maxLevel };
+}
+
 /**
  * 레벨대(min_level < max_level)를 갖는 몹 템플릿은 스폰 시점에 이 범위 안에서 레벨을 굴린다
  * (MobManager.rollMobStats). 존의 의도된 레벨보다 몹이 과하게 세거나 약하게 나오는 걸 막으려면
@@ -86,13 +114,53 @@ export function createMobSpawnRecord(input: CreateMobSpawnInput): CreateMobSpawn
     return { error: '몹 템플릿을 찾을 수 없습니다.', status: 404 };
   }
 
-  const overrideMinLevel = minLevel ?? null;
-  const overrideMaxLevel = maxLevel ?? null;
+  let overrideMinLevel = minLevel ?? null;
+  let overrideMaxLevel = maxLevel ?? null;
 
-  const info = db
-    .prepare('INSERT INTO mob_spawns (room_id, mob_template_id, respawn_seconds, min_level, max_level) VALUES (?, ?, ?, ?, ?)')
-    .run(roomId, mobTemplateId, respawnSeconds, overrideMinLevel, overrideMaxLevel);
-  const spawnId = Number(info.lastInsertRowid);
+  if (template.is_boss) {
+    const roomZone = db
+      .prepare(
+        `SELECT r.zone_id, z.min_level, z.max_level
+         FROM rooms r JOIN zones z ON z.id = r.zone_id
+         WHERE r.id = ?`,
+      )
+      .get(roomId) as { zone_id: number; min_level: number | null; max_level: number | null } | undefined;
+    if (!roomZone) return { error: '방의 존 정보를 찾을 수 없습니다.', status: 404 };
+
+    const resolved = resolveBossSpawnLevel(
+      { minLevel: template.min_level, maxLevel: template.max_level },
+      { minLevel: roomZone.min_level, maxLevel: roomZone.max_level },
+    );
+    if ('error' in resolved) return { error: resolved.error, status: 409 };
+
+    overrideMinLevel = resolved.level;
+    overrideMaxLevel = resolved.level;
+  }
+
+  const inserted = db.transaction((): CreateMobSpawnOutcome => {
+    if (template.is_boss) {
+      const existingBoss = db
+        .prepare(
+          `SELECT 1
+           FROM mob_spawns ms
+           JOIN rooms existing_room ON existing_room.id = ms.room_id
+           JOIN rooms target_room ON target_room.id = ?
+           JOIN mob_templates mt ON mt.id = ms.mob_template_id
+           WHERE existing_room.zone_id = target_room.zone_id AND mt.is_boss = 1
+           LIMIT 1`,
+        )
+        .get(roomId);
+      if (existingBoss) return { error: '이 존에는 이미 보스가 배치되어 있습니다.', status: 409 };
+    }
+    const info = db
+      .prepare(
+        'INSERT INTO mob_spawns (room_id, mob_template_id, respawn_seconds, min_level, max_level) VALUES (?, ?, ?, ?, ?)',
+      )
+      .run(roomId, mobTemplateId, respawnSeconds, overrideMinLevel, overrideMaxLevel);
+    return { spawnId: Number(info.lastInsertRowid) };
+  })();
+  if ('error' in inserted) return inserted;
+  const { spawnId } = inserted;
 
   registerMobSpawn(spawnId, roomId, template, respawnSeconds, overrideMinLevel, overrideMaxLevel);
   broadcastRoomSnapshot(roomId);

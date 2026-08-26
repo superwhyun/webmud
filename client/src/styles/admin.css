@@ -138,6 +138,16 @@
   font-size: var(--text-xs);
 }
 
+.admin-boss-tag,
+.builder-boss-badge,
+.mob-boss-badge {
+  color: #ffd76a;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 6px rgb(255 92 45 / 65%);
+}
+
 .admin-loot-items {
   flex-direction: row;
   flex-wrap: wrap;
