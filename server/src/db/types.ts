@@ -1,4 +1,4 @@
-import type { ElementType, ItemGrade, JobType, NpcDealType, NpcType } from '@mud/shared';
+import type { ElementType, EquipmentSlot, ItemGrade, JobType, NpcDealType, NpcType } from '@mud/shared';
 
 export interface CharacterRow {
   id: number;
@@ -47,7 +47,7 @@ export interface ItemRow {
   name: string;
   description: string;
   type: string;
-  slot: string | null;
+  slot: EquipmentSlot | null;
   level: number;
   grade: ItemGrade;
   strength_bonus: number;

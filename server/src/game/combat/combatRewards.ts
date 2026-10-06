@@ -11,6 +11,7 @@ import { broadcastRoomSnapshot } from '../roomSnapshot.js';
 import { broadcastToRoom } from '../sessionRegistry.js';
 import { applyGoldEarnings } from '../village/VillageService.js';
 import { getRoom, getZoneEntranceRoomId } from '../World.js';
+import { abandonBossPursuit } from './bossPursuitState.js';
 
 /** 몹이 죽었을 때 들고 있던 아이템을 현재 방에 떨어뜨린다. */
 function dropMobLoot(ctx: CommandContext, mob: MobInstance): void {
@@ -18,8 +19,8 @@ function dropMobLoot(ctx: CommandContext, mob: MobInstance): void {
 
   const placeholders = mob.carriedItemIds.map(() => '?').join(',');
   const rows = db
-    .prepare(`SELECT id, name, grade FROM items WHERE id IN (${placeholders})`)
-    .all(...mob.carriedItemIds) as { id: number; name: string; grade: ItemGrade }[];
+    .prepare(`SELECT id, name, grade FROM items WHERE id IN (${placeholders}) AND level <= ?`)
+    .all(...mob.carriedItemIds, mob.level) as { id: number; name: string; grade: ItemGrade }[];
   if (rows.length === 0) return;
 
   const dropTx = db.transaction(() => {
@@ -97,6 +98,7 @@ export function handleMobDefeat(ctx: CommandContext, mob: MobInstance, character
 
 /** 사망한 방이 속한 존의 입구방으로 되살아난다. 존을 찾지 못하면(이상 상황) 최초 마을로 대신 보낸다. */
 export function defeatCharacter(ctx: CommandContext): void {
+  abandonBossPursuit(ctx.session.ws);
   const oldRoomId = ctx.session.roomId;
   const diedInRoom = getRoom(oldRoomId);
   const respawnRoomId =

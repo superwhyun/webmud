@@ -1,62 +1,9 @@
-import { DIRECTION_LABELS, DIRECTION_VALUES, SKILLS, type ClientMessage } from '@mud/shared';
+import { COMMAND_VERBS as SHARED_COMMAND_VERBS, DIRECTION_ALIASES, DIRECTION_LABELS, DIRECTION_VALUES, SKILLS, type ClientMessage } from '@mud/shared';
 import { MACRO_SLOTS, type MacroSlot } from '../../macros';
 import { appendLine, type GameContext, type TabCompletionState } from './context';
 import { CARDINAL_ALIASES } from './minimap';
 
-const COMMAND_VERBS = [
-  'look',
-  'l',
-  'help',
-  'say',
-  'shout',
-  'tell',
-  'who',
-  'attack',
-  'flee',
-  'rest',
-  '휴식',
-  'get',
-  'drop',
-  'give',
-  'examine',
-  'ex',
-  'consider',
-  'con',
-  'inventory',
-  'inv',
-  'equip',
-  'use',
-  'village',
-  'travel',
-  'leave',
-  'enter',
-  'e',
-  '입장',
-  'raid',
-  'stat',
-  'skill',
-  'cast',
-  '마법',
-  '공격',
-  'shop',
-  'buy',
-  'sell',
-  'north',
-  'south',
-  'east',
-  'west',
-  'w',
-  'a',
-  's',
-  'd',
-  'ㅈ',
-  'ㅁ',
-  'ㄴ',
-  'ㅇ',
-  'up',
-  'down',
-  'u',
-];
+const COMMAND_VERBS = [...SHARED_COMMAND_VERBS, ...Object.keys(DIRECTION_ALIASES)];
 
 const HANGUL_INITIALS = ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
 
@@ -77,6 +24,8 @@ function matchesTyped(candidate: string, typed: string): boolean {
 }
 
 /** 게임 화면을 벗어났다 돌아올 때마다 새로 등록되는 걸 막기 위해, 이전에 등록한 핸들러를 기억해뒀다가 떼어낸다. */
+const commandTimers = new WeakMap<WebSocket, Set<ReturnType<typeof setTimeout>>>();
+
 let activeCommandFocusHandler: ((event: KeyboardEvent) => void) | null = null;
 
 /**
@@ -89,7 +38,7 @@ const WAIT_DIRECTIVE_PATTERN = /^wait\s+(\d+(?:\.\d+)?)$/i;
 /** 명령 하나를 실제로 서버에 보낸다(입력창 비우기/기록 갱신 없이) — 체이닝의 각 구간에서 재사용. */
 function dispatchSingleCommand(ctx: GameContext, text: string): void {
   const verb = text.split(/\s+/)[0]?.toLowerCase();
-  const direction = verb ? (CARDINAL_ALIASES[verb] ?? null) : null;
+  const direction = verb && Object.hasOwn(CARDINAL_ALIASES, verb) ? CARDINAL_ALIASES[verb] : null;
   ctx.pendingDirection = direction;
 
   appendLine(ctx, direction ? `> ${DIRECTION_LABELS[direction]}으로 이동` : `> ${text}`, 'echo');
@@ -98,14 +47,20 @@ function dispatchSingleCommand(ctx: GameContext, text: string): void {
 }
 
 function runCommandChain(ctx: GameContext, segments: string[], index: number): void {
-  if (index >= segments.length) return;
+  if (index >= segments.length || ctx.socket.readyState !== WebSocket.OPEN) return;
   const segment = segments[index];
 
   const waitMatch = segment.match(WAIT_DIRECTIVE_PATTERN);
   if (waitMatch) {
     const seconds = Number(waitMatch[1]);
     appendLine(ctx, `⏳ ${seconds}초 대기`, 'system');
-    setTimeout(() => runCommandChain(ctx, segments, index + 1), seconds * 1000);
+    const timers = commandTimers.get(ctx.socket) ?? new Set<ReturnType<typeof setTimeout>>();
+    commandTimers.set(ctx.socket, timers);
+    const timer = setTimeout(() => {
+      timers.delete(timer);
+      runCommandChain(ctx, segments, index + 1);
+    }, seconds * 1000);
+    timers.add(timer);
     return;
   }
 
@@ -361,4 +316,15 @@ export function attachCommandBarListeners(ctx: GameContext): void {
     ctx.commandInput.focus();
   };
   document.addEventListener('keydown', activeCommandFocusHandler);
+}
+
+export function detachCommandFocus(): void {
+  if (activeCommandFocusHandler) document.removeEventListener('keydown', activeCommandFocusHandler);
+  activeCommandFocusHandler = null;
+}
+
+export function disposeCommandBar(socket: WebSocket): void {
+  detachCommandFocus();
+  for (const timer of commandTimers.get(socket) ?? []) clearTimeout(timer);
+  commandTimers.delete(socket);
 }

@@ -37,6 +37,7 @@ export function runVillageProductionTick(): void {
   }
 }
 
-export function startVillageTick(): void {
-  setInterval(runVillageProductionTick, TICK_MS);
+export function startVillageTick(): () => void {
+  const timer = setInterval(runVillageProductionTick, TICK_MS);
+  return () => clearInterval(timer);
 }

@@ -1,6 +1,7 @@
+import type { ItemTemplateDto, MobTemplateDto, NpcTemplateDto } from '@mud/shared';
 import type { ItemRow, MobTemplateRow, NpcTemplateRow } from './types.js';
 
-export function toItemDto(row: ItemRow) {
+export function toItemDto(row: ItemRow): ItemTemplateDto {
   return {
     id: row.id,
     name: row.name,
@@ -21,7 +22,7 @@ export function toItemDto(row: ItemRow) {
   };
 }
 
-export function toMobTemplateDto(row: MobTemplateRow) {
+export function toMobTemplateDto(row: MobTemplateRow): MobTemplateDto {
   return {
     id: row.id,
     name: row.name,
@@ -48,7 +49,7 @@ export function toMobTemplateDto(row: MobTemplateRow) {
   };
 }
 
-export function toNpcTemplateDto(row: NpcTemplateRow) {
+export function toNpcTemplateDto(row: NpcTemplateRow): NpcTemplateDto {
   return {
     id: row.id,
     name: row.name,

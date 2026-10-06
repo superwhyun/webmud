@@ -1,7 +1,8 @@
+import type { Router } from 'express';
+import { parseBody } from '../http/validation.js';
 import { z } from 'zod';
 import { db } from '../db/client.js';
 import type { AuthedRequest } from '../auth/middleware.js';
-import { suggestionsRouter } from './router.js';
 
 const PAGE_SIZE = 10;
 
@@ -48,109 +49,102 @@ function findOwnedSuggestion(id: number, accountId: number | undefined): { ok: t
   return { ok: true };
 }
 
-suggestionsRouter.get('/', (req: AuthedRequest, res) => {
-  const page = Math.max(1, Number(req.query.page) || 1);
-  const offset = (page - 1) * PAGE_SIZE;
-
-  const { count: total } = db.prepare('SELECT COUNT(*) as count FROM suggestions').get() as { count: number };
-  const rows = db
-    .prepare(`${suggestionsQuery} ORDER BY s.created_at DESC LIMIT ? OFFSET ?`)
-    .all(req.accountId, PAGE_SIZE, offset) as SuggestionRow[];
-
-  res.json({ suggestions: rows.map((row) => toSuggestionDto(row, req.accountId)), total, page, pageSize: PAGE_SIZE });
-});
-
 const suggestionInputSchema = z.object({
   title: z.string().min(1, '제목을 입력하세요.').max(50, '제목은 50자 이하여야 합니다.'),
   content: z.string().min(1, '내용을 입력하세요.').max(1000, '내용은 1000자 이하여야 합니다.'),
-});
-
-suggestionsRouter.post('/', (req: AuthedRequest, res) => {
-  const parsed = suggestionInputSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
-    return;
-  }
-
-  const result = db
-    .prepare('INSERT INTO suggestions (account_id, author_name, title, content) VALUES (?, ?, ?, ?)')
-    .run(req.accountId, req.username, parsed.data.title, parsed.data.content);
-
-  const row = db
-    .prepare(`${suggestionsQuery} WHERE s.id = ?`)
-    .get(req.accountId, result.lastInsertRowid) as SuggestionRow;
-  res.status(201).json({ suggestion: toSuggestionDto(row, req.accountId) });
-});
-
-suggestionsRouter.patch('/:id', (req: AuthedRequest, res) => {
-  const id = Number(req.params.id);
-  const owned = findOwnedSuggestion(id, req.accountId);
-  if (!owned.ok) {
-    res.status(owned.status).json({ error: owned.error });
-    return;
-  }
-
-  const parsed = suggestionInputSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
-    return;
-  }
-
-  db.prepare('UPDATE suggestions SET title = ?, content = ? WHERE id = ?').run(parsed.data.title, parsed.data.content, id);
-  const row = db.prepare(`${suggestionsQuery} WHERE s.id = ?`).get(req.accountId, id) as SuggestionRow;
-  res.json({ suggestion: toSuggestionDto(row, req.accountId) });
-});
-
-suggestionsRouter.delete('/:id', (req: AuthedRequest, res) => {
-  const id = Number(req.params.id);
-  const owned = findOwnedSuggestion(id, req.accountId);
-  if (!owned.ok) {
-    res.status(owned.status).json({ error: owned.error });
-    return;
-  }
-
-  db.prepare('DELETE FROM suggestion_votes WHERE suggestion_id = ?').run(id);
-  db.prepare('DELETE FROM suggestions WHERE id = ?').run(id);
-  res.status(204).send();
 });
 
 const voteSchema = z.object({
   vote: z.enum(['up', 'down']),
 });
 
-suggestionsRouter.post('/:id/vote', (req: AuthedRequest, res) => {
-  const id = Number(req.params.id);
-  if (!db.prepare('SELECT id FROM suggestions WHERE id = ?').get(id)) {
-    res.status(404).json({ error: '제안을 찾을 수 없습니다.' });
-    return;
-  }
+export function registerSuggestionsRoutes(suggestionsRouter: Router): void {
+  suggestionsRouter.get('/', (req: AuthedRequest, res) => {
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const offset = (page - 1) * PAGE_SIZE;
 
-  const parsed = voteSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
-    return;
-  }
+    const { count: total } = db.prepare('SELECT COUNT(*) as count FROM suggestions').get() as { count: number };
+    const rows = db
+      .prepare(`${suggestionsQuery} ORDER BY s.created_at DESC LIMIT ? OFFSET ?`)
+      .all(req.accountId, PAGE_SIZE, offset) as SuggestionRow[];
 
-  const existing = db
-    .prepare('SELECT vote FROM suggestion_votes WHERE suggestion_id = ? AND account_id = ?')
-    .get(id, req.accountId) as { vote: string } | undefined;
+    res.json({ suggestions: rows.map((row) => toSuggestionDto(row, req.accountId)), total, page, pageSize: PAGE_SIZE });
+  });
 
-  if (existing?.vote === parsed.data.vote) {
-    db.prepare('DELETE FROM suggestion_votes WHERE suggestion_id = ? AND account_id = ?').run(id, req.accountId);
-  } else if (existing) {
-    db.prepare('UPDATE suggestion_votes SET vote = ? WHERE suggestion_id = ? AND account_id = ?').run(
-      parsed.data.vote,
-      id,
-      req.accountId,
-    );
-  } else {
-    db.prepare('INSERT INTO suggestion_votes (suggestion_id, account_id, vote) VALUES (?, ?, ?)').run(
-      id,
-      req.accountId,
-      parsed.data.vote,
-    );
-  }
+  suggestionsRouter.post('/', (req: AuthedRequest, res) => {
+    const parsed = parseBody(suggestionInputSchema, req.body, res);
+    if (!parsed) return;
 
-  const row = db.prepare(`${suggestionsQuery} WHERE s.id = ?`).get(req.accountId, id) as SuggestionRow;
-  res.json({ suggestion: toSuggestionDto(row, req.accountId) });
-});
+    const result = db
+      .prepare('INSERT INTO suggestions (account_id, author_name, title, content) VALUES (?, ?, ?, ?)')
+      .run(req.accountId, req.username, parsed.title, parsed.content);
+
+    const row = db
+      .prepare(`${suggestionsQuery} WHERE s.id = ?`)
+      .get(req.accountId, result.lastInsertRowid) as SuggestionRow;
+    res.status(201).json({ suggestion: toSuggestionDto(row, req.accountId) });
+  });
+
+  suggestionsRouter.patch('/:id', (req: AuthedRequest, res) => {
+    const id = Number(req.params.id);
+    const owned = findOwnedSuggestion(id, req.accountId);
+    if (!owned.ok) {
+      res.status(owned.status).json({ error: owned.error });
+      return;
+    }
+
+    const parsed = parseBody(suggestionInputSchema, req.body, res);
+    if (!parsed) return;
+
+    db.prepare('UPDATE suggestions SET title = ?, content = ? WHERE id = ?').run(parsed.title, parsed.content, id);
+    const row = db.prepare(`${suggestionsQuery} WHERE s.id = ?`).get(req.accountId, id) as SuggestionRow;
+    res.json({ suggestion: toSuggestionDto(row, req.accountId) });
+  });
+
+  suggestionsRouter.delete('/:id', (req: AuthedRequest, res) => {
+    const id = Number(req.params.id);
+    const owned = findOwnedSuggestion(id, req.accountId);
+    if (!owned.ok) {
+      res.status(owned.status).json({ error: owned.error });
+      return;
+    }
+
+    db.prepare('DELETE FROM suggestion_votes WHERE suggestion_id = ?').run(id);
+    db.prepare('DELETE FROM suggestions WHERE id = ?').run(id);
+    res.status(204).send();
+  });
+
+  suggestionsRouter.post('/:id/vote', (req: AuthedRequest, res) => {
+    const id = Number(req.params.id);
+    if (!db.prepare('SELECT id FROM suggestions WHERE id = ?').get(id)) {
+      res.status(404).json({ error: '제안을 찾을 수 없습니다.' });
+      return;
+    }
+
+    const parsed = parseBody(voteSchema, req.body, res);
+    if (!parsed) return;
+
+    const existing = db
+      .prepare('SELECT vote FROM suggestion_votes WHERE suggestion_id = ? AND account_id = ?')
+      .get(id, req.accountId) as { vote: string } | undefined;
+
+    if (existing?.vote === parsed.vote) {
+      db.prepare('DELETE FROM suggestion_votes WHERE suggestion_id = ? AND account_id = ?').run(id, req.accountId);
+    } else if (existing) {
+      db.prepare('UPDATE suggestion_votes SET vote = ? WHERE suggestion_id = ? AND account_id = ?').run(
+        parsed.vote,
+        id,
+        req.accountId,
+      );
+    } else {
+      db.prepare('INSERT INTO suggestion_votes (suggestion_id, account_id, vote) VALUES (?, ?, ?)').run(
+        id,
+        req.accountId,
+        parsed.vote,
+      );
+    }
+
+    const row = db.prepare(`${suggestionsQuery} WHERE s.id = ?`).get(req.accountId, id) as SuggestionRow;
+    res.json({ suggestion: toSuggestionDto(row, req.accountId) });
+  });
+}

@@ -10,3 +10,6 @@ export * from './leveling.js';
 export * from './npc.js';
 export * from './protocol.js';
 export * from './skills/index.js';
+export * from './api/index.js';
+export * from './messageDispatcher.js';
+export * from './commands.js';

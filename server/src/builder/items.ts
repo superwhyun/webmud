@@ -1,45 +1,11 @@
+import type { Router } from 'express';
+import { parseBody } from '../http/validation.js';
 import { z } from 'zod';
 import { db } from '../db/client.js';
 import { toItemDto } from '../db/dto.js';
 import type { ItemRow } from '../db/types.js';
 import { broadcastRoomSnapshot } from '../game/roomSnapshot.js';
 import { getRoom } from '../game/World.js';
-import { builderRouter } from './router.js';
-
-builderRouter.get('/item-templates', (_req, res) => {
-  const rows = db.prepare('SELECT * FROM items ORDER BY id').all() as ItemRow[];
-  res.json({ items: rows.map(toItemDto) });
-});
-
-builderRouter.get('/room-items', (_req, res) => {
-  const rows = db
-    .prepare(
-      `SELECT ri.id, ri.room_id, ri.item_id, ri.quantity, r.name as room_name, i.name as item_name, i.grade as item_grade
-       FROM room_items ri JOIN rooms r ON r.id = ri.room_id JOIN items i ON i.id = ri.item_id
-       ORDER BY ri.id`,
-    )
-    .all() as {
-    id: number;
-    room_id: number;
-    item_id: number;
-    quantity: number;
-    room_name: string;
-    item_name: string;
-    item_grade: string;
-  }[];
-
-  res.json({
-    roomItems: rows.map((row) => ({
-      id: row.id,
-      roomId: row.room_id,
-      roomName: row.room_name,
-      itemId: row.item_id,
-      itemName: row.item_name,
-      itemGrade: row.item_grade,
-      quantity: row.quantity,
-    })),
-  });
-});
 
 const roomItemSchema = z.object({
   roomId: z.number().int(),
@@ -65,35 +31,66 @@ export function createRoomItemRecord(input: CreateRoomItemInput): CreateRoomItem
   return { ok: true };
 }
 
-builderRouter.post('/room-items', (req, res) => {
-  const parsed = roomItemSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
-    return;
-  }
-
-  const outcome = createRoomItemRecord(parsed.data);
-  if ('error' in outcome) {
-    res.status(outcome.status).json({ error: outcome.error });
-    return;
-  }
-
-  res.status(201).send();
-});
-
 const roomItemDeleteSchema = z.object({ roomItemId: z.number().int() });
 
-builderRouter.delete('/room-items', (req, res) => {
-  const parsed = roomItemDeleteSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
-    return;
-  }
+export function registerItemsRoutes(builderRouter: Router): void {
+  builderRouter.get('/item-templates', (_req, res) => {
+    const rows = db.prepare('SELECT * FROM items ORDER BY id').all() as ItemRow[];
+    res.json({ items: rows.map(toItemDto) });
+  });
 
-  const row = db.prepare('SELECT room_id FROM room_items WHERE id = ?').get(parsed.data.roomItemId) as
-    | { room_id: number }
-    | undefined;
-  db.prepare('DELETE FROM room_items WHERE id = ?').run(parsed.data.roomItemId);
-  if (row) broadcastRoomSnapshot(row.room_id);
-  res.status(204).send();
-});
+  builderRouter.get('/room-items', (_req, res) => {
+    const rows = db
+      .prepare(
+        `SELECT ri.id, ri.room_id, ri.item_id, ri.quantity, r.name as room_name, i.name as item_name, i.grade as item_grade
+         FROM room_items ri JOIN rooms r ON r.id = ri.room_id JOIN items i ON i.id = ri.item_id
+         ORDER BY ri.id`,
+      )
+      .all() as {
+      id: number;
+      room_id: number;
+      item_id: number;
+      quantity: number;
+      room_name: string;
+      item_name: string;
+      item_grade: string;
+    }[];
+
+    res.json({
+      roomItems: rows.map((row) => ({
+        id: row.id,
+        roomId: row.room_id,
+        roomName: row.room_name,
+        itemId: row.item_id,
+        itemName: row.item_name,
+        itemGrade: row.item_grade,
+        quantity: row.quantity,
+      })),
+    });
+  });
+
+  builderRouter.post('/room-items', (req, res) => {
+    const parsed = parseBody(roomItemSchema, req.body, res);
+    if (!parsed) return;
+
+    const outcome = createRoomItemRecord(parsed);
+    if ('error' in outcome) {
+      res.status(outcome.status).json({ error: outcome.error });
+      return;
+    }
+
+    res.status(201).send();
+  });
+
+  builderRouter.delete('/room-items', (req, res) => {
+    const parsed = parseBody(roomItemDeleteSchema, req.body, res);
+    if (!parsed) return;
+
+    const row = db.prepare('SELECT room_id FROM room_items WHERE id = ?').get(parsed.roomItemId) as
+      | { room_id: number }
+      | undefined;
+    db.prepare('DELETE FROM room_items WHERE id = ?').run(parsed.roomItemId);
+    if (row) broadcastRoomSnapshot(row.room_id);
+    res.status(204).send();
+  });
+}

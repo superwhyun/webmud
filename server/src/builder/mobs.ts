@@ -1,3 +1,5 @@
+import type { Router } from 'express';
+import { parseBody } from '../http/validation.js';
 import { z } from 'zod';
 import { db } from '../db/client.js';
 import { toMobTemplateDto } from '../db/dto.js';
@@ -5,56 +7,6 @@ import type { MobTemplateRow } from '../db/types.js';
 import { despawnMob, registerMobSpawn } from '../game/MobManager.js';
 import { broadcastRoomSnapshot } from '../game/roomSnapshot.js';
 import { getRoom } from '../game/World.js';
-import { builderRouter } from './router.js';
-
-builderRouter.get('/mob-templates', (_req, res) => {
-  const rows = db.prepare('SELECT * FROM mob_templates ORDER BY id').all() as MobTemplateRow[];
-  res.json({ mobTemplates: rows.map(toMobTemplateDto) });
-});
-
-builderRouter.get('/mob-spawns', (_req, res) => {
-  const rows = db
-    .prepare(
-      `SELECT ms.id, ms.room_id, ms.mob_template_id, ms.respawn_seconds,
-              ms.min_level as override_min_level, ms.max_level as override_max_level,
-              r.name as room_name, r.zone_id as zone_id,
-              mt.name as mob_name, mt.min_level as mob_min_level, mt.max_level as mob_max_level,
-              mt.is_boss as is_boss
-       FROM mob_spawns ms JOIN rooms r ON r.id = ms.room_id JOIN mob_templates mt ON mt.id = ms.mob_template_id
-       ORDER BY ms.id`,
-    )
-    .all() as {
-    id: number;
-    room_id: number;
-    mob_template_id: number;
-    respawn_seconds: number;
-    override_min_level: number | null;
-    override_max_level: number | null;
-    room_name: string;
-    zone_id: number;
-    mob_name: string;
-    mob_min_level: number;
-    mob_max_level: number;
-    is_boss: number;
-  }[];
-
-  res.json({
-    mobSpawns: rows.map((row) => ({
-      id: row.id,
-      roomId: row.room_id,
-      roomName: row.room_name,
-      zoneId: row.zone_id,
-      mobTemplateId: row.mob_template_id,
-      mobName: row.mob_name,
-      mobMinLevel: row.mob_min_level,
-      mobMaxLevel: row.mob_max_level,
-      isBoss: Boolean(row.is_boss),
-      overrideMinLevel: row.override_min_level,
-      overrideMaxLevel: row.override_max_level,
-      respawnSeconds: row.respawn_seconds,
-    })),
-  });
-});
 
 const mobSpawnSchema = z
   .object({
@@ -168,29 +120,77 @@ export function createMobSpawnRecord(input: CreateMobSpawnInput): CreateMobSpawn
   return { spawnId };
 }
 
-builderRouter.post('/mob-spawns', (req, res) => {
-  const parsed = mobSpawnSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' });
-    return;
-  }
+export function registerMobsRoutes(builderRouter: Router): void {
+  builderRouter.get('/mob-templates', (_req, res) => {
+    const rows = db.prepare('SELECT * FROM mob_templates ORDER BY id').all() as MobTemplateRow[];
+    res.json({ mobTemplates: rows.map(toMobTemplateDto) });
+  });
 
-  const outcome = createMobSpawnRecord(parsed.data);
-  if ('error' in outcome) {
-    res.status(outcome.status).json({ error: outcome.error });
-    return;
-  }
+  builderRouter.get('/mob-spawns', (_req, res) => {
+    const rows = db
+      .prepare(
+        `SELECT ms.id, ms.room_id, ms.mob_template_id, ms.respawn_seconds,
+                ms.min_level as override_min_level, ms.max_level as override_max_level,
+                r.name as room_name, r.zone_id as zone_id,
+                mt.name as mob_name, mt.min_level as mob_min_level, mt.max_level as mob_max_level,
+                mt.is_boss as is_boss
+         FROM mob_spawns ms JOIN rooms r ON r.id = ms.room_id JOIN mob_templates mt ON mt.id = ms.mob_template_id
+         ORDER BY ms.id`,
+      )
+      .all() as {
+      id: number;
+      room_id: number;
+      mob_template_id: number;
+      respawn_seconds: number;
+      override_min_level: number | null;
+      override_max_level: number | null;
+      room_name: string;
+      zone_id: number;
+      mob_name: string;
+      mob_min_level: number;
+      mob_max_level: number;
+      is_boss: number;
+    }[];
 
-  res.status(201).json(outcome);
-});
+    res.json({
+      mobSpawns: rows.map((row) => ({
+        id: row.id,
+        roomId: row.room_id,
+        roomName: row.room_name,
+        zoneId: row.zone_id,
+        mobTemplateId: row.mob_template_id,
+        mobName: row.mob_name,
+        mobMinLevel: row.mob_min_level,
+        mobMaxLevel: row.mob_max_level,
+        isBoss: Boolean(row.is_boss),
+        overrideMinLevel: row.override_min_level,
+        overrideMaxLevel: row.override_max_level,
+        respawnSeconds: row.respawn_seconds,
+      })),
+    });
+  });
 
-builderRouter.delete('/mob-spawns/:id', (req, res) => {
-  const spawnId = Number(req.params.id);
-  const row = db.prepare('SELECT room_id FROM mob_spawns WHERE id = ?').get(spawnId) as { room_id: number } | undefined;
+  builderRouter.post('/mob-spawns', (req, res) => {
+    const parsed = parseBody(mobSpawnSchema, req.body, res);
+    if (!parsed) return;
 
-  db.prepare('DELETE FROM mob_spawns WHERE id = ?').run(spawnId);
-  despawnMob(spawnId);
-  if (row) broadcastRoomSnapshot(row.room_id);
+    const outcome = createMobSpawnRecord(parsed);
+    if ('error' in outcome) {
+      res.status(outcome.status).json({ error: outcome.error });
+      return;
+    }
 
-  res.status(204).send();
-});
+    res.status(201).json(outcome);
+  });
+
+  builderRouter.delete('/mob-spawns/:id', (req, res) => {
+    const spawnId = Number(req.params.id);
+    const row = db.prepare('SELECT room_id FROM mob_spawns WHERE id = ?').get(spawnId) as { room_id: number } | undefined;
+
+    db.prepare('DELETE FROM mob_spawns WHERE id = ?').run(spawnId);
+    despawnMob(spawnId);
+    if (row) broadcastRoomSnapshot(row.room_id);
+
+    res.status(204).send();
+  });
+}

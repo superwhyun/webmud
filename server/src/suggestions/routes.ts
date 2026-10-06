@@ -1,4 +1,10 @@
-import { suggestionsRouter } from './router.js';
-import './suggestions.js';
+import { Router } from 'express';
+import { requireAuth } from '../auth/middleware.js';
+import { registerSuggestionsRoutes } from './suggestions.js';
 
-export { suggestionsRouter };
+export function createSuggestionsRouter(): Router {
+  const router = Router();
+  router.use(requireAuth);
+  registerSuggestionsRoutes(router);
+  return router;
+}

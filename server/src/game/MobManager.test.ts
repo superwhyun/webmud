@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { db } from '../db/client.js';
 import type { MobTemplateRow } from '../db/types.js';
 import { despawnMob, registerMobSpawn, rollMobLoot, tickRespawns } from './MobManager.js';
@@ -7,12 +7,24 @@ import { despawnMob, registerMobSpawn, rollMobLoot, tickRespawns } from './MobMa
 const TEST_MOB_TEMPLATE_ID = 1;
 const TEST_ITEM_ID = 1;
 
+beforeEach(() => {
+  db.prepare('DELETE FROM mob_loot_pool WHERE mob_template_id = ?').run(TEST_MOB_TEMPLATE_ID);
+});
+
 afterEach(() => {
   vi.restoreAllMocks();
   db.prepare('DELETE FROM mob_loot_pool WHERE mob_template_id = ?').run(TEST_MOB_TEMPLATE_ID);
 });
 
 describe('rollMobLoot', () => {
+  it('excludes items above the actual boss level even when its template spans higher levels', () => {
+    const highItem = db.prepare('SELECT id FROM items WHERE level > 20 LIMIT 1').get() as { id: number };
+    const insert = db.prepare('INSERT INTO mob_loot_pool (mob_template_id, item_id, weight) VALUES (?, ?, 100)');
+    insert.run(TEST_MOB_TEMPLATE_ID, TEST_ITEM_ID);
+    insert.run(TEST_MOB_TEMPLATE_ID, highItem.id);
+    expect(rollMobLoot(TEST_MOB_TEMPLATE_ID, 20, 1, 50, true)).toEqual([TEST_ITEM_ID]);
+  });
+
   it('returns no items when the mob template has no configured loot pool', () => {
     expect(rollMobLoot(TEST_MOB_TEMPLATE_ID, 1, 1, 1)).toEqual([]);
   });
@@ -75,6 +87,7 @@ describe('tickRespawns', () => {
   afterEach(() => {
     despawnMob(TEST_SPAWN_ID);
     if (bossTemplateId !== null) {
+      db.prepare('DELETE FROM mob_loot_pool WHERE mob_template_id = ?').run(bossTemplateId);
       db.prepare('DELETE FROM mob_templates WHERE id = ?').run(bossTemplateId);
       bossTemplateId = null;
     }
@@ -84,16 +97,21 @@ describe('tickRespawns', () => {
     const insert = db
       .prepare(
         `INSERT INTO mob_templates
-           (name, hp, strength, dexterity, physical_defense, magic_defense, element, damage_type,
-            exp_reward, gold_reward, min_level, max_level, hostile, is_boss)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           (name, hp, hp_max, strength, strength_max, dexterity, dexterity_max, physical_defense, physical_defense_max, magic_defense, magic_defense_max, element, damage_type,
+            exp_reward, exp_reward_max, gold_reward, gold_reward_max, min_level, max_level, hostile, is_boss)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run('테스트 보스', 500, 20, 20, 10, 10, 'fire', 'physical', 100, 100, 5, 5, 1, 1);
+      .run('테스트 보스', 500, 500, 20, 20, 20, 20, 10, 10, 10, 10, 'fire', 'physical', 100, 100, 100, 100, 5, 5, 1, 1);
     bossTemplateId = Number(insert.lastInsertRowid);
     const template = db.prepare('SELECT * FROM mob_templates WHERE id = ?').get(bossTemplateId) as MobTemplateRow;
+    const highItem = db.prepare('SELECT id FROM items WHERE level > 5 LIMIT 1').get() as { id: number };
+    const insertLoot = db.prepare('INSERT INTO mob_loot_pool (mob_template_id, item_id, weight) VALUES (?, ?, 100)');
+    insertLoot.run(bossTemplateId, TEST_ITEM_ID);
+    insertLoot.run(bossTemplateId, highItem.id);
 
     const mob = registerMobSpawn(TEST_SPAWN_ID, 42, template, 60);
     expect(mob.isBoss).toBe(true);
+    expect(mob.carriedItemIds).toEqual([TEST_ITEM_ID]);
 
     mob.alive = false;
     mob.respawnAt = Date.now() - 1000;
@@ -105,6 +123,7 @@ describe('tickRespawns', () => {
     expect(entry?.roomId).toBe(42);
     expect(entry?.mob.isBoss).toBe(true);
     expect(entry?.mob.alive).toBe(true);
+    expect(entry?.mob.carriedItemIds).toEqual([TEST_ITEM_ID]);
   });
 
   it('leaves non-boss mobs marked isBoss: false after respawning', () => {

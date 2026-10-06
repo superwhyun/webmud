@@ -11,6 +11,8 @@ import { getRoom } from '../World.js';
 import { hasElementAdvantage, mobCombatantStats, resolveAttack } from './combatMath.js';
 import { defeatCharacter, handleMobDefeat } from './combatRewards.js';
 import { stopResting } from '../rest.js';
+import { FLEE_COOLDOWN_MS, fleeSuccessChance } from './fleeRules.js';
+import { pursueFleeingPlayer } from './bossPursuitState.js';
 
 const COMBAT_TICK_MS = 2000;
 
@@ -26,6 +28,7 @@ interface Combat {
   ctx: CommandContext;
   mobs: MobInstance[];
   intervalId: NodeJS.Timeout;
+  nextFleeAt: number;
 }
 
 const activeCombats = new Map<WebSocket, Combat>();
@@ -36,6 +39,14 @@ export function isInCombat(ws: WebSocket): boolean {
 
 export function getActiveCombat(ws: WebSocket): { mobs: MobInstance[] } | undefined {
   return activeCombats.get(ws);
+}
+
+/** A boss must finish fighting players in its current room before following someone else. */
+export function getMobCombatContext(mob: MobInstance): CommandContext | undefined {
+  for (const combat of activeCombats.values()) {
+    if (combat.ctx.session.roomId === mob.roomId && combat.mobs.includes(mob)) return combat.ctx;
+  }
+  return undefined;
 }
 
 export function sendCombatStatus(ctx: CommandContext, combat: { mobs: MobInstance[] }): void {
@@ -66,7 +77,7 @@ export function cleanupCombatForSession(ws: WebSocket): void {
 export function startCombatInterval(ctx: CommandContext, mobs: MobInstance[]): Combat {
   stopResting(ctx.session.ws);
   const intervalId = setInterval(() => performRound(ctx), COMBAT_TICK_MS);
-  const combat: Combat = { ctx, mobs, intervalId };
+  const combat: Combat = { ctx, mobs, intervalId, nextFleeAt: 0 };
   activeCombats.set(ctx.session.ws, combat);
   return combat;
 }
@@ -137,17 +148,38 @@ export function handleFlee(ctx: CommandContext): void {
     ctx.send({ type: 'text', text: '전투 중이 아닙니다.' });
     return;
   }
-  const names = combat.mobs.map((mob) => mob.name).join(', ');
-  cleanupCombatForSession(ctx.session.ws);
+  const opponents = combat.mobs.filter((mob) => mob.alive);
+  if (opponents.length === 0) {
+    cleanupCombatForSession(ctx.session.ws);
+    sendCombatEnd(ctx);
+    return;
+  }
+  const now = Date.now();
+  if (now < combat.nextFleeAt) {
+    ctx.send({ type: 'text', text: `도망은 ${Math.ceil((combat.nextFleeAt - now) / 1000)}초 후 다시 시도할 수 있습니다.` });
+    return;
+  }
+  const names = opponents.map((mob) => mob.name).join(', ');
 
   const room = getRoom(ctx.session.roomId);
   const openExits = room
-    ? Object.entries(room.exits).filter(([, exit]) => !exit.blocked && getRoom(exit.targetRoomId))
+    ? Object.entries(room.exits).filter(([direction, exit]) =>
+      Object.hasOwn(DIRECTION_LABELS, direction) && !exit.blocked
+      && exit.targetRoomId !== ctx.session.roomId && getRoom(exit.targetRoomId))
     : [];
 
   if (openExits.length === 0) {
     ctx.send({ type: 'text', text: `${names}에게서 도망치려 했지만 도망칠 곳이 없습니다!` });
-    sendCombatEnd(ctx);
+    return;
+  }
+
+  const character = loadCharacter(ctx.session.characterId);
+  if (!character) return;
+  const stats = getEffectiveStats(character);
+  const chance = fleeSuccessChance({ level: character.level, ...stats }, opponents);
+  combat.nextFleeAt = now + FLEE_COOLDOWN_MS;
+  if (Math.random() >= chance) {
+    ctx.send({ type: 'text', text: `${names}에게서 도망치지 못했습니다! (성공 확률 ${Math.round(chance * 100)}%, 2초 후 재시도)` });
     return;
   }
 
@@ -156,7 +188,14 @@ export function handleFlee(ctx: CommandContext): void {
   const targetRoomId = exit.targetRoomId;
   const oldRoomId = ctx.session.roomId;
 
-  ctx.send({ type: 'text', text: `${names}에게서 ${directionLabel}(으)로 도망쳤습니다!` });
+  cleanupCombatForSession(ctx.session.ws);
+
+  pursueFleeingPlayer(opponents, ctx.session.ws, now);
+  if (opponents.some((mob) => mob.isBoss)) {
+    ctx.send({ type: 'text', text: '보스가 당신을 쫓으려 합니다! 더 멀리 벗어나세요.' });
+  }
+
+  ctx.send({ type: 'text', text: `${names}에게서 ${directionLabel}(으)로 도망쳤습니다! (성공 확률 ${Math.round(chance * 100)}%)` });
   broadcastToRoom(
     oldRoomId,
     { type: 'text', text: `${ctx.session.characterName}님이 허둥지둥 ${directionLabel}(으)로 도망쳤습니다.` },
@@ -190,7 +229,7 @@ function performRound(ctx: CommandContext): void {
   const combat = activeCombats.get(ctx.session.ws);
   if (!combat) return;
 
-  combat.mobs = combat.mobs.filter((mob) => mob.alive);
+  combat.mobs = combat.mobs.filter((mob) => mob.alive && mob.roomId === ctx.session.roomId);
   if (combat.mobs.length === 0) {
     cleanupCombatForSession(ctx.session.ws);
     sendCombatEnd(ctx);
